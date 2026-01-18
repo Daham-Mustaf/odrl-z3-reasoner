@@ -141,6 +141,25 @@ XONE_INHERITANCE_TESTS = [
     ),
 ]
 
+OR_XONE_TESTS = [
+    InheritanceTestCase(
+        file="or_valid_restriction.ttl",
+        expected_violations=0,
+        description="Child restricts OR branch - valid"
+    ),
+    InheritanceTestCase(
+        file="or_expansion.ttl",
+        expected_violations=1,
+        expected_types=["expansion"],
+        description="Child expands OR branch - violation"
+    ),
+    InheritanceTestCase(
+        file="xone_to_single.ttl",
+        expected_violations=0,
+        description="Child collapses XONE to single branch - valid"
+    ),
+]
+
 # =============================================================================
 # PARAMETERIZED TESTS
 # =============================================================================

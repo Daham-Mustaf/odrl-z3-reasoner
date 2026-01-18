@@ -3,10 +3,10 @@
 
 | Fix | Status | Impact |
 |-----|--------|--------|
-| Per-action consistency | ✅ Added | Catches `UNSAT(⟦child⟧ₐ)` |
-| Violations vs Warnings | ✅ Separated | Better UX, clearer semantics |
-| Enhanced docstring | ✅ Updated | Reviewer-proof documentation |
-| OR/XONE tests | ✅ Added | Validates SAT-level correctness |
+| Per-action consistency | Our Added | Catches `UNSAT(⟦child⟧ₐ)` |
+| Violations vs Warnings | Our Separated | Better UX, clearer semantics |
+| Enhanced docstring | Our Updated | Reviewer-proof documentation |
+| OR/XONE tests | Our Added | Validates SAT-level correctness |
 
 ---
 
