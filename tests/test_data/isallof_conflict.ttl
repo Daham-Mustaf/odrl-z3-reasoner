@@ -1,0 +1,30 @@
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+
+ex:policy_isallof_conflict a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:share ;
+        odrl:constraint [
+            odrl:leftOperand odrl:purpose ;
+            odrl:operator odrl:isAllOf ;
+            odrl:rightOperand ex:education, ex:research, ex:nonprofit
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:share ;
+        odrl:constraint [
+            odrl:leftOperand odrl:purpose ;
+            odrl:operator odrl:hasPart ;
+            odrl:rightOperand ex:commercial
+        ]
+    ] .
+
+# Expected: CONFLICT
+# Permission: purpose_set MUST contain {education, research, nonprofit}
+# Prohibition: purpose_set MUST NOT contain {commercial}
+# If purpose_set = {education, research, nonprofit, commercial}:
+#   - Permission: TRUE (has all required)
+#   - Prohibition: TRUE (has commercial)
+#   → CONFLICT

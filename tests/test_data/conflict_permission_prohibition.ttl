@@ -1,0 +1,23 @@
+# tests/test_data/conflict_permission_prohibition.ttl
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+
+ex:policy1 a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "5"^^<http://www.w3.org/2001/XMLSchema#integer>
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:gteq ;
+            odrl:rightOperand "3"^^<http://www.w3.org/2001/XMLSchema#integer>
+        ]
+    ] .

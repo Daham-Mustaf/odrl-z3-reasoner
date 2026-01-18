@@ -1,0 +1,28 @@
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+
+ex:policy_lang_conflict a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            odrl:leftOperand odrl:language ;
+            odrl:operator odrl:isAnyOf ;
+            odrl:rightOperand "en", "fr", "de", "es"
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            odrl:leftOperand odrl:language ;
+            odrl:operator odrl:isAnyOf ;
+            odrl:rightOperand "de", "es", "it"
+        ]
+    ] .
+
+# Expected: CONFLICT
+# Permission allows: language ∈ {en, fr, de, es}
+# Prohibition blocks: language ∈ {de, es, it}
+# Overlap: {de, es}
+# Counterexample: language_set = {de} or {es} or {de, es}

@@ -1,0 +1,43 @@
+# tests/test_data/mixed_constraints.ttl
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+
+ex:policy_mixed a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and [
+                odrl:leftOperand odrl:count ;
+                odrl:operator odrl:lteq ;
+                odrl:rightOperand "5"^^xsd:integer
+            ] , [
+                odrl:leftOperand odrl:language ;
+                odrl:operator odrl:isAnyOf ;
+                odrl:rightOperand "en", "fr"
+            ]
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and [
+                odrl:leftOperand odrl:count ;
+                odrl:operator odrl:gteq ;
+                odrl:rightOperand "3"^^xsd:integer
+            ] , [
+                odrl:leftOperand odrl:language ;
+                odrl:operator odrl:isAnyOf ;
+                odrl:rightOperand "en", "de"
+            ]
+        ]
+    ] .
+
+# Expected: CONFLICT
+# Permission: count ≤ 5 AND language ∈ {en, fr}
+# Prohibition: count ≥ 3 AND language ∈ {en, de}
+# Overlap: count ∈ [3,5] AND language = 'en'
+# Counterexample: {count: 4, language_set: {en}}

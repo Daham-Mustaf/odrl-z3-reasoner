@@ -1,0 +1,36 @@
+# tests/test_data/hierarchy_isa.ttl
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Define class hierarchy
+ex:Student rdfs:subClassOf ex:Person .
+ex:GraduateStudent rdfs:subClassOf ex:Student .
+ex:UndergraduateStudent rdfs:subClassOf ex:Student .
+ex:Faculty rdfs:subClassOf ex:Person .
+ex:Professor rdfs:subClassOf ex:Faculty .
+
+# Policy
+ex:policy_hierarchy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:read ;
+        odrl:constraint [
+            odrl:leftOperand odrl:recipient ;
+            odrl:operator odrl:isA ;
+            odrl:rightOperand ex:Student
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:read ;
+        odrl:constraint [
+            odrl:leftOperand odrl:recipient ;
+            odrl:operator odrl:isA ;
+            odrl:rightOperand ex:Faculty
+        ]
+    ] .
+
+# Expected: NO CONFLICT (without hierarchy reasoning)
+# With hierarchy:
+#   - Permission allows: Student, GraduateStudent, UndergraduateStudent
+#   - Prohibition blocks: Faculty, Professor
+#   - These are disjoint → no conflict

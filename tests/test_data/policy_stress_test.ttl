@@ -1,0 +1,47 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+ex:policy_stress_test a odrl:Policy ;
+
+  # Permissions
+  odrl:permission [
+    odrl:action odrl:use ;
+    odrl:constraint [
+      # Outer AND
+      odrl:leftOperand odrl:count ;
+      odrl:operator odrl:lteq ;
+      odrl:rightOperand "10"^^xsd:integer
+    ] , [
+      # Nested OR
+      odrl:leftOperand odrl:language ;
+      odrl:operator odrl:isAnyOf ;
+      odrl:rightOperand ("en" "fr")
+    ] , [
+      # Nested XONE
+      odrl:leftOperand odrl:purpose ;
+      odrl:operator odrl:isAnyOf ;
+      odrl:rightOperand ("education" "research")
+    ]
+  ] ;
+
+  # Prohibitions
+  odrl:prohibition [
+    odrl:action odrl:use ;
+    odrl:constraint [
+      # Deeply nested OR inside AND
+      odrl:leftOperand odrl:dateTimeAfter ;
+      odrl:operator odrl:gt ;
+      odrl:rightOperand "2025-01-01T00:00:00Z"^^xsd:dateTime
+    ] , [
+      odrl:leftOperand odrl:dateTimeBefore ;
+      odrl:operator odrl:lt ;
+      odrl:rightOperand "2025-02-01T00:00:00Z"^^xsd:dateTime
+    ] , [
+      # Nested XONE with multi-valued purposes
+      odrl:leftOperand odrl:purpose ;
+      odrl:operator odrl:isNoneOf ;
+      odrl:rightOperand ("commercial" "internal")
+    ]
+  ] .
+

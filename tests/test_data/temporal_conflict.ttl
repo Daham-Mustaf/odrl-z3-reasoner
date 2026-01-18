@@ -1,0 +1,24 @@
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+
+ex:policy3 a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            odrl:leftOperand odrl:elapsedTime ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "3"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+            odrl:unit <http://www.w3.org/2006/time#hours>
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            odrl:leftOperand odrl:elapsedTime ;
+            odrl:operator odrl:gteq ;
+            odrl:rightOperand "7200"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+            odrl:unit <http://www.w3.org/2006/time#seconds>
+        ]
+    ] .

@@ -1,0 +1,29 @@
+# tests/test_data/cross_currency_safe.ttl
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:policy_currency a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:sell ;
+        odrl:constraint [
+            odrl:leftOperand odrl:payAmount ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "100.00"^^xsd:decimal ;
+            odrl:unit <http://www.w3.org/2001/XMLSchema#currency#USD>
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:sell ;
+        odrl:constraint [
+            odrl:leftOperand odrl:payAmount ;
+            odrl:operator odrl:gteq ;
+            odrl:rightOperand "50.00"^^xsd:decimal ;
+            odrl:unit <http://www.w3.org/2001/XMLSchema#currency#EUR>
+        ]
+    ] .
+
+# Expected: NO CONFLICT (with currency safeguards)
+# Without safeguards: Would incorrectly detect conflict (10000 USD cents >= 5000 EUR cents)
+# With safeguards: Creates separate variables (payAmount_USD, payAmount_EUR)
+# These are incomparable → no conflict detected

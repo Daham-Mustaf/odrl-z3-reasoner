@@ -1,0 +1,35 @@
+# tests/test_data/multi_valued_language_isanyof.ttl
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+ex:policy_multi_lang a odrl:Policy ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:uid ex:perm1 ;
+        odrl:action odrl:play ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:uid ex:c1 ;
+            odrl:leftOperand odrl:language ;
+            odrl:operator odrl:isAnyOf ;
+            odrl:rightOperand "en", "fr", "de"
+        ]
+    ] ;
+    odrl:prohibition [
+        a odrl:Prohibition ;
+        odrl:uid ex:prohib1 ;
+        odrl:action odrl:play ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:uid ex:c2 ;
+            odrl:leftOperand odrl:language ;
+            odrl:operator odrl:isAnyOf ;
+            odrl:rightOperand "ar", "zh"
+        ]
+    ] .
+
+# Expected: NO CONFLICT
+# Permission allows: language ∈ {en, fr, de}
+# Prohibition blocks: language ∈ {ar, zh}
+# These sets are disjoint → no overlap

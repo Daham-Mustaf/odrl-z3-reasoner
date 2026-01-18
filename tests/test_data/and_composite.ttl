@@ -1,0 +1,22 @@
+# tests/test_data/and_composite.ttl
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+
+ex:policy5 a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:and [
+                odrl:leftOperand odrl:count ;
+                odrl:operator odrl:gt ;
+                odrl:rightOperand "5"^^<http://www.w3.org/2001/XMLSchema#integer>
+            ] , [
+                odrl:leftOperand odrl:count ;
+                odrl:operator odrl:lt ;
+                odrl:rightOperand "10"^^<http://www.w3.org/2001/XMLSchema#integer>
+            ]
+        ]
+    ] .

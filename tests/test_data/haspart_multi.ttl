@@ -1,0 +1,27 @@
+# tests/test_data/haspart_multi.ttl
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+ex:policy_haspart a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:purpose ;
+            odrl:operator odrl:hasPart ;
+            odrl:rightOperand ex:education
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:purpose ;
+            odrl:operator odrl:hasPart ;
+            odrl:rightOperand ex:commercial
+        ]
+    ] .
+
+# Expected: NO CONFLICT
+# Permission: purpose_set contains 'education'
+# Prohibition: purpose_set contains 'commercial'
+# If purpose_set = {education, commercial}, BOTH apply → CONFLICT

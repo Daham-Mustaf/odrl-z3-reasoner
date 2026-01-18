@@ -1,0 +1,28 @@
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+
+ex:policy_isnone a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            odrl:leftOperand odrl:media ;
+            odrl:operator odrl:isNoneOf ;
+            odrl:rightOperand "application/pdf", "application/zip"
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            odrl:leftOperand odrl:media ;
+            odrl:operator odrl:isAnyOf ;
+            odrl:rightOperand "video/mp4", "video/avi"
+        ]
+    ] .
+
+# Expected: NO CONFLICT
+# Permission: media_set ∩ {pdf, zip} = ∅ (no PDF or ZIP)
+# Prohibition: media_set ∩ {mp4, avi} ≠ ∅ (has MP4 or AVI)
+# Example satisfying permission: media_set = {mp4} → also triggers prohibition
+# CONFLICT if media can be {mp4} or {avi}

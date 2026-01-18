@@ -1,0 +1,35 @@
+# tests/test_data/recipient_hierarchy_multi.ttl
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Hierarchy
+ex:Student rdfs:subClassOf ex:Person .
+ex:Faculty rdfs:subClassOf ex:Person .
+
+# Policy
+ex:policy_recipient_multi a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:present ;
+        odrl:constraint [
+            odrl:leftOperand odrl:recipient ;
+            odrl:operator odrl:isA ;
+            odrl:rightOperand ex:Person
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:present ;
+        odrl:constraint [
+            odrl:leftOperand odrl:recipient ;
+            odrl:operator odrl:hasPart ;
+            odrl:rightOperand ex:Faculty
+        ]
+    ] .
+
+# Expected: CONFLICT (with hierarchy + multi-valued)
+# Permission: recipient_set has at least one Person (Student or Faculty)
+# Prohibition: recipient_set contains Faculty
+# If recipient_set = {Faculty}:
+#   - Permission: TRUE (Faculty is-a Person)
+#   - Prohibition: TRUE (has Faculty)
+#   → CONFLICT

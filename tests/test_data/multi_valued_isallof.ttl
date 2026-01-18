@@ -1,0 +1,29 @@
+# tests/test_data/multi_valued_isallof.ttl
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+
+ex:policy_isallof a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:distribute ;
+        odrl:constraint [
+            odrl:leftOperand odrl:purpose ;
+            odrl:operator odrl:isAllOf ;
+            odrl:rightOperand ex:education, ex:research
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:distribute ;
+        odrl:constraint [
+            odrl:leftOperand odrl:purpose ;
+            odrl:operator odrl:isAllOf ;
+            odrl:rightOperand ex:commercial, ex:marketing
+        ]
+    ] .
+
+# Expected: NO CONFLICT
+# Permission: purpose_set MUST contain {education, research}
+# Prohibition: purpose_set MUST contain {commercial, marketing}
+# If asset has {education, research, commercial, marketing}, BOTH apply → CONFLICT
+# But typically assets don't have all 4, so likely no conflict in practice

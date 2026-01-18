@@ -1,0 +1,32 @@
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+ex:policy_xone_multi a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:distribute ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:xone [
+                a odrl:Constraint ;
+                odrl:leftOperand odrl:purpose ;
+                odrl:operator odrl:hasPart ;
+                odrl:rightOperand ex:education
+            ] , [
+                a odrl:Constraint ;
+                odrl:leftOperand odrl:purpose ;
+                odrl:operator odrl:hasPart ;
+                odrl:rightOperand ex:research
+            ] , [
+                a odrl:Constraint ;
+                odrl:leftOperand odrl:purpose ;
+                odrl:operator odrl:hasPart ;
+                odrl:rightOperand ex:commercial
+            ]
+        ]
+    ] .
+
+# Expected: XONE_OVERLAP conflict
+# XONE requires EXACTLY ONE branch to be true
+# But if purpose_set = {education, research}, TWO branches are true
+# This violates XONE semantics → CONFLICT

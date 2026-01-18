@@ -1,0 +1,60 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+ex:policy_complex a odrl:Policy ;
+
+  # Permissions
+  odrl:permission [
+    odrl:action odrl:use ;
+    odrl:constraint [
+      odrl:leftOperand odrl:dateTimeAfter ;
+      odrl:operator odrl:gteq ;
+      odrl:rightOperand "2025-01-01T00:00:00Z"^^xsd:dateTime
+    ] ;
+    odrl:constraint [
+      odrl:leftOperand odrl:dateTimeBefore ;
+      odrl:operator odrl:lteq ;
+      odrl:rightOperand "2025-12-31T23:59:59Z"^^xsd:dateTime
+    ] ;
+    odrl:constraint [
+      odrl:leftOperand odrl:payAmount ;
+      odrl:operator odrl:gteq ;
+      odrl:rightOperand "1000"^^xsd:integer
+    ] ;
+    odrl:constraint [
+      odrl:leftOperand odrl:language ;
+      odrl:operator odrl:isAnyOf ;
+      odrl:rightOperand ("en" "fr")
+    ]
+  ] ;
+
+  # Prohibitions
+  odrl:prohibition [
+    odrl:action odrl:distribute ;
+    odrl:constraint [
+      odrl:leftOperand odrl:purpose ;
+      odrl:operator odrl:isNoneOf ;
+      odrl:rightOperand ("research" "commercial")
+    ] ;
+    odrl:constraint [
+      odrl:leftOperand odrl:dateTime ;
+      odrl:operator odrl:lt ;
+      odrl:rightOperand "2025-06-01T00:00:00Z"^^xsd:dateTime
+    ]
+  ] ;
+
+  # XONE Example
+  odrl:permission [
+    odrl:action odrl:print ;
+    odrl:constraint [
+      odrl:leftOperand odrl:version ;
+      odrl:operator odrl:eq ;
+      odrl:rightOperand "1"^^xsd:integer
+    ] ;
+    odrl:constraint [
+      odrl:leftOperand odrl:version ;
+      odrl:operator odrl:eq ;
+      odrl:rightOperand "2"^^xsd:integer
+    ] ;
+  ] .

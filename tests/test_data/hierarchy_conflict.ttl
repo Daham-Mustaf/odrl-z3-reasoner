@@ -1,0 +1,32 @@
+# tests/test_data/hierarchy_conflict.ttl
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Hierarchy
+ex:Student rdfs:subClassOf ex:Person .
+ex:GraduateStudent rdfs:subClassOf ex:Student .
+
+# Policy
+ex:policy_hierarchy_conflict a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:distribute ;
+        odrl:constraint [
+            odrl:leftOperand odrl:recipient ;
+            odrl:operator odrl:isA ;
+            odrl:rightOperand ex:Person
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:distribute ;
+        odrl:constraint [
+            odrl:leftOperand odrl:recipient ;
+            odrl:operator odrl:isA ;
+            odrl:rightOperand ex:GraduateStudent
+        ]
+    ] .
+
+# Expected: CONFLICT (with hierarchy)
+# Permission allows: Person (and all subclasses: Student, GraduateStudent, ...)
+# Prohibition blocks: GraduateStudent
+# GraduateStudent is both allowed (via Person) and blocked → CONFLICT
