@@ -1,0 +1,38 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/\> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema\#\> .
+@prefix ex: <http://example.org/\> .
+
+# Parent: permit use when (time < 10 OR count < 5)
+# Child:  permit use when (time < 10)
+# Expected: VALID (child restricts)
+
+ex:parent_policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:parent_or
+    ] .
+
+ex:parent_or a odrl:LogicalConstraint ;
+    odrl:or ex:p1, ex:p2 .
+
+ex:p1 a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "10"^^xsd:integer .
+
+ex:p2 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "5"^^xsd:integer .
+
+ex:child_policy a odrl:Policy ;
+    odrl:inheritFrom ex:parent_policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:child_constraint
+    ] .
+
+ex:child_constraint a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "10"^^xsd:integer .
