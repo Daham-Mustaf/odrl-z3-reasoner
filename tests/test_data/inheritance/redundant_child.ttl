@@ -1,0 +1,31 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# WARNING: Child adds no restriction (same as parent)
+# Parent: count <= 50
+# Child:  count <= 50
+
+ex:parent_policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:parent_constraint
+    ] .
+
+ex:parent_constraint a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "50"^^xsd:integer .
+
+ex:child_policy a odrl:Policy ;
+    odrl:inheritFrom ex:parent_policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:child_constraint
+    ] .
+
+# Unique ID but same semantics
+ex:child_constraint a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "50"^^xsd:integer .

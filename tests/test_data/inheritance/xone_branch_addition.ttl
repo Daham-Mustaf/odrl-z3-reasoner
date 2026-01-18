@@ -1,0 +1,48 @@
+# xone_branch_addition.ttl - use unique IDs for child
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+ex:parent_policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:parent_xone
+    ] .
+
+ex:parent_xone a odrl:LogicalConstraint ;
+    odrl:xone ex:p1, ex:p2 .
+
+ex:p1 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "5"^^xsd:integer .
+
+ex:p2 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:gt ;
+    odrl:rightOperand "20"^^xsd:integer .
+
+ex:child_policy a odrl:Policy ;
+    odrl:inheritFrom ex:parent_policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:child_xone
+    ] .
+
+ex:child_xone a odrl:LogicalConstraint ;
+    odrl:xone ex:child_c1, ex:child_c2, ex:child_c3 .
+
+ex:child_c1 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "5"^^xsd:integer .
+
+ex:child_c2 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:gt ;
+    odrl:rightOperand "20"^^xsd:integer .
+
+ex:child_c3 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "10"^^xsd:integer .

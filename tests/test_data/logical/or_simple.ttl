@@ -1,0 +1,23 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+
+ex:policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:or_constraint
+    ] .
+
+ex:or_constraint a odrl:LogicalConstraint ;
+    odrl:or ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "1"^^xsd:integer .
+
+ex:c2 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "2"^^xsd:integer .

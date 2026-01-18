@@ -1,0 +1,51 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# VIOLATION: Child restricts one but expands another
+# Parent: count <= 100 AND time <= 1800
+# Child:  count <= 50  AND time <= 3600  (time expanded!)
+
+ex:parent_policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:parent_and
+    ] .
+
+ex:parent_and a odrl:LogicalConstraint ;
+    odrl:and ex:p1, ex:p2 .
+
+ex:p1 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "100"^^xsd:integer .
+
+ex:p2 a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "1800"^^xsd:integer .
+
+ex:child_policy a odrl:Policy ;
+    odrl:inheritFrom ex:parent_policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:child_and
+    ] .
+
+ex:child_and a odrl:LogicalConstraint ;
+    odrl:and ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "50"^^xsd:integer .
+
+ex:c2 a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "3600"^^xsd:integer .
+
+# Expected: EXPANSION VIOLATION
+# Proof: SAT(child ∧ ¬parent)
+#        SAT(count <= 50 ∧ time <= 3600 ∧ (count > 100 ∨ time > 1800))
+#        Counterexample: count = 10, time = 2500

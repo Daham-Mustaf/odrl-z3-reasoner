@@ -1,0 +1,49 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# Parent: XONE(count<10, count>20)
+# Child:  XONE(count<5, count>25)   - both branches restricted
+
+ex:parent_policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:parent_xone
+    ] .
+
+ex:parent_xone a odrl:LogicalConstraint ;
+    odrl:xone ex:p1, ex:p2 .
+
+ex:p1 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "10"^^xsd:integer .
+
+ex:p2 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:gt ;
+    odrl:rightOperand "20"^^xsd:integer .
+
+ex:child_policy a odrl:Policy ;
+    odrl:inheritFrom ex:parent_policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:child_xone
+    ] .
+
+ex:child_xone a odrl:LogicalConstraint ;
+    odrl:xone ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "5"^^xsd:integer .
+
+ex:c2 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:gt ;
+    odrl:rightOperand "25"^^xsd:integer .
+
+# Expected: VALID
+# Proof: count<5 ⊂ count<10 AND count>25 ⊂ count>20
+#        XONE structure preserved, each branch restricted

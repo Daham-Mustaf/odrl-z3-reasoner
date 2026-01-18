@@ -1,0 +1,21 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+ex:policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lt ;
+            odrl:rightOperand "5"^^xsd:integer
+        ]
+    ] ;
+    odrl:prohibition [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:gt ;
+            odrl:rightOperand "10"^^xsd:integer
+        ]
+    ] .

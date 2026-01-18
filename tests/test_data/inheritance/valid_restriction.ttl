@@ -1,0 +1,32 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# VALID: Child restricts parent
+# Parent: count <= 100
+# Child:  count <= 50  (more restrictive ✓)
+
+ex:parent_policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "100"^^xsd:integer
+        ]
+    ] .
+
+ex:child_policy a odrl:Policy ;
+    odrl:inheritFrom ex:parent_policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "50"^^xsd:integer
+        ]
+    ] .
+
+# Expected: NO violation
+# Proof: child(v) → parent(v) holds
+#        count <= 50 → count <= 100 ✓

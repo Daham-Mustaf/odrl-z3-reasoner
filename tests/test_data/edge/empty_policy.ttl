@@ -1,0 +1,5 @@
+
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+
+ex:empty_policy a odrl:Policy .

@@ -1,0 +1,33 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# VIOLATION: Child expands parent
+# Parent: count <= 50
+# Child:  count <= 100  (less restrictive ✗)
+
+ex:parent_policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "50"^^xsd:integer
+        ]
+    ] .
+
+ex:child_policy a odrl:Policy ;
+    odrl:inheritFrom ex:parent_policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "100"^^xsd:integer
+        ]
+    ] .
+
+# Expected: EXPANSION VIOLATION
+# Proof: SAT(child ∧ ¬parent)
+#        SAT(count <= 100 ∧ count > 50)
+#        Counterexample: count = 75

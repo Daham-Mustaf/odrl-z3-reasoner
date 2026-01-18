@@ -1,0 +1,40 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# VIOLATION: Child has unsatisfiable constraints
+# Parent: count <= 100
+# Child:  count < 5 AND count > 10  (impossible!)
+
+ex:parent_policy a odrl:Policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "100"^^xsd:integer
+        ]
+    ] .
+
+ex:child_policy a odrl:Policy ;
+    odrl:inheritFrom ex:parent_policy ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint ex:child_and
+    ] .
+
+ex:child_and a odrl:LogicalConstraint ;
+    odrl:and ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "5"^^xsd:integer .
+
+ex:c2 a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:gt ;
+    odrl:rightOperand "10"^^xsd:integer .
+
+# Expected: INCONSISTENT CHILD
+# Proof: UNSAT(count < 5 ∧ count > 10)
