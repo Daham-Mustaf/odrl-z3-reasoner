@@ -72,7 +72,7 @@ tests/
 │       ├── implied_constraints.json
 │       └── transitive_redundancy.json
 │
-├── real_world/                    # Real ODRL policies
+├── reference_policies/                    # Real ODRL policies
 │   ├── creative_commons/
 │   │   ├── cc_by.json
 │   │   ├── cc_by_nc.json
@@ -944,7 +944,7 @@ pytest tests/
 # Run by category
 pytest tests/unit/
 pytest tests/integration/
-pytest tests/real_world/
+pytest tests/reference_policies/
 pytest tests/stress/
 
 # Run specific operator tests
@@ -1045,8 +1045,8 @@ Failures:
 - **Total**: ~1,300 tests
 
 ### Coverage
-- All operators: ✓
-- All left operands: ✓
-- All metadata: ✓
-- Edge cases: ✓
-- Performance limits: ✓
+- All operators: 
+- All left operands: 
+- All metadata: 
+- Edge cases: 
+- Performance limits: 
