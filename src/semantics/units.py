@@ -4,8 +4,7 @@ Complete unit system with conversion graphs and validation.
 Handles all ODRL dimensions with semantic correctness.
 """
 
-from typing import Dict, Optional, Tuple, List, Set
-from enum import Enum
+from typing import Dict, Optional, Tuple, List, Any
 from dataclasses import dataclass
 import re
 from datetime import datetime
@@ -13,6 +12,16 @@ from decimal import Decimal
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Import debug utilities
+try:
+    from .constraint_types import debug_print, is_debug_mode
+except ImportError:
+    def debug_print(category: str, message: str, data: Any = None):
+        pass
+    def is_debug_mode() -> bool:
+        return False
+
 
 # ==============================================================================
 # UNIT DEFINITIONS
@@ -26,6 +35,7 @@ class UnitDefinition:
     conversion_factor: float  # Multiplier to base unit
     aliases: List[str]
     is_base: bool = False
+
 
 class UnitRegistry:
     """
@@ -51,20 +61,24 @@ class UnitRegistry:
         self._register_dimension_units('Time', [
             UnitDefinition('seconds', 'Time', 1.0, 
                           ['s', 'sec', 'second', 'seconds',
-                           'http://www.w3.org/2006/time#seconds'], 
+                           'http://www.w3.org/2006/time#seconds',
+                           'http://dbpedia.org/resource/Second'], 
                           is_base=True),
             
             UnitDefinition('minutes', 'Time', 60.0,
                           ['m', 'min', 'minute', 'minutes',
-                           'http://www.w3.org/2006/time#minutes']),
+                           'http://www.w3.org/2006/time#minutes',
+                           'http://dbpedia.org/resource/Minute']),
             
             UnitDefinition('hours', 'Time', 3600.0,
                           ['h', 'hr', 'hour', 'hours',
-                           'http://www.w3.org/2006/time#hours']),
+                           'http://www.w3.org/2006/time#hours',
+                           'http://dbpedia.org/resource/Hour']),
             
             UnitDefinition('days', 'Time', 86400.0,
                           ['d', 'day', 'days',
-                           'http://www.w3.org/2006/time#days']),
+                           'http://www.w3.org/2006/time#days',
+                           'http://dbpedia.org/resource/Day']),
             
             UnitDefinition('weeks', 'Time', 604800.0,
                           ['w', 'wk', 'week', 'weeks',
@@ -90,43 +104,30 @@ class UnitRegistry:
             
             # Binary (IEC) - Preferred for accuracy
             UnitDefinition('kibibytes', 'Information', 1024.0,
-                          ['KiB', 'kibibyte', 'kibibytes',
-                           'http://www.w3.org/2000/01/rdf-schema#kibibyte']),
+                          ['KiB', 'kibibyte', 'kibibytes']),
             
             UnitDefinition('mebibytes', 'Information', 1024**2,
-                          ['MiB', 'mebibyte', 'mebibytes',
-                           'http://www.w3.org/2000/01/rdf-schema#mebibyte']),
+                          ['MiB', 'mebibyte', 'mebibytes']),
             
             UnitDefinition('gibibytes', 'Information', 1024**3,
-                          ['GiB', 'gibibyte', 'gibibytes',
-                           'http://www.w3.org/2000/01/rdf-schema#gibibyte']),
+                          ['GiB', 'gibibyte', 'gibibytes']),
             
             UnitDefinition('tebibytes', 'Information', 1024**4,
-                          ['TiB', 'tebibyte', 'tebibytes',
-                           'http://www.w3.org/2000/01/rdf-schema#tebibyte']),
+                          ['TiB', 'tebibyte', 'tebibytes']),
             
             # Decimal (SI) - Common but less accurate
             UnitDefinition('kilobytes', 'Information', 1000.0,
-                          ['kB', 'kilobyte', 'kilobytes',
-                           'http://www.w3.org/2000/01/rdf-schema#kilobyte']),
+                          ['kB', 'KB', 'kilobyte', 'kilobytes']),
             
             UnitDefinition('megabytes', 'Information', 1000**2,
-                          ['MB', 'megabyte', 'megabytes',
-                           'http://www.w3.org/2000/01/rdf-schema#megabyte']),
+                          ['MB', 'megabyte', 'megabytes']),
             
             UnitDefinition('gigabytes', 'Information', 1000**3,
-                          ['GB', 'gigabyte', 'gigabytes',
-                           'http://www.w3.org/2000/01/rdf-schema#gigabyte']),
+                          ['GB', 'gigabyte', 'gigabytes']),
             
             UnitDefinition('terabytes', 'Information', 1000**4,
-                          ['TB', 'terabyte', 'terabytes',
-                           'http://www.w3.org/2000/01/rdf-schema#terabyte']),
+                          ['TB', 'terabyte', 'terabytes']),
         ])
-        
-        # Special handling for ambiguous "KB" - default to SI with warning
-        kb_unit = self.units.get('kilobytes')
-        if kb_unit:
-            kb_unit.aliases.extend(['KB', 'Kb', 'kb'])
         
         # ======================================================================
         # SPATIAL UNITS
@@ -138,37 +139,28 @@ class UnitRegistry:
                           is_base=True),
             
             UnitDefinition('kilometers', 'Length', 1000.0,
-                          ['km', 'kilometer', 'kilometers',
-                           'http://www.w3.org/2003/01/geo/wgs84_pos#kilometers']),
+                          ['km', 'kilometer', 'kilometers']),
             
             UnitDefinition('miles', 'Length', 1609.34,
-                          ['mi', 'mile', 'miles',
-                           'http://www.w3.org/2003/01/geo/wgs84_pos#miles']),
+                          ['mi', 'mile', 'miles']),
             
             UnitDefinition('feet', 'Length', 0.3048,
-                          ['ft', 'foot', 'feet',
-                           'http://www.w3.org/2003/01/geo/wgs84_pos#feet']),
+                          ['ft', 'foot', 'feet']),
             
             UnitDefinition('inches', 'Length', 0.0254,
                           ['in', 'inch', 'inches']),
         ])
         
         # ======================================================================
-        # RESOLUTION UNITS (Dimensionless but with context)
+        # RESOLUTION UNITS
         # ======================================================================
         self._register_dimension_units('Resolution', [
             UnitDefinition('pixels', 'Resolution', 1.0,
-                          ['px', 'pixel', 'pixels',
-                           'http://www.w3.org/ns/odrl/2/pixels'],
+                          ['px', 'pixel', 'pixels'],
                           is_base=True),
             
-            UnitDefinition('dpi', 'Resolution', 1.0,  # Context-dependent
-                          ['dpi', 'DPI',
-                           'http://www.w3.org/ns/odrl/2/dpi']),
-            
-            UnitDefinition('ppi', 'Resolution', 1.0,  # Context-dependent
-                          ['ppi', 'PPI',
-                           'http://www.w3.org/ns/odrl/2/ppi']),
+            UnitDefinition('dpi', 'Resolution', 1.0,
+                          ['dpi', 'DPI']),
         ])
         
         # ======================================================================
@@ -176,25 +168,17 @@ class UnitRegistry:
         # ======================================================================
         self._register_dimension_units('Currency', [
             UnitDefinition('USD', 'Currency', 1.0,
-                          ['USD', '$',
-                           'http://www.w3.org/2001/XMLSchema#currency#USD'],
+                          ['USD', '$', 'dollar', 'dollars'],
                           is_base=True),
             
             UnitDefinition('EUR', 'Currency', 1.0,
-                          ['EUR', '€',
-                           'http://www.w3.org/2001/XMLSchema#currency#EUR']),
+                          ['EUR', '€', 'euro', 'euros']),
             
             UnitDefinition('GBP', 'Currency', 1.0,
-                          ['GBP', '£',
-                           'http://www.w3.org/2001/XMLSchema#currency#GBP']),
+                          ['GBP', '£', 'pound', 'pounds']),
             
             UnitDefinition('JPY', 'Currency', 1.0,
-                          ['JPY', '¥',
-                           'http://www.w3.org/2001/XMLSchema#currency#JPY']),
-            
-            UnitDefinition('CNY', 'Currency', 1.0,
-                          ['CNY', '元',
-                           'http://www.w3.org/2001/XMLSchema#currency#CNY']),
+                          ['JPY', '¥', 'yen']),
         ])
         
         logger.info(f"Unit registry built: {len(self.units)} units across "
@@ -230,7 +214,6 @@ class UnitRegistry:
         if not from_def or not to_def:
             return False
         
-        # Same dimension = convertible
         return from_def.dimension == to_def.dimension
     
     def convert(self, value: float, from_unit: str, to_unit: str) -> Tuple[float, bool]:
@@ -272,8 +255,10 @@ class UnitRegistry:
         return (from_def.canonical_name in approximate_units or 
                 to_def.canonical_name in approximate_units)
 
+
 # Global unit registry
 UNIT_REGISTRY = UnitRegistry()
+
 
 # ==============================================================================
 # VALUE NORMALIZER
@@ -294,11 +279,18 @@ class ValueNormalizer:
         self.registry = unit_registry or UNIT_REGISTRY
         self.debug = debug
     
+    def _debug(self, message: str, data: Any = None):
+        """Debug output helper"""
+        if self.debug:
+            debug_print("UNITS", message, data)
+            logger.debug(f"[UNITS] {message}")
+    
     def normalize(self, 
-                  value: any,
+                  value: Any,
                   operand: str,
                   unit: Optional[str] = None,
-                  semantics: any = None) -> Tuple[any, str, Dict]:
+                  semantics: Any = None,
+                  odrl_metadata: Any = None) -> Tuple[Any, str, Dict]:
         """
         Main normalization entry point.
         
@@ -307,6 +299,7 @@ class ValueNormalizer:
             operand: ODRL operand name
             unit: Optional unit string
             semantics: SemanticInfo object
+            odrl_metadata: ODRLMetadata object
         
         Returns:
             (canonical_value, canonical_unit, metadata)
@@ -322,8 +315,27 @@ class ValueNormalizer:
             'original_value': value,
             'original_unit': unit,
             'conversion_applied': False,
-            'is_approximate': False
+            'is_approximate': False,
+            'domain': domain.value,
         }
+        
+        # Handle ODRL metadata
+        if odrl_metadata:
+            if hasattr(odrl_metadata, 'unit_of_count') and odrl_metadata.unit_of_count:
+                metadata['unit_of_count'] = odrl_metadata.unit_of_count
+                metadata['is_per_entity'] = True
+            
+            if hasattr(odrl_metadata, 'status') and odrl_metadata.status is not None:
+                metadata['status'] = odrl_metadata.status
+                metadata['has_baseline'] = True
+            
+            if not unit and hasattr(odrl_metadata, 'unit') and odrl_metadata.unit:
+                unit = odrl_metadata.unit
+        
+        self._debug(f"Normalizing: {operand} = {value} [{unit}]", {
+            'domain': domain.value,
+            'base_unit': semantics.base_unit
+        })
         
         # Route to appropriate normalizer
         if domain == ValueDomain.NUMERIC:
@@ -341,28 +353,33 @@ class ValueNormalizer:
         elif domain == ValueDomain.SPATIAL:
             return self._normalize_spatial(value, unit, metadata)
         
+        elif domain == ValueDomain.POSITIONAL:
+            return self._normalize_positional(value, unit, semantics, metadata)
+        
         elif domain == ValueDomain.CATEGORICAL:
             return self._normalize_categorical(value, operand, metadata)
+        
+        elif domain == ValueDomain.REFERENCE:
+            return self._normalize_reference(value, operand, metadata)
         
         elif domain == ValueDomain.VERSION:
             return self._normalize_version(value, metadata)
         
         else:
             # No normalization needed
+            self._debug(f"No normalization for domain: {domain.value}")
             return value, 'none', metadata
     
     # -------------------------------------------------------------------------
     # NUMERIC NORMALIZATION
     # -------------------------------------------------------------------------
+    
     def _normalize_numeric(self, value, unit, semantics, metadata):
         """Normalize numeric values"""
         # Parse numeric value
         numeric_val = self._parse_numeric(value)
         
-        if self.debug:
-            logger.debug(f"  _normalize_numeric called:")
-            logger.debug(f"    value={value}, unit={unit}")
-            logger.debug(f"    parsed numeric_val={numeric_val}")
+        self._debug(f"Numeric normalization: {value} -> {numeric_val}")
         
         # Handle percentage special case
         if semantics.base_unit == 'percent':
@@ -372,19 +389,15 @@ class ValueNormalizer:
         
         # Apply unit conversion if present
         if unit:
-            # Get dimension name (handle both enum and string)
+            # Get dimension name
             if hasattr(semantics.dimension, 'value'):
-                dimension_name = semantics.dimension.value  # Enum
+                dimension_name = semantics.dimension.value
             else:
                 dimension_name = str(semantics.dimension)
             
-            if self.debug:
-                logger.debug(f"    dimension_name={dimension_name}")
+            self._debug(f"Looking up base unit for dimension: {dimension_name}")
             
             base_unit = self.registry.get_base_unit(dimension_name)
-            
-            if self.debug:
-                logger.debug(f"    base_unit for {dimension_name}={base_unit}")
             
             if base_unit and unit != base_unit:
                 try:
@@ -395,28 +408,22 @@ class ValueNormalizer:
                     metadata['conversion_factor'] = converted_val / numeric_val if numeric_val != 0 else 0
                     metadata['is_approximate'] = is_approx
                     
-                    if self.debug:
-                        logger.debug(f"    Converted: {numeric_val} {unit} -> {converted_val} {base_unit}")
+                    self._debug(f"Converted: {numeric_val} {unit} -> {converted_val} {base_unit}")
                     
                     return converted_val, base_unit, metadata
                     
                 except ValueError as e:
+                    self._debug(f"Unit conversion failed: {e}")
                     logger.warning(f"Unit conversion failed: {e}")
-                    # Fall through to no conversion
             
             elif unit == base_unit:
-                # Already in base unit
-                if self.debug:
-                    logger.debug(f"    Already in base unit: {unit}")
+                self._debug(f"Already in base unit: {unit}")
                 return numeric_val, base_unit, metadata
         
-        # No conversion needed
-        if self.debug:
-            logger.debug(f"    No conversion applied")
-        
+        self._debug(f"No conversion applied, using base_unit: {semantics.base_unit}")
         return numeric_val, semantics.base_unit, metadata
-        
-    def _parse_numeric(self, value: any) -> float:
+    
+    def _parse_numeric(self, value: Any) -> float:
         """Parse numeric value with K/M/B suffixes"""
         if isinstance(value, (int, float)):
             return float(value)
@@ -436,7 +443,11 @@ class ValueNormalizer:
             
             return float(value)
         
-        raise ValueError(f"Cannot parse numeric value: {value}")
+        # Try to convert to float
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"Cannot parse numeric value: {value}")
     
     # -------------------------------------------------------------------------
     # TEMPORAL NORMALIZATION
@@ -445,85 +456,83 @@ class ValueNormalizer:
     def _normalize_temporal(self, value, unit, metadata):
         """Normalize temporal point to Unix timestamp"""
         if isinstance(value, (int, float)):
-            # Already a timestamp
             timestamp = int(value)
         elif isinstance(value, str):
-            # Parse ISO 8601 or other formats
             timestamp = self._parse_datetime(value)
         else:
             raise ValueError(f"Cannot parse temporal value: {value}")
         
-        metadata['iso8601'] = datetime.fromtimestamp(timestamp).isoformat()
-        return timestamp, 'unix_timestamp', metadata
+        try:
+            metadata['iso8601'] = datetime.fromtimestamp(timestamp).isoformat()
+        except:
+            pass
         
+        return timestamp, 'unix_timestamp', metadata
+    
     def _normalize_temporal_interval(self, value, unit, metadata):
         """Normalize temporal interval to seconds"""
         if isinstance(value, (int, float)):
             numeric_val = float(value)
             
-            # Apply unit conversion
             if unit:
-                converted_val, is_approx = self.registry.convert(
-                    numeric_val, unit, 'seconds'
-                )
-                metadata['conversion_applied'] = True
-                metadata['is_approximate'] = is_approx
-                metadata['human_readable'] = self._seconds_to_human(converted_val)
-                # FIX: Add conversion_factor
-                metadata['conversion_factor'] = converted_val / numeric_val if numeric_val != 0 else 0
-                
-                return int(converted_val), 'seconds', metadata
-            else:
-                # Assume seconds
-                metadata['human_readable'] = self._seconds_to_human(numeric_val)
-                return int(numeric_val), 'seconds', metadata
+                try:
+                    converted_val, is_approx = self.registry.convert(
+                        numeric_val, unit, 'seconds'
+                    )
+                    metadata['conversion_applied'] = True
+                    metadata['is_approximate'] = is_approx
+                    metadata['conversion_factor'] = converted_val / numeric_val if numeric_val != 0 else 0
+                    metadata['human_readable'] = self._seconds_to_human(converted_val)
+                    
+                    return int(converted_val), 'seconds', metadata
+                except ValueError:
+                    pass
+            
+            metadata['human_readable'] = self._seconds_to_human(numeric_val)
+            return int(numeric_val), 'seconds', metadata
         
         elif isinstance(value, str):
-            # Check for ISO 8601 duration
             if value.startswith('P'):
                 seconds = self._parse_iso8601_duration(value)
                 metadata['human_readable'] = self._seconds_to_human(seconds)
-                # No conversion_factor for ISO 8601 (direct parsing)
                 return int(seconds), 'seconds', metadata
             
-            # Try parsing "3 hours" format
-            numeric_val, parsed_unit = self._parse_duration_string(value)
-            converted_val, is_approx = self.registry.convert(
-                numeric_val, parsed_unit, 'seconds'
-            )
-            metadata['conversion_applied'] = True
-            metadata['is_approximate'] = is_approx
-            metadata['human_readable'] = self._seconds_to_human(converted_val)
-            # FIX: Add conversion_factor
-            metadata['conversion_factor'] = converted_val / numeric_val if numeric_val != 0 else 0
-            
-            return int(converted_val), 'seconds', metadata
+            try:
+                numeric_val, parsed_unit = self._parse_duration_string(value)
+                converted_val, is_approx = self.registry.convert(
+                    numeric_val, parsed_unit, 'seconds'
+                )
+                metadata['conversion_applied'] = True
+                metadata['is_approximate'] = is_approx
+                metadata['conversion_factor'] = converted_val / numeric_val if numeric_val != 0 else 0
+                metadata['human_readable'] = self._seconds_to_human(converted_val)
+                
+                return int(converted_val), 'seconds', metadata
+            except:
+                pass
         
-        raise ValueError(f"Cannot parse temporal interval: {value}")
-        
+        # Fallback
+        return value, 'unknown', metadata
+    
     def _parse_datetime(self, value: str) -> int:
         """Parse datetime string to Unix timestamp"""
         try:
-            # ISO 8601 with timezone
             dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
             return int(dt.timestamp())
         except:
             try:
-                # Try without timezone (assume UTC)
                 dt = datetime.fromisoformat(value)
                 return int(dt.timestamp())
             except:
-                # Fallback: use dateutil parser
                 try:
                     from dateutil import parser
                     dt = parser.parse(value)
                     return int(dt.timestamp())
                 except ImportError:
-                    raise ValueError(f"Cannot parse datetime: {value}. Install python-dateutil for advanced parsing.")
+                    raise ValueError(f"Cannot parse datetime: {value}")
     
     def _parse_iso8601_duration(self, duration: str) -> int:
         """Parse ISO 8601 duration to seconds"""
-        # Regex: P[nY][nM][nD]T[nH][nM][nS]
         pattern = r'P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?'
         match = re.match(pattern, duration)
         
@@ -534,9 +543,9 @@ class ValueNormalizer:
         
         total_seconds = 0
         if years:
-            total_seconds += int(years) * 31536000  # 365 days
+            total_seconds += int(years) * 31536000
         if months:
-            total_seconds += int(months) * 2592000  # 30 days
+            total_seconds += int(months) * 2592000
         if days:
             total_seconds += int(days) * 86400
         if hours:
@@ -549,13 +558,12 @@ class ValueNormalizer:
         return int(total_seconds)
     
     def _parse_duration_string(self, value: str) -> Tuple[float, str]:
-        """Parse "3 hours" format to (3, 'hours')"""
+        """Parse '3 hours' format to (3, 'hours')"""
         parts = value.strip().split()
         
         if len(parts) == 2:
             return float(parts[0]), parts[1].lower()
         elif len(parts) == 1:
-            # Try regex: "3hours" or "3h"
             match = re.match(r'(\d+(?:\.\d+)?)\s*([a-zA-Z]+)', value)
             if match:
                 return float(match.group(1)), match.group(2).lower()
@@ -581,28 +589,24 @@ class ValueNormalizer:
         """Normalize monetary value to minor units (cents)"""
         numeric_val = self._parse_numeric(value)
         
-        # Determine currency
-        currency = 'USD'  # Default
+        currency = 'USD'
         if unit:
             unit_def = self.registry.get_unit(unit)
             if unit_def and unit_def.dimension == 'Currency':
                 currency = unit_def.canonical_name
         
-        # Convert to minor units (cents for most currencies)
+        metadata['currency'] = currency
+        
         if currency in ['USD', 'EUR', 'GBP', 'CAD', 'AUD']:
-            # Has cents
             canonical_val = Decimal(str(numeric_val)) * 100
             canonical_unit = f'{currency}_cents'
+            metadata['minor_unit_conversion'] = True
         elif currency == 'JPY':
-            # No subunit
             canonical_val = Decimal(str(numeric_val))
             canonical_unit = currency
         else:
             canonical_val = Decimal(str(numeric_val))
             canonical_unit = currency
-        
-        metadata['currency'] = currency
-        metadata['minor_unit_conversion'] = True
         
         return int(canonical_val), canonical_unit, metadata
     
@@ -615,17 +619,52 @@ class ValueNormalizer:
         numeric_val = self._parse_numeric(value)
         
         if unit:
-            converted_val, is_approx = self.registry.convert(
-                numeric_val, unit, 'meters'
-            )
-            metadata['conversion_applied'] = True
-            metadata['is_approximate'] = is_approx
-            # FIX: Add conversion_factor
-            metadata['conversion_factor'] = converted_val / numeric_val if numeric_val != 0 else 0
-            
-            return converted_val, 'meters', metadata
+            try:
+                converted_val, is_approx = self.registry.convert(
+                    numeric_val, unit, 'meters'
+                )
+                metadata['conversion_applied'] = True
+                metadata['conversion_factor'] = converted_val / numeric_val if numeric_val != 0 else 0
+                metadata['is_approximate'] = is_approx
+                
+                return converted_val, 'meters', metadata
+            except ValueError:
+                pass
         
         return numeric_val, 'meters', metadata
+    
+    # -------------------------------------------------------------------------
+    # POSITIONAL NORMALIZATION
+    # -------------------------------------------------------------------------
+    
+    def _normalize_positional(self, value, unit, semantics, metadata):
+        """Normalize positional values"""
+        numeric_val = self._parse_numeric(value)
+        
+        if semantics.base_unit == 'bytes':
+            if unit:
+                try:
+                    converted_val, is_approx = self.registry.convert(
+                        numeric_val, unit, 'bytes'
+                    )
+                    metadata['conversion_applied'] = True
+                    metadata['conversion_factor'] = converted_val / numeric_val if numeric_val != 0 else 0
+                    metadata['is_approximate'] = is_approx
+                    return int(converted_val), 'bytes', metadata
+                except ValueError:
+                    pass
+            return int(numeric_val), 'bytes', metadata
+        
+        elif semantics.base_unit == 'percent':
+            if isinstance(value, str) and '%' in value:
+                numeric_val = float(value.replace('%', '').strip())
+            return numeric_val, 'percent', metadata
+        
+        elif semantics.base_unit == 'pixels':
+            return int(numeric_val), 'pixels', metadata
+        
+        else:
+            return numeric_val, semantics.base_unit, metadata
     
     # -------------------------------------------------------------------------
     # CATEGORICAL NORMALIZATION
@@ -634,23 +673,19 @@ class ValueNormalizer:
     def _normalize_categorical(self, value, operand, metadata):
         """Normalize categorical values"""
         if operand == 'language':
-            # Normalize to ISO 639-1
             canonical = self._normalize_language_code(value)
             return canonical, 'iso639-1', metadata
         
         elif operand in ['media', 'fileFormat']:
-            # Normalize to MIME type
             canonical = self._normalize_mime_type(value)
             return canonical, 'mime_type', metadata
         
         else:
-            # Generic: lowercase and trim
             canonical = str(value).lower().strip()
             return canonical, 'string', metadata
     
     def _normalize_language_code(self, value: str) -> str:
         """Normalize language to ISO 639-1 code"""
-        # Simple mapping (expand as needed)
         lang_map = {
             'english': 'en', 'eng': 'en',
             'french': 'fr', 'fra': 'fr',
@@ -661,7 +696,7 @@ class ValueNormalizer:
             'arabic': 'ar', 'ara': 'ar',
         }
         
-        lower_val = value.lower().strip()
+        lower_val = str(value).lower().strip()
         return lang_map.get(lower_val, lower_val)
     
     def _normalize_mime_type(self, value: str) -> str:
@@ -679,13 +714,36 @@ class ValueNormalizer:
             'mp3': 'audio/mpeg',
         }
         
-        lower_val = value.lower().strip()
+        lower_val = str(value).lower().strip()
         
-        # If already MIME type format
         if '/' in lower_val:
             return lower_val
         
         return mime_map.get(lower_val, value)
+    
+    # -------------------------------------------------------------------------
+    # REFERENCE NORMALIZATION
+    # -------------------------------------------------------------------------
+    
+    def _normalize_reference(self, value, operand, metadata):
+        """Normalize reference values"""
+        if isinstance(value, str):
+            canonical = value.strip()
+            
+            if canonical.startswith('http://') or canonical.startswith('https://'):
+                metadata['is_uri'] = True
+                return canonical, 'uri', metadata
+            
+            canonical = canonical.lower()
+            metadata['is_local_name'] = True
+            return canonical, 'identifier', metadata
+        
+        if isinstance(value, list):
+            canonical = [str(v).strip() for v in value]
+            metadata['is_multi_valued'] = True
+            return canonical, 'uri_list', metadata
+        
+        return str(value), 'identifier', metadata
     
     # -------------------------------------------------------------------------
     # VERSION NORMALIZATION
@@ -695,8 +753,6 @@ class ValueNormalizer:
         """Normalize version to comparable format"""
         parts = self._parse_version(value)
         
-        # Convert to integer for comparison
-        # e.g., "2.3.1" → 2003001 (pad each part to 3 digits)
         canonical_val = sum(
             part * (1000 ** (len(parts) - i - 1))
             for i, part in enumerate(parts)
@@ -707,27 +763,26 @@ class ValueNormalizer:
         
         return canonical_val, 'semantic_version', metadata
     
-    def _parse_version(self, value: any) -> List[int]:
+    def _parse_version(self, value: Any) -> List[int]:
         """Parse version string to list of integers"""
         if isinstance(value, (int, float)):
             return [int(value)]
         
-        # Split on dots
         value_str = str(value).strip()
         parts = value_str.split('.')
         
-        # Extract numeric parts
         numeric_parts = []
         for part in parts:
-            # Extract leading digits
             match = re.match(r'(\d+)', part)
             if match:
                 numeric_parts.append(int(match.group(1)))
         
         return numeric_parts if numeric_parts else [0]
 
+
 # Global normalizer instance
 VALUE_NORMALIZER = ValueNormalizer(debug=False)
+
 
 def get_value_normalizer(debug: bool = False) -> ValueNormalizer:
     """Get value normalizer instance with debug setting"""

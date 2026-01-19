@@ -4,24 +4,29 @@ Extract structured ODRL data from RDF graph.
 Converts RDF triples to Python objects.
 """
 
-from rdflib import Graph, URIRef, Literal, Namespace
+from rdflib import Graph, URIRef, Literal, Namespace, BNode
+from rdflib.namespace import RDF, RDFS, XSD
 from typing import Dict, List, Optional, Any, Union
 from collections import Counter
 import logging
 
 from ..semantics.constraint_types import (
     PolicyRuleType, ConstraintType, OperatorType,
-    PolicyRule, AtomicConstraint, CompositeConstraint, Policy
+    PolicyRule, AtomicConstraint, CompositeConstraint, Policy,
+    NormalizedValue, SemanticInfo, ODRLMetadata,
+    get_operand_semantics, debug_print, is_debug_mode
 )
 
 logger = logging.getLogger(__name__)
 
+# Namespaces
 ODRL = Namespace("http://www.w3.org/ns/odrl/2/")
-RDF = Namespace("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+
 
 class RDFExtractorError(Exception):
     """Custom exception for RDF extraction failures."""
     pass
+
 
 class RDFExtractor:
     """
@@ -30,17 +35,35 @@ class RDFExtractor:
     Responsibilities:
     1. Identify policy rules (permissions, prohibitions, duties)
     2. Extract constraints and their relationships
-    3. Parse operands, operators, values, units
+    3. Parse operands, operators, values with full metadata
     4. Build constraint tree (atomic + composite)
+    5. Extract policy inheritance relationships
+    
+    Implementation Plan Alignment:
+    - Phase 1: Complete constraint parsing
+    - Phase 2: Full metadata extraction (§2.3)
+    - Supports: inheritFrom for inheritance checking
     """
     
     def __init__(self, graph: Graph, debug: bool = False):
+        """
+        Initialize extractor.
+        
+        Args:
+            graph: RDFLib Graph containing ODRL policy
+            debug: Enable debug output (--dev mode)
+        """
         self.graph = graph
         self.debug = debug
         self.constraints: Dict[str, Union[AtomicConstraint, CompositeConstraint]] = {}
         
         if len(graph) == 0:
             logger.warning("RDFExtractor initialized with an empty graph.")
+            self._debug("WARNING: Empty graph provided")
+    
+    # ==========================================================================
+    # POLICY EXTRACTION
+    # ==========================================================================
     
     def extract_policy(self, policy_uri: URIRef) -> Policy:
         """
@@ -50,20 +73,24 @@ class RDFExtractor:
             policy_uri: URI of the policy to extract
             
         Returns:
-            Policy object with rules and constraints
+            Policy object with rules, constraints, and metadata
             
         Raises:
             RDFExtractorError: If policy not found or empty.
         """
         policy_name = self._uri_to_string(policy_uri)
-        if self.debug:
-            logger.info(f"--- Starting Extraction: {policy_name} ---")
-
-        # 1. Validation: Check if URI exists as a subject in the graph
-        if not (policy_uri, None, None) in self.graph:
-            raise RDFExtractorError(f"Policy URI '{policy_uri}' not found in the provided graph.")
-
-        # 2. Extract Rules
+        self._debug(f"Starting extraction: {policy_name}")
+        
+        # 1. Validation
+        if (policy_uri, None, None) not in self.graph:
+            raise RDFExtractorError(
+                f"Policy URI '{policy_uri}' not found in the provided graph."
+            )
+        
+        # 2. Extract policy-level metadata (including inheritFrom)
+        policy_metadata = self._extract_policy_metadata(policy_uri)
+        
+        # 3. Extract Rules
         rules = []
         rule_counts = Counter()
         
@@ -82,38 +109,110 @@ class RDFExtractor:
             rules.append(self._extract_rule(duty_uri, PolicyRuleType.DUTY))
             rule_counts["Duty"] += 1
         
-        # 3. Empty Policy Check
+        # Obligations (alias for duty in some profiles)
+        for oblig_uri in self.graph.objects(policy_uri, ODRL.obligation):
+            rules.append(self._extract_rule(oblig_uri, PolicyRuleType.OBLIGATION))
+            rule_counts["Obligation"] += 1
+        
+        # 4. Empty Policy Check
         if not rules:
-            error_msg = f"Policy '{policy_name}' exists but contains no Rules (Permissions, Prohibitions, or Duties)."
+            error_msg = (
+                f"Policy '{policy_name}' exists but contains no Rules "
+                f"(Permissions, Prohibitions, or Duties)."
+            )
             logger.error(error_msg)
             raise RDFExtractorError(error_msg)
-
-        # 4. Debug Summary
-        if self.debug:
-            summary = (
-                f"Extraction Complete for '{policy_name}':\n"
-                f"    - Rules Found: {len(rules)} "
-                f"(Perm: {rule_counts['Permission']}, Prohib: {rule_counts['Prohibition']}, Duty: {rule_counts['Duty']})\n"
-                f"    - Unique Constraints: {len(self.constraints)}"
-            )
-            logger.info(summary)
         
+        # 5. Debug Summary
+        self._debug(f"Extraction complete for '{policy_name}'", {
+            'rules': len(rules),
+            'permissions': rule_counts['Permission'],
+            'prohibitions': rule_counts['Prohibition'],
+            'duties': rule_counts['Duty'],
+            'constraints': len(self.constraints),
+            'inheritFrom': policy_metadata.get('inheritFrom')
+        })
+        
+        # 6. Build Policy object
         return Policy(
             id=str(policy_uri),
             rules=rules,
             constraints=self.constraints,
-            metadata={'source': 'rdf', 'graph_size': len(self.graph)}
+            inherits_from=policy_metadata.get('inheritFrom'),
+            odrl_metadata=ODRLMetadata(),  # Policy-level metadata
+            metadata={
+                'source': 'rdf',
+                'graph_size': len(self.graph),
+                'policy_type': policy_metadata.get('type'),
+                'profile': policy_metadata.get('profile'),
+                'conflict': policy_metadata.get('conflict'),
+            }
         )
     
+    def _extract_policy_metadata(self, policy_uri: URIRef) -> Dict[str, Any]:
+        """
+        Extract policy-level metadata.
+        
+        Returns:
+            Dict with type, profile, inheritFrom, conflict
+        """
+        metadata = {
+            'type': None,
+            'profile': None,
+            'inheritFrom': None,
+            'conflict': None,
+        }
+        
+        # Get policy type
+        for policy_type in self.graph.objects(policy_uri, RDF.type):
+            type_str = str(policy_type)
+            if str(ODRL) in type_str:
+                metadata['type'] = self._uri_to_string(policy_type)
+                break
+        
+        # Get profile
+        for profile in self.graph.objects(policy_uri, ODRL.profile):
+            metadata['profile'] = str(profile)
+            break
+        
+        # Get inheritFrom (IMPORTANT for inheritance checking)
+        for parent in self.graph.objects(policy_uri, ODRL.inheritFrom):
+            metadata['inheritFrom'] = str(parent)
+            self._debug(f"Found inheritFrom: {parent}")
+            break
+        
+        # Get conflict resolution strategy
+        for conflict in self.graph.objects(policy_uri, ODRL.conflict):
+            metadata['conflict'] = self._uri_to_string(conflict)
+            break
+        
+        return metadata
+    
+    # ==========================================================================
+    # RULE EXTRACTION
+    # ==========================================================================
+    
     def _extract_rule(self, rule_uri: URIRef, rule_type: PolicyRuleType) -> PolicyRule:
-        """Extract a single rule"""
+        """Extract a single rule with full details"""
+        
         # Get action
         action_uri = self.graph.value(rule_uri, ODRL.action)
         action = self._uri_to_string(action_uri) if action_uri else "unknown"
         
-        if self.debug:
-            logger.debug(f"  > Processing {rule_type.name}: Action='{action}' (ID: {self._uri_to_string(rule_uri)})")
-
+        self._debug(f"Processing {rule_type.value}: action='{action}'")
+        
+        # Get target (asset)
+        target_uri = self.graph.value(rule_uri, ODRL.target)
+        target = str(target_uri) if target_uri else None
+        
+        # Get assigner
+        assigner_uri = self.graph.value(rule_uri, ODRL.assigner)
+        assigner = str(assigner_uri) if assigner_uri else None
+        
+        # Get assignee
+        assignee_uri = self.graph.value(rule_uri, ODRL.assignee)
+        assignee = str(assignee_uri) if assignee_uri else None
+        
         # Get constraint
         constraint_uri = self.graph.value(rule_uri, ODRL.constraint)
         constraint_id = None
@@ -124,21 +223,37 @@ class RDFExtractor:
                 constraint_id = str(constraint_uri)
             except Exception as e:
                 logger.error(f"Failed to parse constraint for rule {rule_uri}: {e}")
-                # We do not stop the whole policy, but this rule might be invalid. 
-                # Depending on strictness, we could raise here.
+                self._debug(f"Constraint extraction failed: {e}")
         
         return PolicyRule(
             id=str(rule_uri),
             rule_type=rule_type,
             action=action,
             constraint_id=constraint_id,
-            metadata={'action_uri': str(action_uri) if action_uri else None}
+            target=target,
+            assigner=assigner,
+            assignee=assignee,
+            odrl_metadata=ODRLMetadata(),
+            metadata={
+                'action_uri': str(action_uri) if action_uri else None,
+                'target_uri': str(target_uri) if target_uri else None,
+            }
         )
     
-    def _extract_constraint(self, constraint_uri: URIRef) -> str:
+    # ==========================================================================
+    # CONSTRAINT EXTRACTION
+    # ==========================================================================
+    
+    def _extract_constraint(self, constraint_uri: Union[URIRef, BNode]) -> str:
         """
         Extract constraint recursively.
-        Returns: Constraint ID
+        
+        Handles:
+        - Atomic constraints
+        - Composite constraints (AND, OR, XONE, ANDSEQUENCE)
+        
+        Returns:
+            Constraint ID
         """
         constraint_id = str(constraint_uri)
         
@@ -146,39 +261,68 @@ class RDFExtractor:
         if constraint_id in self.constraints:
             return constraint_id
         
-        # Check if composite (has AND/OR/XONE)
-        and_children = list(self.graph.objects(constraint_uri, ODRL['and']))
-        or_children = list(self.graph.objects(constraint_uri, ODRL['or']))
-        xone_children = list(self.graph.objects(constraint_uri, ODRL.xone))
+        # Check for logical operators (composite constraints)
+        logical_operators = [
+            ('and', ConstraintType.AND),
+            ('or', ConstraintType.OR),
+            ('xone', ConstraintType.XONE),
+            ('andSequence', ConstraintType.ANDSEQUENCE),  # ADD: Plan §2.1
+        ]
         
-        if and_children:
-            self._extract_composite(constraint_id, ConstraintType.AND, and_children)
-        elif or_children:
-            self._extract_composite(constraint_id, ConstraintType.OR, or_children)
-        elif xone_children:
-            self._extract_composite(constraint_id, ConstraintType.XONE, xone_children)
-        else:
-            # Atomic constraint
-            self._extract_atomic_constraint(constraint_uri, constraint_id)
+        for op_name, c_type in logical_operators:
+            children = list(self.graph.objects(constraint_uri, ODRL[op_name]))
+            if children:
+                self._extract_composite(constraint_id, c_type, children)
+                return constraint_id
         
+        # Atomic constraint
+        self._extract_atomic_constraint(constraint_uri, constraint_id)
         return constraint_id
-
-    def _extract_composite(self, constraint_id: str, c_type: ConstraintType, children_uris: List[URIRef]):
-        """Helper to extract composite constraints"""
-        if self.debug:
-            logger.debug(f"    + Composite Constraint ({c_type.name}) with {len(children_uris)} children")
-            
+    
+    def _extract_composite(
+        self, 
+        constraint_id: str, 
+        c_type: ConstraintType, 
+        children_uris: List[Union[URIRef, BNode]]
+    ):
+        """Extract composite constraint (AND/OR/XONE/ANDSEQUENCE)"""
+        
+        self._debug(f"Composite constraint ({c_type.value}) with {len(children_uris)} children")
+        
+        # Recursively extract children
         child_ids = [self._extract_constraint(c) for c in children_uris]
         
         self.constraints[constraint_id] = CompositeConstraint(
             id=constraint_id,
             constraint_type=c_type,
-            children=child_ids
+            children=child_ids,
+            odrl_metadata=ODRLMetadata(),
+            metadata={
+                'child_count': len(child_ids),
+                'is_sequential': c_type == ConstraintType.ANDSEQUENCE,
+            }
         )
     
-    def _extract_atomic_constraint(self, constraint_uri: URIRef, constraint_id: str):
-        """Extract atomic constraint components"""
-        # Get leftOperand
+    def _extract_atomic_constraint(
+        self, 
+        constraint_uri: Union[URIRef, BNode], 
+        constraint_id: str
+    ):
+        """
+        Extract atomic constraint with full ODRL metadata.
+        
+        Implementation Plan §2.3 Metadata:
+        - unit: Measurement unit
+        - unitOfCount: Multiplier entity
+        - status: Reference value
+        - dataType: Type annotation
+        """
+        
+        # ══════════════════════════════════════════════════════════════════════
+        # CORE CONSTRAINT COMPONENTS
+        # ══════════════════════════════════════════════════════════════════════
+        
+        # leftOperand (REQUIRED)
         left_operand_uri = self.graph.value(constraint_uri, ODRL.leftOperand)
         if not left_operand_uri:
             msg = f"Invalid Constraint {constraint_id}: Missing 'leftOperand'"
@@ -187,7 +331,7 @@ class RDFExtractor:
         
         left_operand = self._uri_to_string(left_operand_uri)
         
-        # Get operator
+        # operator (REQUIRED)
         operator_uri = self.graph.value(constraint_uri, ODRL.operator)
         if not operator_uri:
             msg = f"Invalid Constraint {constraint_id}: Missing 'operator'"
@@ -197,31 +341,71 @@ class RDFExtractor:
         operator_str = self._uri_to_string(operator_uri)
         operator = self._parse_operator(operator_str)
         
-        # Get rightOperand (can be value, value set, or interval)
-        right_value = self._extract_right_value(constraint_uri)
+        # rightOperand (usually required, can be value or reference)
+        right_value, right_datatype = self._extract_right_value(constraint_uri)
+        
         if right_value is None:
-             # Some ODRL profiles allow missing rightOperand for certain operators, but usually it's an error
-             logger.warning(f"Constraint {constraint_id} has no rightOperand. Assuming None.")
-
-        # Get unit (optional)
+            logger.warning(f"Constraint {constraint_id} has no rightOperand.")
+        
+        # ══════════════════════════════════════════════════════════════════════
+        # ODRL METADATA EXTRACTION (Plan §2.3)
+        # ══════════════════════════════════════════════════════════════════════
+        
+        # unit - Measurement unit (URI or literal)
         unit_uri = self.graph.value(constraint_uri, ODRL.unit)
         unit = self._uri_to_string(unit_uri) if unit_uri else None
         
-        # Get datatype (optional)
-        datatype_uri = self.graph.value(constraint_uri, ODRL.dataType)
-        datatype = self._uri_to_string(datatype_uri) if datatype_uri else None
+        # unitOfCount - Multiplier entity (e.g., "per user", "per device")
+        unit_of_count_uri = self.graph.value(constraint_uri, ODRL.unitOfCount)
+        unit_of_count = self._uri_to_string(unit_of_count_uri) if unit_of_count_uri else None
         
-        # Semantics
-        from ..semantics.constraint_types import get_operand_semantics, NormalizedValue
+        # status - Reference value for comparison baseline
+        status_value = self.graph.value(constraint_uri, ODRL.status)
+        status = self._literal_to_python(status_value) if status_value else None
+        
+        # dataType - Explicit type annotation (overrides inferred from literal)
+        datatype_uri = self.graph.value(constraint_uri, ODRL.dataType)
+        datatype = str(datatype_uri) if datatype_uri else right_datatype
+        
+        # rightOperandReference - Reference to another operand
+        right_ref_uri = self.graph.value(constraint_uri, ODRL.rightOperandReference)
+        right_operand_ref = str(right_ref_uri) if right_ref_uri else None
+        
+        # ══════════════════════════════════════════════════════════════════════
+        # BUILD CONSTRAINT OBJECT
+        # ══════════════════════════════════════════════════════════════════════
+        
+        # Get semantic info for operand
         semantics = get_operand_semantics(left_operand)
+        
+        # Create ODRL metadata object
+        odrl_metadata = ODRLMetadata(
+            unit=unit,
+            unit_of_count=unit_of_count,
+            status=status,
+            datatype=datatype,
+            operator_reference=right_operand_ref,
+        )
         
         # Create normalized value placeholder
         normalized_value = NormalizedValue(
             canonical_value=right_value,
             original_value=right_value,
             original_unit=unit,
-            canonical_unit='pending'
+            canonical_unit=semantics.base_unit if semantics else 'unknown',
+            metadata={
+                'datatype': datatype,
+                'needs_normalization': True,
+            }
         )
+        
+        # Debug output
+        self._debug(f"Atomic constraint: {left_operand} {operator_str} {right_value}", {
+            'unit': unit,
+            'unitOfCount': unit_of_count,
+            'status': status,
+            'dataType': datatype,
+        })
         
         self.constraints[constraint_id] = AtomicConstraint(
             id=constraint_id,
@@ -229,37 +413,92 @@ class RDFExtractor:
             operator=operator,
             right_value=normalized_value,
             semantics=semantics,
+            odrl_metadata=odrl_metadata,
             metadata={
-                'unit': unit,
-                'datatype': datatype,
-                'needs_normalization': True
+                'original_operator': operator_str,
+                'left_operand_uri': str(left_operand_uri),
+                'operator_uri': str(operator_uri),
             }
         )
-
-    def _extract_right_value(self, constraint_uri: URIRef) -> Any:
-        """Extract right operand value"""
+    
+    def _extract_right_value(
+        self, 
+        constraint_uri: Union[URIRef, BNode]
+    ) -> tuple[Any, Optional[str]]:
+        """
+        Extract right operand value and its datatype.
+        
+        Returns:
+            Tuple of (value, datatype_uri)
+        """
+        datatype = None
+        
         # Try rightOperand (single value)
         right_operand = self.graph.value(constraint_uri, ODRL.rightOperand)
         if right_operand:
-            return self._literal_to_python(right_operand)
+            # Capture datatype from literal
+            if isinstance(right_operand, Literal) and right_operand.datatype:
+                datatype = str(right_operand.datatype)
+            return self._literal_to_python(right_operand), datatype
         
-        # Try rightOperandReference (set of values)
-        right_ref = list(self.graph.objects(constraint_uri, ODRL.rightOperandReference))
-        if right_ref:
-            return [self._literal_to_python(v) for v in right_ref]
+        # Try rightOperandReference (set of values via reference)
+        right_refs = list(self.graph.objects(constraint_uri, ODRL.rightOperandReference))
+        if right_refs:
+            values = [self._literal_to_python(v) for v in right_refs]
+            return values if len(values) > 1 else values[0], None
         
-        return None
+        # Try to find values in RDF list
+        # Some ODRL uses rdf:List for multiple values
+        for right_list in self.graph.objects(constraint_uri, ODRL.rightOperand):
+            if isinstance(right_list, BNode):
+                items = self._extract_rdf_list(right_list)
+                if items:
+                    return items, None
+        
+        return None, None
     
-    def _uri_to_string(self, uri: Union[URIRef, Literal]) -> str:
-        """Convert URI to short string (last component)"""
-        if not uri:
+    def _extract_rdf_list(self, node: BNode) -> Optional[List]:
+        """Extract items from an RDF list (rdf:first/rdf:rest)"""
+        items = []
+        current = node
+        RDF_NS = Namespace("http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+        
+        max_iterations = 100  # Prevent infinite loops
+        iteration = 0
+        
+        while current and current != RDF_NS.nil and iteration < max_iterations:
+            iteration += 1
+            
+            # Get first element
+            first = self.graph.value(current, RDF_NS.first)
+            if first is not None:
+                items.append(self._literal_to_python(first))
+            
+            # Get rest
+            rest = self.graph.value(current, RDF_NS.rest)
+            if rest is None or rest == RDF_NS.nil:
+                break
+            
+            current = rest
+        
+        return items if items else None
+    
+    # ==========================================================================
+    # HELPER METHODS
+    # ==========================================================================
+    
+    def _uri_to_string(self, uri: Union[URIRef, Literal, BNode, None]) -> str:
+        """Convert URI to short string (local name)"""
+        if uri is None:
             return ""
         if isinstance(uri, Literal):
+            return str(uri)
+        if isinstance(uri, BNode):
             return str(uri)
         
         uri_str = str(uri)
         
-        # Extract last component after # or /
+        # Extract local name after # or /
         if '#' in uri_str:
             return uri_str.split('#')[-1]
         elif '/' in uri_str:
@@ -267,53 +506,120 @@ class RDFExtractor:
         
         return uri_str
     
-    def _literal_to_python(self, literal: Union[Literal, URIRef]) -> Any:
+    def _literal_to_python(self, literal: Union[Literal, URIRef, BNode, None]) -> Any:
         """Convert RDF literal to Python value"""
+        if literal is None:
+            return None
+        
         if isinstance(literal, URIRef):
+            return str(literal)
+        
+        if isinstance(literal, BNode):
+            # Check if it's an RDF list
+            items = self._extract_rdf_list(literal)
+            if items:
+                return items
             return str(literal)
         
         if isinstance(literal, Literal):
             # Try to infer Python type from XSD datatype
             if literal.datatype:
-                datatype_str = str(literal.datatype)
+                datatype_str = str(literal.datatype).lower()
                 
                 if 'integer' in datatype_str or 'int' in datatype_str:
-                    return int(literal)
+                    try:
+                        return int(literal)
+                    except (ValueError, TypeError):
+                        pass
                 elif 'decimal' in datatype_str or 'float' in datatype_str or 'double' in datatype_str:
-                    return float(literal)
+                    try:
+                        return float(literal)
+                    except (ValueError, TypeError):
+                        pass
                 elif 'boolean' in datatype_str:
-                    return bool(literal)
+                    return str(literal).lower() in ('true', '1', 'yes')
+                elif 'date' in datatype_str:
+                    return str(literal)  # Keep as ISO string
             
             # Try parsing as number
+            val_str = str(literal)
             try:
-                return int(literal)
+                if '.' in val_str:
+                    return float(val_str)
+                return int(val_str)
             except ValueError:
-                try:
-                    return float(literal)
-                except ValueError:
-                    return str(literal)
+                return val_str
         
         return str(literal)
     
     def _parse_operator(self, operator_str: str) -> OperatorType:
         """Parse operator string to enum"""
         operator_map = {
+            # Relational
             'eq': OperatorType.EQ,
             'neq': OperatorType.NEQ,
             'lt': OperatorType.LT,
             'lteq': OperatorType.LTEQ,
             'gt': OperatorType.GT,
             'gteq': OperatorType.GTEQ,
+            # Set-based
             'isAnyOf': OperatorType.IS_ANY_OF,
+            'isanyof': OperatorType.IS_ANY_OF,  # Case variants
             'isAllOf': OperatorType.IS_ALL_OF,
+            'isallof': OperatorType.IS_ALL_OF,
             'isNoneOf': OperatorType.IS_NONE_OF,
+            'isnoneof': OperatorType.IS_NONE_OF,
+            # Taxonomic
             'hasPart': OperatorType.HAS_PART,
+            'haspart': OperatorType.HAS_PART,
             'isPartOf': OperatorType.IS_PART_OF,
+            'ispartof': OperatorType.IS_PART_OF,
             'isA': OperatorType.IS_A,
+            'isa': OperatorType.IS_A,
         }
         
         op = operator_map.get(operator_str)
         if not op:
             logger.warning(f"Unknown operator '{operator_str}', defaulting to EQ")
+            self._debug(f"Unknown operator: {operator_str}")
             return OperatorType.EQ
         return op
+    
+    # ==========================================================================
+    # DEBUG METHODS
+    # ==========================================================================
+    
+    def _debug(self, message: str, data: Any = None):
+        """Print debug message if debug mode enabled"""
+        if self.debug:
+            debug_print("EXTRACTOR", message, data)
+            logger.debug(f"[EXTRACTOR] {message}")
+    
+    def print_extraction_summary(self):
+        """Print a summary of extracted constraints"""
+        if not self.debug:
+            return
+        
+        print("\n" + "=" * 70)
+        print("📊 EXTRACTION SUMMARY")
+        print("=" * 70)
+        
+        atomic_count = sum(1 for c in self.constraints.values() 
+                         if isinstance(c, AtomicConstraint))
+        composite_count = len(self.constraints) - atomic_count
+        
+        print(f"  Total constraints: {len(self.constraints)}")
+        print(f"  Atomic: {atomic_count}")
+        print(f"  Composite: {composite_count}")
+        
+        # Show metadata stats
+        with_unit = sum(1 for c in self.constraints.values() 
+                       if isinstance(c, AtomicConstraint) and c.odrl_metadata.unit)
+        with_uoc = sum(1 for c in self.constraints.values() 
+                      if isinstance(c, AtomicConstraint) and c.odrl_metadata.unit_of_count)
+        
+        print(f"\n  Metadata coverage:")
+        print(f"    With unit: {with_unit}")
+        print(f"    With unitOfCount: {with_uoc}")
+        
+        print("=" * 70 + "\n")

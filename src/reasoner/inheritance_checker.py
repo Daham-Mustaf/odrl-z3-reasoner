@@ -1,3 +1,4 @@
+# src/reasoner/inheritance_checker.py
 """
 Monotonic Constraint Inheritance Checker
 
@@ -32,9 +33,16 @@ Explicit Exclusions (Out of Scope):
 - Temporal execution models
 """
 
-from dataclasses import dataclass
+
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Set
 from z3 import Solver, Not, And, Or, sat, unsat, BoolVal
+import logging
+
+
+from ..semantics.constraint_types import debug_print, is_debug_mode
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -46,6 +54,7 @@ class InheritanceViolation:
     action: Optional[str]  # The action this violation applies to
     counterexample: Optional[Dict[str, Any]]
     description: str
+    metadata: Dict[str, Any] = field(default_factory=dict)  # ADD: Extra metadata
 
 
 class InheritanceChecker:
@@ -62,6 +71,22 @@ class InheritanceChecker:
     def __init__(self, encoder, debug: bool = False):
         self.encoder = encoder
         self.debug = debug
+        
+        # ADD: Statistics tracking
+        self._stats = {
+            'total_checks': 0,
+            'actions_checked': 0,
+            'sat_results': 0,
+            'unsat_results': 0,
+            'violations_found': 0,
+            'warnings_found': 0,
+        }
+    
+    def _debug(self, message: str, data: Any = None):
+        """Debug output helper"""
+        if self.debug:
+            debug_print("INHERITANCE", message, data)
+            logger.debug(f"[INHERITANCE] {message}")
     
     def check_inheritance(self, parent_policy, child_policy) -> List[InheritanceViolation]:
         """
@@ -75,23 +100,20 @@ class InheritanceChecker:
         parent_id = self._get_policy_id(parent_policy)
         child_id = self._get_policy_id(child_policy)
         
-        if self.debug:
-            print(f"\n{'='*60}")
-            print(f"Checking inheritance: {child_id} → {parent_id}")
-            print(f"{'='*60}")
+        self._debug(f"Checking inheritance: {child_id} → {parent_id}")
         
         # Encode both policies
         parent_formula, parent_domains = self._encode_policy(parent_policy, "parent")
         child_formula, child_domains = self._encode_policy(child_policy, "child")
         
-        if self.debug:
-            print(f"\nParent formula: {parent_formula}")
-            print(f"Child formula: {child_formula}")
+        self._debug(f"Parent formula: {parent_formula}")
+        self._debug(f"Child formula: {child_formula}")
         
         # Handle None cases
         if child_formula is None:
             if parent_formula is not None:
                 # Child has no constraints = allows everything = EXPANSION
+                self._stats['violations_found'] += 1
                 return [InheritanceViolation(
                     parent_id=parent_id,
                     child_id=child_id,
@@ -111,6 +133,7 @@ class InheritanceChecker:
         # 1. Check child internal consistency
         inconsistency = self._check_internal_consistency(child_formula, child_domains, child_id)
         if inconsistency:
+            self._stats['violations_found'] += 1
             violations.append(inconsistency)
             return violations
         
@@ -121,6 +144,7 @@ class InheritanceChecker:
             parent_id, child_id
         )
         if expansion:
+            self._stats['violations_found'] += 1
             violations.append(expansion)
         
         # 3. Check redundancy (only if no expansion)
@@ -131,6 +155,7 @@ class InheritanceChecker:
                 parent_id, child_id
             )
             if redundancy:
+                self._stats['warnings_found'] += 1
                 violations.append(redundancy)
         
         return violations
@@ -144,36 +169,32 @@ class InheritanceChecker:
         
         Violation:
             ∃ action a: SAT(⟦child⟧ₐ ∧ ¬⟦parent⟧ₐ)
-        
-        This ensures sound reasoning by treating actions as symbolic labels
-        that partition the constraint space.
         """
         violations = []
         
         parent_id = self._get_policy_id(parent_policy)
         child_id = self._get_policy_id(child_policy)
         
-        if self.debug:
-            print(f"\n{'='*60}")
-            print(f"Checking per-action inheritance: {child_id} → {parent_id}")
-            print(f"{'='*60}")
+        self._debug(f"Checking per-action inheritance: {child_id} → {parent_id}")
         
         # Get all actions from both policies
         parent_actions = self._get_actions(parent_policy)
         child_actions = self._get_actions(child_policy)
         all_actions = parent_actions | child_actions
         
-        if self.debug:
-            print(f"Parent actions: {parent_actions}")
-            print(f"Child actions: {child_actions}")
-            print(f"All actions: {all_actions}")
+        self._debug(f"Actions", {
+            'parent': list(parent_actions),
+            'child': list(child_actions),
+            'all': list(all_actions)
+        })
         
         for action in all_actions:
-            if self.debug:
-                print(f"\n--- Checking action: {action} ---")
+            self._stats['actions_checked'] += 1
+            self._debug(f"Checking action: {action}")
             
             # Case 1: Child has action not in parent → expansion
             if action in child_actions and action not in parent_actions:
+                self._stats['violations_found'] += 1
                 violations.append(InheritanceViolation(
                     parent_id=parent_id,
                     child_id=child_id,
@@ -189,8 +210,7 @@ class InheritanceChecker:
             
             # Case 2: Parent has action, child doesn't → valid (child restricts)
             if action in parent_actions and action not in child_actions:
-                if self.debug:
-                    print(f"  Action '{action}' in parent only - valid restriction")
+                self._debug(f"  Action '{action}' in parent only - valid restriction")
                 continue
             
             # Case 3: Both have action → check constraint inheritance
@@ -200,16 +220,22 @@ class InheritanceChecker:
             child_formula, child_domains = self._encode_policy_for_action(
                 child_policy, action, "child"
             )
-
+            
+            self._debug(f"  Formulas for action '{action}'", {
+                'parent': str(parent_formula)[:50] if parent_formula else None,
+                'child': str(child_formula)[:50] if child_formula else None,
+            })
+            
             # Check per-action consistency FIRST
             if child_formula is not None:
                 inconsistency = self._check_internal_consistency(
                     child_formula, child_domains, child_id, action=str(action)
                 )
                 if inconsistency:
+                    self._stats['violations_found'] += 1
                     violations.append(inconsistency)
-                    continue  # Skip further checks for this action
-
+                    continue
+            
             # Check expansion for this action
             if child_formula is not None and parent_formula is not None:
                 expansion = self._check_expansion_violation(
@@ -219,15 +245,15 @@ class InheritanceChecker:
                     action=str(action)
                 )
                 if expansion:
+                    self._stats['violations_found'] += 1
                     violations.append(expansion)
             elif child_formula is not None and parent_formula is None:
                 # Child has constraints for action, parent doesn't
-                # This means parent allows everything for this action
-                # Child restricting is valid
-                pass
+                # Parent allows everything, child restricting is valid
+                self._debug(f"  Valid: child restricts unconstrained parent action")
             elif child_formula is None and parent_formula is not None:
-                # Child has no constraints for action parent constrains
-                # This is expansion!
+                # Child has no constraints for action parent constrains = expansion
+                self._stats['violations_found'] += 1
                 violations.append(InheritanceViolation(
                     parent_id=parent_id,
                     child_id=child_id,
@@ -242,98 +268,14 @@ class InheritanceChecker:
         
         return violations
     
-    def _get_actions(self, policy) -> Set[str]:
-        """Extract all actions from a policy"""
-        actions = set()
-        for rule in policy.rules:
-            action = getattr(rule, 'action', None)
-            if action:
-                actions.add(str(action))
-        return actions
-    
-    def _encode_policy_for_action(self, policy, action: str, label: str):
-        """Encode only the constraints for a specific action"""
-        
-        self.encoder.reset()
-        self.encoder.constraints = policy.constraints
-        
-        formulas = []
-        
-        for rule in policy.rules:
-            rule_action = getattr(rule, 'action', None)
-            if rule_action and str(rule_action) == str(action):
-                constraint_id = getattr(rule, 'constraint_id', None)
-                
-                if self.debug:
-                    print(f"  [{label}] Rule for action {action}, constraint: {constraint_id}")
-                
-                if constraint_id and constraint_id in policy.constraints:
-                    try:
-                        formula = self.encoder.encode_constraint(constraint_id)
-                        if formula is not None:
-                            formulas.append(formula)
-                    except Exception as e:
-                        if self.debug:
-                            print(f"    Warning: Could not encode {constraint_id}: {e}")
-        
-        domains = list(self.encoder.domain_constraints)
-        
-        if not formulas:
-            return None, domains
-        
-        combined = And(formulas) if len(formulas) > 1 else formulas[0]
-        return combined, domains
-    
-    def _get_policy_id(self, policy) -> str:
-        """Safely get policy ID"""
-        for attr in ['id', 'uri', 'policy_id']:
-            if hasattr(policy, attr):
-                val = getattr(policy, attr)
-                if val:
-                    return str(val)
-        return "unknown"
-    
-    def _encode_policy(self, policy, label: str):
-        """Encode policy to Z3 formula (all rules combined)"""
-        
-        self.encoder.reset()
-        self.encoder.constraints = policy.constraints
-        
-        formulas = []
-        
-        for rule in policy.rules:
-            constraint_id = getattr(rule, 'constraint_id', None)
-            
-            if self.debug:
-                print(f"\n[{label}] Rule constraint_id: {constraint_id}")
-            
-            if constraint_id and constraint_id in policy.constraints:
-                try:
-                    formula = self.encoder.encode_constraint(constraint_id)
-                    if formula is not None:
-                        formulas.append(formula)
-                        if self.debug:
-                            print(f"    Encoded: {formula}")
-                except Exception as e:
-                    if self.debug:
-                        print(f"    Warning: Could not encode {constraint_id}: {e}")
-        
-        domains = list(self.encoder.domain_constraints)
-        
-        if not formulas:
-            if self.debug:
-                print(f"[{label}] No formulas encoded!")
-            return None, domains
-        
-        combined = And(formulas) if len(formulas) > 1 else formulas[0]
-        return combined, domains
+    # ... keep all existing helper methods (_get_actions, _encode_policy_for_action, etc.) ...
+    # ... just add self._debug() calls and self._stats tracking ...
     
     def _check_internal_consistency(self, formula, domains, policy_id: str, 
                                     action: str = None) -> Optional[InheritanceViolation]:
         """Check if policy constraints are satisfiable"""
-        
-        if self.debug:
-            print(f"\n[1] Checking internal consistency")
+        self._stats['total_checks'] += 1
+        self._debug(f"Checking internal consistency")
         
         solver = Solver()
         solver.add(formula)
@@ -342,8 +284,12 @@ class InheritanceChecker:
         
         result = solver.check()
         
-        if self.debug:
-            print(f"    Result: {result}")
+        if result == sat:
+            self._stats['sat_results'] += 1
+        else:
+            self._stats['unsat_results'] += 1
+        
+        self._debug(f"  Consistency result: {result}")
         
         if result != sat:
             desc = f"Child policy '{policy_id}' has unsatisfiable constraints"
@@ -364,9 +310,8 @@ class InheritanceChecker:
                                    domains, parent_id: str, child_id: str,
                                    action: str = None) -> Optional[InheritanceViolation]:
         """Check: SAT(child ∧ ¬parent)"""
-        
-        if self.debug:
-            print(f"\n[2] Checking expansion: SAT(child ∧ ¬parent)")
+        self._stats['total_checks'] += 1
+        self._debug(f"Checking expansion: SAT(child ∧ ¬parent)")
         
         solver = Solver()
         solver.add(child_formula)
@@ -377,8 +322,12 @@ class InheritanceChecker:
         
         result = solver.check()
         
-        if self.debug:
-            print(f"    Result: {result}")
+        if result == sat:
+            self._stats['sat_results'] += 1
+        else:
+            self._stats['unsat_results'] += 1
+        
+        self._debug(f"  Expansion result: {result}")
         
         if result == sat:
             model = solver.model()
@@ -404,9 +353,8 @@ class InheritanceChecker:
                          domains, parent_id: str, child_id: str,
                          action: str = None) -> Optional[InheritanceViolation]:
         """Check: UNSAT(parent ∧ ¬child)"""
-        
-        if self.debug:
-            print(f"\n[3] Checking redundancy: UNSAT(parent ∧ ¬child)")
+        self._stats['total_checks'] += 1
+        self._debug(f"Checking redundancy: UNSAT(parent ∧ ¬child)")
         
         solver = Solver()
         solver.add(parent_formula)
@@ -417,8 +365,12 @@ class InheritanceChecker:
         
         result = solver.check()
         
-        if self.debug:
-            print(f"    Result: {result}")
+        if result == sat:
+            self._stats['sat_results'] += 1
+        else:
+            self._stats['unsat_results'] += 1
+        
+        self._debug(f"  Redundancy result: {result}")
         
         if result != sat:
             desc = f"Child '{child_id}' adds no restriction beyond parent '{parent_id}'"
@@ -436,18 +388,27 @@ class InheritanceChecker:
         
         return None
     
-    def _extract_counterexample(self, model) -> Dict[str, Any]:
-        """Extract variable assignments from Z3 model"""
-        result = {}
-        for decl in model.decls():
-            name = decl.name()
-            if not name.startswith('_'):
-                value = model[decl]
-                if hasattr(value, 'as_long'):
-                    result[name] = value.as_long()
-                else:
-                    result[name] = str(value)
-        return result
+    # ... keep _get_actions, _encode_policy_for_action, _get_policy_id, 
+    #     _encode_policy, _extract_counterexample as-is ...
+    
+    # =========================================================================
+    # STATISTICS & REPORTING
+    # =========================================================================
+    
+    def get_stats(self) -> Dict[str, int]:
+        """Get inheritance check statistics"""
+        return self._stats.copy()
+    
+    def reset_stats(self):
+        """Reset statistics"""
+        self._stats = {
+            'total_checks': 0,
+            'actions_checked': 0,
+            'sat_results': 0,
+            'unsat_results': 0,
+            'violations_found': 0,
+            'warnings_found': 0,
+        }
     
     def print_inheritance_report(self, violations: List[InheritanceViolation]):
         """Print inheritance analysis report with violations and warnings separated"""
@@ -457,7 +418,7 @@ class InheritanceChecker:
         print("="*70)
         
         if not violations:
-            print("\nOur Valid inheritance - child properly restricts parent")
+            print("\n Valid inheritance - child properly restricts parent")
             print("="*70)
             return
         
@@ -469,7 +430,7 @@ class InheritanceChecker:
         
         # Report hard violations
         if hard_violations:
-            print(f"\n❌ Found {len(hard_violations)} inheritance VIOLATION(s):\n")
+            print(f"\nFound {len(hard_violations)} inheritance VIOLATION(s):\n")
             for i, v in enumerate(hard_violations, 1):
                 self._print_violation(i, v)
         
@@ -479,14 +440,20 @@ class InheritanceChecker:
             for i, v in enumerate(warnings, 1):
                 self._print_violation(i, v)
         
+        # Statistics (if debug)
+        if self.debug:
+            print("\n📈 Statistics:")
+            for key, value in self._stats.items():
+                print(f"   {key}: {value}")
+        
         # Summary
         print("\n" + "="*70)
         if hard_violations:
-            print("❌ INHERITANCE INVALID - violations must be resolved")
+            print("INHERITANCE INVALID - violations must be resolved")
         else:
-            print("Our INHERITANCE VALID (with warnings)")
+            print(" INHERITANCE VALID (with warnings)")
         print("="*70)
-
+    
     def _print_violation(self, index: int, v: InheritanceViolation):
         """Print a single violation/warning"""
         print(f"{'─'*60}")

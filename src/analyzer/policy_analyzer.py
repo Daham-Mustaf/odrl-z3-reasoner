@@ -1,16 +1,35 @@
 # src/analyzer/policy_analyzer.py
 """
-Policy Analyzer: Dynamic explanation of policy structure and conflicts.
+Policy Analyzer: Detailed explanation of policy structure and conflicts.
+
+Purpose:
+- Provides detailed, explanatory output for --dev mode
+- Generates fix suggestions for conflicts
+- Complements the clean report_generator.py output
+
+Use Cases:
+- Understanding WHY conflicts exist
+- Getting actionable fix suggestions
+- Debugging policy issues
+- Learning about ODRL constraint semantics
 """
 
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 
 from ..semantics.constraint_types import (
-    AtomicConstraint, CompositeConstraint, ConstraintType, OperatorType
+    AtomicConstraint, CompositeConstraint, ConstraintType, OperatorType,
+    PolicyRuleType, Policy, PolicyRule, ODRLMetadata,
+    debug_print, is_debug_mode
 )
-from ..reasoner.conflict_detector import Conflict
+from ..reasoner.conflict_detector import Conflict, ConflictSeverity
+
+
+# =============================================================================
+# DATA STRUCTURES
+# =============================================================================
 
 @dataclass
 class RuleInfo:
@@ -20,19 +39,68 @@ class RuleInfo:
     action: str
     constraint_ids: List[str]
     constraint_summary: str
+    target: Optional[str] = None
+    assigner: Optional[str] = None
+    assignee: Optional[str] = None
 
-@dataclass 
+
+@dataclass
+class ConstraintDetail:
+    """Detailed constraint information"""
+    constraint_id: str
+    constraint_type: str  # 'atomic', 'and', 'or', 'xone', 'andSequence'
+    human_readable: str
+    left_operand: Optional[str] = None
+    operator: Optional[str] = None
+    right_value: Optional[str] = None
+    unit: Optional[str] = None
+    unit_of_count: Optional[str] = None
+    domain: Optional[str] = None
+    children: List[str] = field(default_factory=list)
+
+
+@dataclass
 class PolicyAnalysis:
-    """Complete policy analysis"""
+    """Complete policy analysis result"""
     policy_id: str = ""
+    policy_type: str = "Policy"
+    
+    # Rules by type
     permissions: List[RuleInfo] = field(default_factory=list)
     prohibitions: List[RuleInfo] = field(default_factory=list)
+    duties: List[RuleInfo] = field(default_factory=list)
+    
+    # Constraints
     all_constraints: Dict[str, str] = field(default_factory=dict)
+    constraint_details: Dict[str, ConstraintDetail] = field(default_factory=dict)
+    
+    # Conflicts
     conflicts: List[Conflict] = field(default_factory=list)
     explanations: List[str] = field(default_factory=list)
+    
+    # Statistics
+    stats: Dict[str, int] = field(default_factory=dict)
+    
+    # Inheritance
+    inherits_from: Optional[str] = None
+
+
+# =============================================================================
+# POLICY ANALYZER
+# =============================================================================
 
 class PolicyAnalyzer:
-    """Analyze and explain ODRL policies dynamically"""
+    """
+    Analyze and explain ODRL policies with detailed output.
+    
+    This analyzer provides:
+    - Human-readable constraint expressions
+    - Detailed conflict explanations
+    - Actionable fix suggestions
+    - ODRL metadata display (unit, unitOfCount, status, dataType)
+    
+    Use for --dev mode and debugging.
+    """
     
     # Operator symbols for display
     OP_SYMBOLS = {
@@ -50,113 +118,180 @@ class PolicyAnalyzer:
         OperatorType.IS_A: 'is-a',
     }
     
+    # Constraint type display
+    COMPOSITE_SYMBOLS = {
+        ConstraintType.AND: 'AND',
+        ConstraintType.OR: 'OR',
+        ConstraintType.XONE: 'XONE',
+        ConstraintType.ANDSEQUENCE: 'SEQ',
+    }
+    
     def __init__(self, debug: bool = False):
         self.debug = debug
     
-    def analyze(self, policy, conflicts: List[Conflict]) -> PolicyAnalysis:
-        """Generate complete policy analysis"""
+    def _debug(self, message: str, data: Any = None):
+        """Debug output"""
+        if self.debug:
+            debug_print("ANALYZER", message, data)
+    
+    # =========================================================================
+    # MAIN ANALYSIS
+    # =========================================================================
+    
+    def analyze(self, policy: Policy, conflicts: List[Conflict]) -> PolicyAnalysis:
+        """
+        Generate complete policy analysis.
         
+        Args:
+            policy: Policy object to analyze
+            conflicts: List of detected conflicts
+            
+        Returns:
+            PolicyAnalysis with all details
+        """
+        self._debug(f"Analyzing policy: {policy.id}")
+        
+        # Categorize rules
         permissions = []
         prohibitions = []
+        duties = []
         
         for rule in policy.rules:
-            cids = self._get_constraint_ids(rule)
+            rule_info = self._analyze_rule(rule, policy.constraints)
             
-            rule_info = RuleInfo(
-                rule_id=self._safe_get(rule, ['id', 'rule_id'], 'unknown'),
-                rule_type=self._safe_get(rule, ['rule_type'], 'unknown'),
-                action=self._safe_get(rule, ['action'], 'unknown'),
-                constraint_ids=cids,
-                constraint_summary=self._summarize_constraints(cids, policy.constraints)
-            )
-            
-            if rule_info.rule_type == 'permission':
+            rule_type = self._get_rule_type(rule)
+            if rule_type == 'permission':
                 permissions.append(rule_info)
-            else:
+            elif rule_type == 'prohibition':
                 prohibitions.append(rule_info)
+            elif rule_type in ('duty', 'obligation'):
+                duties.append(rule_info)
         
-        # Generate constraint summaries
+        # Analyze constraints
         all_constraints = {}
+        constraint_details = {}
+        
         for cid, constraint in policy.constraints.items():
             all_constraints[cid] = self._constraint_to_human(constraint, policy.constraints)
+            constraint_details[cid] = self._extract_constraint_detail(constraint, policy.constraints)
         
-        # Generate dynamic explanations
-        explanations = self._generate_dynamic_explanations(
-            conflicts, policy, permissions, prohibitions, all_constraints
-        )
+        # Generate explanations
+        explanations = []
+        for i, conflict in enumerate(conflicts, 1):
+            explanation = self._explain_conflict(
+                i, conflict, policy, permissions, prohibitions, duties, all_constraints
+            )
+            explanations.append(explanation)
+        
+        # Calculate statistics
+        stats = self._calculate_stats(policy, conflicts)
         
         return PolicyAnalysis(
-            policy_id=self._safe_get(policy, ['uri', 'id', 'policy_id'], 'unknown'),
+            policy_id=policy.id,
+            policy_type=policy.metadata.get('policy_type', 'Policy'),
             permissions=permissions,
             prohibitions=prohibitions,
+            duties=duties,
             all_constraints=all_constraints,
+            constraint_details=constraint_details,
             conflicts=conflicts,
-            explanations=explanations
+            explanations=explanations,
+            stats=stats,
+            inherits_from=getattr(policy, 'inherits_from', None),
         )
     
-    def _safe_get(self, obj, attrs: List[str], default: str) -> str:
-        """Safely get attribute from object"""
-        for attr in attrs:
-            if hasattr(obj, attr):
-                val = getattr(obj, attr)
-                if val is not None:
-                    return str(val)
-        return default
+    # =========================================================================
+    # RULE ANALYSIS
+    # =========================================================================
+    
+    def _analyze_rule(self, rule: PolicyRule, constraints: Dict) -> RuleInfo:
+        """Analyze a single rule"""
+        constraint_ids = self._get_constraint_ids(rule)
+        
+        return RuleInfo(
+            rule_id=rule.id,
+            rule_type=self._get_rule_type(rule),
+            action=rule.action or 'unknown',
+            constraint_ids=constraint_ids,
+            constraint_summary=self._summarize_constraints(constraint_ids, constraints),
+            target=getattr(rule, 'target', None),
+            assigner=getattr(rule, 'assigner', None),
+            assignee=getattr(rule, 'assignee', None),
+        )
+    
+    def _get_rule_type(self, rule) -> str:
+        """Get rule type as string"""
+        rule_type = getattr(rule, 'rule_type', None)
+        if rule_type is None:
+            return 'unknown'
+        if isinstance(rule_type, PolicyRuleType):
+            return rule_type.value
+        return str(rule_type).lower()
     
     def _get_constraint_ids(self, rule) -> List[str]:
         """Get constraint IDs from rule"""
         if hasattr(rule, 'constraint_ids') and rule.constraint_ids:
-            return rule.constraint_ids
+            return list(rule.constraint_ids)
         elif hasattr(rule, 'constraint_id') and rule.constraint_id:
             return [rule.constraint_id]
         return []
     
-    def _format_value(self, value, unit: Optional[str] = None) -> str:
-        """Format value for display based on type"""
-        
-        # Timestamp to datetime
-        if unit == 'seconds_since_epoch':
-            try:
-                dt = datetime.fromtimestamp(int(value))
-                return dt.strftime('%Y-%m-%d %H:%M:%S')
-            except:
-                pass
-        
-        # Duration in seconds
-        if unit == 'seconds' and isinstance(value, (int, float)):
-            if value >= 86400:
-                return f"{value/86400:.1f} days"
-            elif value >= 3600:
-                return f"{value/3600:.1f} hours"
-            elif value >= 60:
-                return f"{value/60:.1f} minutes"
-            else:
-                return f"{value} seconds"
-        
-        # Bytes
-        if unit == 'bytes' and isinstance(value, (int, float)):
-            if value >= 1e9:
-                return f"{value/1e9:.2f} GB"
-            elif value >= 1e6:
-                return f"{value/1e6:.2f} MB"
-            elif value >= 1e3:
-                return f"{value/1e3:.2f} KB"
-            else:
-                return f"{value} bytes"
-        
-        # Currency (cents to dollars)
-        if unit and 'cent' in unit.lower():
-            return f"${value/100:.2f}"
-        
-        # List of values
-        if isinstance(value, list):
-            return f"[{', '.join(str(v) for v in value)}]"
-        
-        return str(value)
+    # =========================================================================
+    # CONSTRAINT ANALYSIS
+    # =========================================================================
     
-    def _constraint_to_human(self, 
-                            constraint: Union[AtomicConstraint, CompositeConstraint],
-                            all_constraints: Dict) -> str:
+    def _extract_constraint_detail(
+        self, 
+        constraint: Union[AtomicConstraint, CompositeConstraint],
+        all_constraints: Dict
+    ) -> ConstraintDetail:
+        """Extract detailed constraint information"""
+        
+        if isinstance(constraint, AtomicConstraint):
+            # Get ODRL metadata
+            odrl_meta = getattr(constraint, 'odrl_metadata', None) or ODRLMetadata()
+            
+            # Get unit from metadata or right_value
+            unit = odrl_meta.unit
+            if not unit and hasattr(constraint.right_value, 'canonical_unit'):
+                unit = constraint.right_value.canonical_unit
+            
+            return ConstraintDetail(
+                constraint_id=constraint.id,
+                constraint_type='atomic',
+                human_readable=self._constraint_to_human(constraint, all_constraints),
+                left_operand=constraint.left_operand,
+                operator=self.OP_SYMBOLS.get(constraint.operator, str(constraint.operator)),
+                right_value=str(constraint.right_value.canonical_value),
+                unit=unit,
+                unit_of_count=odrl_meta.unit_of_count,
+                domain=constraint.semantics.domain.value if constraint.semantics else None,
+            )
+        
+        elif isinstance(constraint, CompositeConstraint):
+            type_name = self.COMPOSITE_SYMBOLS.get(
+                constraint.constraint_type, 
+                str(constraint.constraint_type)
+            )
+            
+            return ConstraintDetail(
+                constraint_id=constraint.id,
+                constraint_type=type_name.lower(),
+                human_readable=self._constraint_to_human(constraint, all_constraints),
+                children=list(constraint.children),
+            )
+        
+        return ConstraintDetail(
+            constraint_id=str(constraint),
+            constraint_type='unknown',
+            human_readable=str(constraint),
+        )
+    
+    def _constraint_to_human(
+        self, 
+        constraint: Union[AtomicConstraint, CompositeConstraint],
+        all_constraints: Dict
+    ) -> str:
         """Convert constraint to human-readable string"""
         
         if isinstance(constraint, AtomicConstraint):
@@ -169,7 +304,17 @@ class PolicyAnalyzer:
             
             value = self._format_value(constraint.right_value.canonical_value, unit)
             
-            return f"{constraint.left_operand} {op_symbol} {value}"
+            # Add unit suffix if present in ODRL metadata
+            odrl_meta = getattr(constraint, 'odrl_metadata', None)
+            suffix = ""
+            if odrl_meta:
+                if odrl_meta.unit:
+                    unit_name = self._extract_local_name(odrl_meta.unit)
+                    suffix += f" [{unit_name}]"
+                if odrl_meta.unit_of_count:
+                    suffix += f" per {odrl_meta.unit_of_count}"
+            
+            return f"{constraint.left_operand} {op_symbol} {value}{suffix}"
         
         elif isinstance(constraint, CompositeConstraint):
             children_str = []
@@ -181,7 +326,7 @@ class PolicyAnalyzer:
                     else:
                         children_str.append(self._constraint_to_human(child, all_constraints))
                 else:
-                    children_str.append(f"[{child_id[:8]}...]")
+                    children_str.append(f"[{child_id[:20]}...]")
             
             if constraint.constraint_type == ConstraintType.AND:
                 return f"({' AND '.join(children_str)})"
@@ -189,135 +334,396 @@ class PolicyAnalyzer:
                 return f"({' OR '.join(children_str)})"
             elif constraint.constraint_type == ConstraintType.XONE:
                 return f"EXACTLY-ONE({', '.join(children_str)})"
+            elif constraint.constraint_type == ConstraintType.ANDSEQUENCE:
+                return f"SEQUENCE({' → '.join(children_str)})"
         
         return str(constraint)
     
     def _summarize_constraints(self, constraint_ids: List[str], all_constraints: Dict) -> str:
         """Summarize constraints for a rule"""
         if not constraint_ids:
-            return 'No constraints'
+            return 'No constraints (unconditional)'
         
         summaries = []
         for cid in constraint_ids:
             constraint = all_constraints.get(cid)
             if constraint:
-                summaries.append(self._constraint_to_human(constraint, all_constraints))
+                if isinstance(constraint, str):
+                    summaries.append(constraint)
+                else:
+                    summaries.append(self._constraint_to_human(constraint, all_constraints))
         
         return ' AND '.join(summaries) if summaries else 'No constraints'
     
-    def _generate_dynamic_explanations(self,
-                                       conflicts: List[Conflict],
-                                       policy,
-                                       permissions: List[RuleInfo],
-                                       prohibitions: List[RuleInfo],
-                                       constraint_summaries: Dict[str, str]) -> List[str]:
-        """Generate dynamic explanations based on actual policy content"""
-        
-        explanations = []
-        
-        for i, conflict in enumerate(conflicts, 1):
-            exp = self._explain_single_conflict(
-                i, conflict, policy, permissions, prohibitions, constraint_summaries
-            )
-            explanations.append(exp)
-        
-        return explanations
+    # =========================================================================
+    # VALUE FORMATTING
+    # =========================================================================
     
-    def _explain_single_conflict(self,
-                                 num: int,
-                                 conflict: Conflict,
-                                 policy,
-                                 permissions: List[RuleInfo],
-                                 prohibitions: List[RuleInfo],
-                                 constraint_summaries: Dict[str, str]) -> str:
-        """Generate dynamic explanation for a single conflict"""
+    def _format_value(self, value: Any, unit: Optional[str] = None) -> str:
+        """Format value for display based on type"""
+        
+        # Timestamp to datetime
+        if unit == 'seconds_since_epoch' or unit == 'unix_timestamp':
+            try:
+                dt = datetime.fromtimestamp(int(value))
+                return dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pass
+        
+        # Duration in seconds
+        if unit == 'seconds' and isinstance(value, (int, float)):
+            v = float(value)
+            if v >= 86400:
+                return f"{v/86400:.1f} days"
+            elif v >= 3600:
+                return f"{v/3600:.1f} hours"
+            elif v >= 60:
+                return f"{v/60:.1f} minutes"
+            else:
+                return f"{int(v)} seconds"
+        
+        # Bytes
+        if unit == 'bytes' and isinstance(value, (int, float)):
+            v = float(value)
+            if v >= 1e9:
+                return f"{v/1e9:.2f} GB"
+            elif v >= 1e6:
+                return f"{v/1e6:.2f} MB"
+            elif v >= 1e3:
+                return f"{v/1e3:.2f} KB"
+            else:
+                return f"{int(v)} bytes"
+        
+        # Currency (cents to dollars)
+        if unit and 'cent' in str(unit).lower():
+            try:
+                return f"${float(value)/100:.2f}"
+            except:
+                pass
+        
+        # List of values
+        if isinstance(value, list):
+            items = [str(v) for v in value[:5]]  # Max 5 items
+            if len(value) > 5:
+                items.append(f"...+{len(value)-5} more")
+            return f"[{', '.join(items)}]"
+        
+        return str(value)
+    
+    def _extract_local_name(self, uri: str) -> str:
+        """Extract local name from URI"""
+        if '#' in uri:
+            return uri.split('#')[-1]
+        elif '/' in uri:
+            return uri.split('/')[-1]
+        return uri
+    
+    # =========================================================================
+    # CONFLICT EXPLANATION
+    # =========================================================================
+    
+    def _explain_conflict(
+        self,
+        num: int,
+        conflict: Conflict,
+        policy: Policy,
+        permissions: List[RuleInfo],
+        prohibitions: List[RuleInfo],
+        duties: List[RuleInfo],
+        constraint_summaries: Dict[str, str]
+    ) -> str:
+        """Generate detailed explanation for a conflict"""
         
         lines = []
+        
+        # Header with severity
+        severity_icon = {
+            ConflictSeverity.CRITICAL: '❌',
+            ConflictSeverity.WARNING: '⚠️',
+            ConflictSeverity.INFO: 'ℹ️',
+        }.get(conflict.severity, '•')
+        
         lines.append(f"\n{'='*60}")
-        lines.append(f"CONFLICT #{num}: {conflict.conflict_type.replace('_', ' ').upper()}")
+        lines.append(f"{severity_icon} CONFLICT #{num}: {conflict.conflict_type.replace('_', ' ').upper()}")
+        lines.append(f"   Severity: {conflict.severity.value}")
+        if conflict.action and conflict.action != 'none':
+            lines.append(f"   Action: {conflict.action}")
         lines.append(f"{'='*60}")
         
-        # Find involved rules
-        involved_perms = [p for p in permissions if conflict.action == p.action]
-        involved_prohibs = [p for p in prohibitions if conflict.action == p.action]
-        
+        # Type-specific explanation
         if conflict.conflict_type == 'permission_prohibition':
-            lines.append(f"\n⚠️  Action '{conflict.action}' has conflicting rules:")
-            
-            # Show permission details
-            if involved_perms:
-                lines.append(f"\n  ✅ PERMISSION allows '{conflict.action}' when:")
-                for perm in involved_perms:
-                    lines.append(f"     {perm.constraint_summary}")
-            
-            # Show prohibition details
-            if involved_prohibs:
-                lines.append(f"\n  🚫 PROHIBITION blocks '{conflict.action}' when:")
-                for prohib in involved_prohibs:
-                    lines.append(f"     {prohib.constraint_summary}")
-            
-            # Show counterexample with interpretation
-            if conflict.counterexample:
-                lines.append(f"\n  📍 CONFLICT OCCURS when:")
-                for var, val in conflict.counterexample.items():
-                    formatted_val = self._interpret_counterexample_value(var, val)
-                    lines.append(f"     • {var} = {formatted_val}")
-                
-                lines.append(f"\n  💡 EXPLANATION:")
-                lines.append(f"     With these values, BOTH permission AND prohibition")
-                lines.append(f"     conditions are satisfied simultaneously.")
-            
-            # Dynamic fix suggestions
-            lines.append(f"\n  🔧 SUGGESTED FIXES:")
-            lines.extend(self._suggest_fixes(conflict, involved_perms, involved_prohibs))
+            lines.extend(self._explain_permission_prohibition(
+                conflict, permissions, prohibitions, constraint_summaries
+            ))
         
-        elif conflict.conflict_type == 'xone_overlap':
-            lines.append(f"\n⚠️  XONE constraint has overlapping branches")
-            lines.append(f"\n  Problem: Multiple branches can be true at the same time")
-            lines.append(f"  XONE requires EXACTLY ONE branch to be true")
-            
-            if conflict.counterexample:
-                lines.append(f"\n  📍 OVERLAP OCCURS when:")
-                for var, val in conflict.counterexample.items():
-                    lines.append(f"     • {var} = {val}")
+        elif conflict.conflict_type == 'duty_prohibition':
+            lines.extend(self._explain_duty_prohibition(
+                conflict, duties, prohibitions, constraint_summaries
+            ))
         
-        elif conflict.conflict_type == 'unsatisfiable':
-            lines.append(f"\n⚠️  Constraint can NEVER be satisfied")
-            lines.append(f"\n  {conflict.description}")
-            lines.append(f"\n  💡 This constraint is logically impossible")
+        elif conflict.conflict_type in ('xone_overlap', 'xone_unsatisfiable', 'xone_trivial'):
+            lines.extend(self._explain_xone(conflict, constraint_summaries))
         
-        elif conflict.conflict_type == 'and_contradiction':
-            lines.append(f"\n⚠️  AND constraint has contradictory children")
-            lines.append(f"\n  The children cannot ALL be true at the same time")
-            
-            # Show involved constraints
-            for cid in conflict.constraint_ids:
-                summary = constraint_summaries.get(cid, cid)
-                lines.append(f"     • {summary}")
+        elif conflict.conflict_type in ('and_contradiction', 'unsatisfiable', 'or_unsatisfiable'):
+            lines.extend(self._explain_inconsistency(conflict, constraint_summaries))
+        
+        elif conflict.conflict_type == 'tautology':
+            lines.extend(self._explain_tautology(conflict, constraint_summaries))
+        
+        elif conflict.conflict_type in ('permission_subsumption', 'prohibition_redundancy'):
+            lines.extend(self._explain_redundancy(conflict, constraint_summaries))
+        
+        elif conflict.conflict_type == 'unreachable_permission':
+            lines.extend(self._explain_unreachable(conflict, constraint_summaries))
+        
+        elif conflict.conflict_type == 'andsequence_ordering':
+            lines.extend(self._explain_andsequence(conflict, constraint_summaries))
         
         else:
-            # Generic handling for any other conflict type
-            lines.append(f"\n⚠️  {conflict.description}")
-            
+            # Generic explanation
+            lines.append(f"\n{conflict.description}")
             if conflict.constraint_ids:
-                lines.append(f"\n  Constraints involved:")
+                lines.append("\nConstraints involved:")
                 for cid in conflict.constraint_ids:
                     summary = constraint_summaries.get(cid, cid)
-                    lines.append(f"     • {summary}")
-            
+                    lines.append(f"  • {summary}")
             if conflict.counterexample:
-                lines.append(f"\n  Counterexample:")
-                for var, val in conflict.counterexample.items():
-                    lines.append(f"     • {var} = {val}")
+                lines.append("\nCounterexample:")
+                for k, v in conflict.counterexample.items():
+                    lines.append(f"  • {k} = {v}")
         
         return '\n'.join(lines)
     
-    def _interpret_counterexample_value(self, var: str, val) -> str:
-        """Interpret counterexample value based on variable name"""
+    def _explain_permission_prohibition(
+        self, conflict: Conflict, permissions: List[RuleInfo], 
+        prohibitions: List[RuleInfo], summaries: Dict
+    ) -> List[str]:
+        """Explain permission-prohibition conflict"""
+        lines = []
         
+        involved_perms = [p for p in permissions if conflict.action == p.action]
+        involved_prohibs = [p for p in prohibitions if conflict.action == p.action]
+        
+        lines.append(f"\n⚠️  Action '{conflict.action}' has conflicting rules:")
+        
+        if involved_perms:
+            lines.append(f"\n  PERMISSION allows '{conflict.action}' when:")
+            for perm in involved_perms:
+                lines.append(f"     {perm.constraint_summary}")
+        
+        if involved_prohibs:
+            lines.append(f"\n  🚫 PROHIBITION blocks '{conflict.action}' when:")
+            for prohib in involved_prohibs:
+                lines.append(f"     {prohib.constraint_summary}")
+        
+        if conflict.counterexample:
+            lines.append(f"\n  📍 CONFLICT OCCURS when:")
+            for var, val in conflict.counterexample.items():
+                formatted = self._format_counterexample_value(var, val)
+                lines.append(f"     • {var} = {formatted}")
+            lines.append(f"\n  💡 With these values, BOTH permission AND prohibition are satisfied.")
+        
+        # Fix suggestions
+        lines.append(f"\n  🔧 SUGGESTED FIXES:")
+        lines.extend(self._suggest_fixes_for_perm_prohib(conflict))
+        
+        return lines
+    
+    def _explain_duty_prohibition(
+        self, conflict: Conflict, duties: List[RuleInfo],
+        prohibitions: List[RuleInfo], summaries: Dict
+    ) -> List[str]:
+        """Explain duty-prohibition conflict"""
+        lines = []
+        
+        involved_duties = [d for d in duties if conflict.action == d.action]
+        involved_prohibs = [p for p in prohibitions if conflict.action == p.action]
+        
+        lines.append(f"\n⚠️  Action '{conflict.action}' is REQUIRED but also PROHIBITED:")
+        
+        if involved_duties:
+            lines.append(f"\n  📋 DUTY requires '{conflict.action}' when:")
+            for duty in involved_duties:
+                lines.append(f"     {duty.constraint_summary}")
+        
+        if involved_prohibs:
+            lines.append(f"\n  🚫 PROHIBITION blocks '{conflict.action}' when:")
+            for prohib in involved_prohibs:
+                lines.append(f"     {prohib.constraint_summary}")
+        
+        lines.append(f"\n  💡 This creates an IMPOSSIBLE obligation - the action is both required and forbidden!")
+        
+        lines.append(f"\n  🔧 SUGGESTED FIXES:")
+        lines.append(f"     1. Remove either the duty or the prohibition")
+        lines.append(f"     2. Make their conditions mutually exclusive")
+        
+        return lines
+    
+    def _explain_xone(self, conflict: Conflict, summaries: Dict) -> List[str]:
+        """Explain XONE violation"""
+        lines = []
+        
+        if 'overlap' in conflict.conflict_type:
+            lines.append(f"\n⚠️  XONE constraint has OVERLAPPING branches:")
+            lines.append(f"\n  XONE requires EXACTLY ONE branch to be true.")
+            lines.append(f"  But multiple branches can be true simultaneously:")
+            
+            for cid in conflict.constraint_ids[1:]:  # Skip XONE itself
+                summary = summaries.get(cid, cid)
+                lines.append(f"  • {summary}")
+            
+            if conflict.counterexample:
+                lines.append(f"\n  📍 OVERLAP when:")
+                for k, v in conflict.counterexample.items():
+                    lines.append(f"     • {k} = {v}")
+            
+            lines.append(f"\n  FIX: Make XONE branches mutually exclusive")
+        
+        elif 'unsatisfiable' in conflict.conflict_type:
+            lines.append(f"\n⚠️  XONE constraint has NO satisfiable branches:")
+            lines.append(f"  None of the branches can be true, making XONE unsatisfiable.")
+            lines.append(f"\n  FIX: Ensure at least one branch is satisfiable")
+        
+        elif 'trivial' in conflict.conflict_type:
+            lines.append(f"\n⚠️  XONE constraint has only ONE satisfiable branch:")
+            lines.append(f"  This makes the XONE trivial (not really a choice).")
+            lines.append(f"\n  🔧 FIX: Add more satisfiable options or simplify to regular constraint")
+        
+        return lines
+    
+    def _explain_inconsistency(self, conflict: Conflict, summaries: Dict) -> List[str]:
+        """Explain constraint inconsistency"""
+        lines = []
+        
+        lines.append(f"\n⚠️  Constraints are CONTRADICTORY:")
+        
+        for cid in conflict.constraint_ids:
+            summary = summaries.get(cid, cid)
+            lines.append(f"  • {summary}")
+        
+        lines.append(f"\n These constraints cannot ALL be true at the same time.")
+        lines.append(f"  → No valid value exists that satisfies all constraints.")
+        
+        lines.append(f"\n SUGGESTED FIXES:")
+        lines.append(f"     1. Adjust constraint bounds to be compatible")
+        lines.append(f"     2. Remove one of the conflicting constraints")
+        lines.append(f"     3. Change AND to OR if alternatives are intended")
+        
+        return lines
+    
+    def _explain_tautology(self, conflict: Conflict, summaries: Dict) -> List[str]:
+        """Explain tautology"""
+        lines = []
+        
+        lines.append(f"\n⚠️  Constraint is ALWAYS TRUE (tautology):")
+        
+        for cid in conflict.constraint_ids:
+            summary = summaries.get(cid, cid)
+            lines.append(f"  • {summary}")
+        
+        lines.append(f"\n  💡 This constraint provides no restriction - it's always satisfied.")
+        lines.append(f"\n  🔧 FIX: Remove the constraint or adjust to add meaningful restriction")
+        
+        return lines
+    
+    def _explain_redundancy(self, conflict: Conflict, summaries: Dict) -> List[str]:
+        """Explain redundancy"""
+        lines = []
+        
+        lines.append(f"\n⚠️  REDUNDANT constraint detected:")
+        
+        if len(conflict.constraint_ids) >= 2:
+            stronger = summaries.get(conflict.constraint_ids[0], conflict.constraint_ids[0])
+            weaker = summaries.get(conflict.constraint_ids[1], conflict.constraint_ids[1])
+            
+            lines.append(f"\n  Stronger: {stronger}")
+            lines.append(f"  Weaker:   {weaker} ← REDUNDANT")
+            lines.append(f"\n  💡 The weaker constraint is implied by the stronger one.")
+        
+        lines.append(f"\n  🔧 FIX: Remove the redundant (weaker) constraint")
+        
+        return lines
+    
+    def _explain_unreachable(self, conflict: Conflict, summaries: Dict) -> List[str]:
+        """Explain unreachable permission"""
+        lines = []
+        
+        lines.append(f"\n⚠️  Permission is UNREACHABLE:")
+        lines.append(f"  A prohibition completely blocks this permission.")
+        
+        for cid in conflict.constraint_ids:
+            summary = summaries.get(cid, cid)
+            lines.append(f"  • {summary}")
+        
+        lines.append(f"\n  💡 The permission can never be exercised because the prohibition")
+        lines.append(f"     always applies when the permission would.")
+        
+        lines.append(f"\n  🔧 SUGGESTED FIXES:")
+        lines.append(f"     1. Narrow the prohibition scope")
+        lines.append(f"     2. Broaden the permission scope")
+        lines.append(f"     3. Remove the unreachable permission")
+        
+        return lines
+    
+    def _explain_andsequence(self, conflict: Conflict, summaries: Dict) -> List[str]:
+        """Explain ANDSEQUENCE info"""
+        lines = []
+        
+        lines.append(f"\nℹ️  SEQUENTIAL constraint (andSequence):")
+        lines.append(f"  Order is preserved but not enforced in static analysis.")
+        
+        if conflict.metadata and 'sequence_order' in conflict.metadata:
+            lines.append(f"\n  Execution order:")
+            for i, cid in enumerate(conflict.metadata['sequence_order'], 1):
+                summary = summaries.get(cid, cid)
+                lines.append(f"     {i}. {summary}")
+        
+        return lines
+    
+    # =========================================================================
+    # FIX SUGGESTIONS
+    # =========================================================================
+    
+    def _suggest_fixes_for_perm_prohib(self, conflict: Conflict) -> List[str]:
+        """Generate fix suggestions for permission-prohibition conflict"""
+        fixes = []
+        
+        if conflict.counterexample:
+            for var, val in conflict.counterexample.items():
+                if 'datetime' in var.lower() or 'time' in var.lower():
+                    fixes.append(f"     1. Adjust time windows to not overlap")
+                    fixes.append(f"        (e.g., permission ends before prohibition starts)")
+                    break
+                elif var.lower() == 'count':
+                    fixes.append(f"     1. Adjust count ranges to be mutually exclusive")
+                    fixes.append(f"        (e.g., permission: count < 5, prohibition: count >= 5)")
+                    break
+                elif 'amount' in var.lower() or 'pay' in var.lower():
+                    fixes.append(f"     1. Adjust payment ranges to not overlap")
+                    break
+                elif 'language' in var.lower():
+                    fixes.append(f"     1. Ensure language sets are disjoint")
+                    break
+                elif 'format' in var.lower() or 'media' in var.lower():
+                    fixes.append(f"     1. Ensure format/media sets are disjoint")
+                    break
+                else:
+                    fixes.append(f"     1. Adjust '{var}' constraints to be mutually exclusive")
+                    break
+        
+        if not fixes:
+            fixes.append(f"     1. Make permission and prohibition conditions non-overlapping")
+        
+        fixes.append(f"     2. Add additional constraints to narrow scope")
+        fixes.append(f"     3. Remove one of the conflicting rules")
+        
+        return fixes
+    
+    def _format_counterexample_value(self, var: str, val: Any) -> str:
+        """Format counterexample value for display"""
         val_str = str(val)
         
-        # Temporal variables
+        # Temporal
         if 'datetime' in var.lower() or 'time' in var.lower():
             try:
                 if isinstance(val, int) and val > 1000000000:
@@ -325,10 +731,6 @@ class PolicyAnalyzer:
                     return f"{val} ({dt.strftime('%Y-%m-%d %H:%M:%S')})"
             except:
                 pass
-        
-        # Count/numeric
-        if var.lower() in ['count', 'percentage']:
-            return val_str
         
         # Currency
         if 'amount' in var.lower() or 'pay' in var.lower():
@@ -340,88 +742,128 @@ class PolicyAnalyzer:
         
         return val_str
     
-    def _suggest_fixes(self, 
-                      conflict: Conflict,
-                      permissions: List[RuleInfo],
-                      prohibitions: List[RuleInfo]) -> List[str]:
-        """Generate dynamic fix suggestions based on conflict"""
+    # =========================================================================
+    # STATISTICS
+    # =========================================================================
+    
+    def _calculate_stats(self, policy: Policy, conflicts: List[Conflict]) -> Dict[str, int]:
+        """Calculate analysis statistics"""
+        atomic = sum(1 for c in policy.constraints.values() if isinstance(c, AtomicConstraint))
+        composite = sum(1 for c in policy.constraints.values() if isinstance(c, CompositeConstraint))
         
-        fixes = []
+        critical = sum(1 for c in conflicts if c.severity == ConflictSeverity.CRITICAL)
+        warnings = sum(1 for c in conflicts if c.severity == ConflictSeverity.WARNING)
+        info = sum(1 for c in conflicts if c.severity == ConflictSeverity.INFO)
         
-        # Analyze constraint overlap
-        perm_constraints = set()
-        prohib_constraints = set()
-        
-        for p in permissions:
-            perm_constraints.update(p.constraint_ids)
-        for p in prohibitions:
-            prohib_constraints.update(p.constraint_ids)
-        
-        # Suggest based on counterexample
-        if conflict.counterexample:
-            for var, val in conflict.counterexample.items():
-                if 'datetime' in var.lower() or 'time' in var.lower():
-                    fixes.append(f"     1. Adjust time windows to not overlap")
-                    fixes.append(f"        (e.g., permission ends before prohibition starts)")
-                elif var.lower() == 'count':
-                    fixes.append(f"     1. Adjust count ranges to be mutually exclusive")
-                    fixes.append(f"        (e.g., permission: count < 5, prohibition: count >= 5)")
-                elif 'amount' in var.lower():
-                    fixes.append(f"     1. Adjust payment ranges to not overlap")
-                elif 'language' in var.lower():
-                    fixes.append(f"     1. Ensure language sets are disjoint")
-                else:
-                    fixes.append(f"     1. Adjust '{var}' constraints to be mutually exclusive")
-        
-        if not fixes:
-            fixes.append(f"     1. Make permission and prohibition conditions non-overlapping")
-        
-        fixes.append(f"     2. Add additional constraints to narrow scope")
-        fixes.append(f"     3. Remove one of the conflicting rules")
-        
-        return fixes
+        return {
+            'total_rules': len(policy.rules),
+            'permissions': sum(1 for r in policy.rules if self._get_rule_type(r) == 'permission'),
+            'prohibitions': sum(1 for r in policy.rules if self._get_rule_type(r) == 'prohibition'),
+            'duties': sum(1 for r in policy.rules if self._get_rule_type(r) in ('duty', 'obligation')),
+            'total_constraints': len(policy.constraints),
+            'atomic_constraints': atomic,
+            'composite_constraints': composite,
+            'total_conflicts': len(conflicts),
+            'critical': critical,
+            'warnings': warnings,
+            'info': info,
+        }
+    
+    # =========================================================================
+    # REPORT OUTPUT
+    # =========================================================================
     
     def print_full_report(self, analysis: PolicyAnalysis):
         """Print comprehensive policy report"""
         
-        print("\n" + "="*70)
-        print("📋 ODRL POLICY ANALYSIS REPORT")
-        print("="*70)
+        print("\n" + "=" * 70)
+        print(" ODRL POLICY ANALYSIS REPORT (Detailed)")
+        print("=" * 70)
         
-        print(f"\n📌 Policy: {analysis.policy_id}")
-        print(f"   Permissions: {len(analysis.permissions)}")
-        print(f"   Prohibitions: {len(analysis.prohibitions)}")
-        print(f"   Total Constraints: {len(analysis.all_constraints)}")
+        # Policy info
+        print(f"\n Policy: {analysis.policy_id}")
+        print(f"   Type: {analysis.policy_type}")
+        if analysis.inherits_from:
+            print(f"   Inherits from: {analysis.inherits_from}")
+        
+        # Statistics
+        s = analysis.stats
+        print(f"\n Statistics:")
+        print(f"   Rules: {s.get('total_rules', 0)}")
+        print(f"     • Permissions:  {s.get('permissions', 0)}")
+        print(f"     • Prohibitions: {s.get('prohibitions', 0)}")
+        print(f"     • Duties:       {s.get('duties', 0)}")
+        print(f"   Constraints: {s.get('total_constraints', 0)}")
+        print(f"     • Atomic:    {s.get('atomic_constraints', 0)}")
+        print(f"     • Composite: {s.get('composite_constraints', 0)}")
         
         # Permissions
         if analysis.permissions:
-            print(f"\n{'─'*70}")
-            print("✅ PERMISSIONS")
-            print(f"{'─'*70}")
+            print(f"\n{'─' * 70}")
+            print("PERMISSIONS")
+            print(f"{'─' * 70}")
             for perm in analysis.permissions:
-                print(f"\n  [{perm.action}]")
-                print(f"  Condition: {perm.constraint_summary}")
+                print(f"\n  Action: {perm.action}")
+                if perm.target:
+                    print(f"  Target: {perm.target}")
+                print(f"  When:   {perm.constraint_summary}")
         
         # Prohibitions
         if analysis.prohibitions:
-            print(f"\n{'─'*70}")
+            print(f"\n{'─' * 70}")
             print("🚫 PROHIBITIONS")
-            print(f"{'─'*70}")
+            print(f"{'─' * 70}")
             for prohib in analysis.prohibitions:
-                print(f"\n  [{prohib.action}]")
-                print(f"  Condition: {prohib.constraint_summary}")
+                print(f"\n  Action: {prohib.action}")
+                if prohib.target:
+                    print(f"  Target: {prohib.target}")
+                print(f"  When:   {prohib.constraint_summary}")
+        
+        # Duties
+        if analysis.duties:
+            print(f"\n{'─' * 70}")
+            print("📋 DUTIES")
+            print(f"{'─' * 70}")
+            for duty in analysis.duties:
+                print(f"\n  Action: {duty.action}")
+                if duty.target:
+                    print(f"  Target: {duty.target}")
+                print(f"  When:   {duty.constraint_summary}")
+        
+        # Constraint details (debug mode)
+        if self.debug and analysis.constraint_details:
+            print(f"\n{'─' * 70}")
+            print("🔍 CONSTRAINT DETAILS")
+            print(f"{'─' * 70}")
+            for cid, detail in analysis.constraint_details.items():
+                print(f"\n  ID: {cid[:40]}{'...' if len(cid) > 40 else ''}")
+                print(f"  Type: {detail.constraint_type}")
+                print(f"  Expression: {detail.human_readable}")
+                if detail.unit:
+                    print(f"  Unit: {detail.unit}")
+                if detail.unit_of_count:
+                    print(f"  Per: {detail.unit_of_count}")
+                if detail.domain:
+                    print(f"  Domain: {detail.domain}")
         
         # Conflicts
-        print(f"\n{'─'*70}")
-        print(f"⚠️  CONFLICT ANALYSIS: {len(analysis.conflicts)} issue(s) found")
-        print(f"{'─'*70}")
+        print(f"\n{'─' * 70}")
+        print(f"⚠️  CONFLICT ANALYSIS: {s.get('total_conflicts', 0)} issue(s)")
+        print(f"   ({s.get('critical', 0)} critical, {s.get('warnings', 0)} warnings, {s.get('info', 0)} info)")
+        print(f"{'─' * 70}")
         
         if not analysis.conflicts:
-            print("\n  ✅ No conflicts detected! Policy is logically consistent.")
+            print("\n  No conflicts detected! Policy is logically consistent.")
         else:
             for explanation in analysis.explanations:
                 print(explanation)
         
-        print("\n" + "="*70)
-        print("END OF REPORT")
-        print("="*70 + "\n")
+        # Final summary
+        print("\n" + "=" * 70)
+        if s.get('critical', 0) > 0:
+            print("❌ POLICY HAS CRITICAL ISSUES - Must fix before deployment")
+        elif s.get('warnings', 0) > 0:
+            print("⚠️  POLICY HAS WARNINGS - Review recommended")
+        else:
+            print("POLICY IS VALID")
+        print("=" * 70 + "\n")
