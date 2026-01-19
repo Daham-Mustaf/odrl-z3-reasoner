@@ -248,10 +248,10 @@ def check_inheritance(child: Policy, parent: Policy) -> InheritanceResult:
 - Inheritance: 20+ parent-child policy pairs
 
 **Success Criteria**:
-- ✅ All numeric/temporal constraints encoded correctly
-- ✅ Inheritance checking produces counterexamples
-- ✅ Metadata preserved in explanations
-- ✅ Phase 0-1 tests still pass
+- All numeric/temporal constraints encoded correctly
+- Inheritance checking produces counterexamples
+- Metadata preserved in explanations
+- Phase 0-1 tests still pass
 
 ---
 
@@ -325,10 +325,10 @@ class TaxonomyReasoner:
 - Constraints with external knowledge (if DL integrated)
 
 **Success Criteria**:
-- ✅ All set operators correctly encoded
-- ✅ Symbolic reasoning works for unknown domains
-- ✅ Optional DL integration (if time permits)
-- ✅ Phase 0-2 tests still pass
+- All set operators correctly encoded
+- Symbolic reasoning works for unknown domains
+- Optional DL integration (if time permits)
+- Phase 0-2 tests still pass
 
 ---
 
@@ -392,9 +392,9 @@ def encode_spatial_bbox(constraint: Constraint) -> z3.BoolRef:
 - Absolute/relative position constraints
 
 **Success Criteria**:
-- ✅ Basic spatial reasoning works
-- ✅ Optional GIS integration functional
-- ✅ Module is decoupled (can be disabled)
+- Basic spatial reasoning works
+- Optional GIS integration functional
+- Module is decoupled (can be disabled)
 
 ---
 
@@ -447,9 +447,9 @@ def implies(c1: Constraint, c2: Constraint) -> bool:
 - Overlapping set constraints
 
 **Success Criteria**:
-- ✅ Redundancy correctly identified
-- ✅ No false positives
-- ✅ Suggestions are actionable
+- Redundancy correctly identified
+- No false positives
+- Suggestions are actionable
 
 ---
 
@@ -541,9 +541,9 @@ def extract_counterexample(model: z3.ModelRef,
 - Metadata preservation in reports
 
 **Success Criteria**:
-- ✅ Reports are human-readable
-- ✅ Counterexamples are actionable
-- ✅ Metadata correctly displayed
+- Reports are human-readable
+- Counterexamples are actionable
+- Metadata correctly displayed
 
 ---
 
@@ -670,36 +670,36 @@ def classify_constraint(c: Constraint) -> str:
 ## 6. Deliverables & Milestones
 
 ### Phase 1: Weeks 1-3
-- ✅ Complete ODRL parser
-- ✅ Canonical constraint graph
-- ✅ Logical operator encoding
+- Complete ODRL parser
+- Canonical constraint graph
+- Logical operator encoding
 - **Milestone**: Parse any ODRL policy into canonical form
 
 ### Phase 2: Weeks 4-7
-- ✅ Numeric/temporal SMT encoding
-- ✅ Inheritance checker
-- ✅ Counterexample generation
+- Numeric/temporal SMT encoding
+- Inheritance checker
+- Counterexample generation
 - **Milestone**: Validate numeric/temporal policy inheritance
 
 ### Phase 3: Weeks 8-11
-- ✅ Set-based operator encoding
-- ✅ Symbolic reasoning
-- ✅ Optional DL integration
+- Set-based operator encoding
+- Symbolic reasoning
+- Optional DL integration
 - **Milestone**: Handle taxonomic constraints
 
 ### Phase 4: Weeks 12-14 (Optional)
-- ✅ Spatial reasoning module
-- ✅ GIS integration
+- Spatial reasoning module
+- GIS integration
 - **Milestone**: Analyze spatial policies
 
 ### Phase 5: Weeks 15-16
-- ✅ Redundancy detection
-- ✅ Optimization suggestions
+- Redundancy detection
+- Optimization suggestions
 - **Milestone**: Detect redundant constraints
 
 ### Phase 6: Weeks 17-18
-- ✅ Reporting system
-- ✅ Human-readable explanations
+- Reporting system
+- Human-readable explanations
 - **Milestone**: Production-ready analyzer
 
 ---
@@ -707,25 +707,25 @@ def classify_constraint(c: Constraint) -> str:
 ## 7. Success Criteria (Final Acceptance)
 
 ### Functional Requirements
-- ✅ Parse 100% of ODRL constraint vocabulary
-- ✅ Correctly classify all constraint categories
-- ✅ Encode numeric, temporal, set, and logical constraints in SMT
-- ✅ Detect internal inconsistencies
-- ✅ Validate monotonic inheritance
-- ✅ Generate actionable counterexamples
-- ✅ Identify redundant constraints
+- Parse 100% of ODRL constraint vocabulary
+- Correctly classify all constraint categories
+- Encode numeric, temporal, set, and logical constraints in SMT
+- Detect internal inconsistencies
+- Validate monotonic inheritance
+- Generate actionable counterexamples
+- Identify redundant constraints
 
 ### Non-Functional Requirements
-- ✅ Analysis completes in <5 seconds for typical policies (<100 constraints)
-- ✅ Memory usage <500MB for large policies
-- ✅ No false positives (only sound results)
-- ✅ False negatives documented (missing domain knowledge)
+- Analysis completes in <5 seconds for typical policies (<100 constraints)
+- Memory usage <500MB for large policies
+- No false positives (only sound results)
+- False negatives documented (missing domain knowledge)
 
 ### Research Requirements
-- ✅ Theoretical foundations documented
-- ✅ Formal semantics specified
-- ✅ Comparison with related work
-- ✅ Publishable results
+- Theoretical foundations documented
+- Formal semantics specified
+- Comparison with related work
+- Publishable results
 
 ---
 
@@ -761,17 +761,17 @@ def classify_constraint(c: Constraint) -> str:
 **Agreed Implementation Plan**: This document represents the final, agreed-upon implementation roadmap for the ODRL Static Policy Analysis Engine.
 
 **Principles**:
-- ✅ No refactoring between phases
-- ✅ Incremental delivery
-- ✅ Continuous testing
-- ✅ Theoretical rigor maintained
-- ✅ Extensible architecture
+- No refactoring between phases
+- Incremental delivery
+- Continuous testing
+- Theoretical rigor maintained
+- Extensible architecture
 
 **Commitment**: Each phase extends capabilities without breaking previous work.
 
 ---
 
-**Document Status**: ✅ **APPROVED FOR IMPLEMENTATION**  
+**Document Status**: **APPROVED FOR IMPLEMENTATION**  
 **Version**: 1.0 Final  
 **Date**: January 2026  
 **Estimated Completion**: 18 weeks (4.5 months)

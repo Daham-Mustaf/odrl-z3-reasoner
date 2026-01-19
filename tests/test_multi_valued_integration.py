@@ -271,14 +271,14 @@ def test_full_suite_summary():
     print("="*70)
     
     capabilities = [
-        ("✅ Multi-valued operands", "language, purpose, recipient as sets"),
-        ("✅ Class hierarchy reasoning", "isA with RDFS subClassOf"),
-        ("✅ Cross-currency safeguards", "Separate variables per currency"),
-        ("✅ Set operators", "isAnyOf, isAllOf, isNoneOf on arrays"),
-        ("✅ Containment operators", "hasPart, isPartOf on arrays"),
-        ("✅ Composite constraints", "AND, OR, XONE with mixed types"),
-        ("✅ Conflict detection", "12+ conflict types"),
-        ("✅ Counterexample generation", "Concrete Z3 models"),
+        ("Multi-valued operands", "language, purpose, recipient as sets"),
+        ("Class hierarchy reasoning", "isA with RDFS subClassOf"),
+        ("Cross-currency safeguards", "Separate variables per currency"),
+        ("Set operators", "isAnyOf, isAllOf, isNoneOf on arrays"),
+        ("Containment operators", "hasPart, isPartOf on arrays"),
+        ("Composite constraints", "AND, OR, XONE with mixed types"),
+        ("Conflict detection", "12+ conflict types"),
+        ("Counterexample generation", "Concrete Z3 models"),
     ]
     
     print("\nImplemented Features:")

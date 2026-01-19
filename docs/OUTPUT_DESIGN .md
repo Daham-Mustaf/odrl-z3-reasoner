@@ -453,7 +453,7 @@ odrl-analyze policy.json --format html --output report.html
 
 ## 11. Key Principles
 
-✅ **DO**:
+**DO**:
 - Show exact constraint expressions
 - Include rule IDs and constraint IDs
 - Provide counterexamples when available

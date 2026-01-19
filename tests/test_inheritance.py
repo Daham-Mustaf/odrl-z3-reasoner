@@ -264,11 +264,11 @@ def test_inheritance_summary():
     print("""
     Supported Checks:
     ─────────────────
-    ✅ Expansion violation    SAT(child ∧ ¬parent)
-    ✅ Internal inconsistency UNSAT(child)
-    ✅ Redundancy warning     UNSAT(parent ∧ ¬child)
-    ✅ Multi-constraint       Conjunction handling
-    ✅ XONE inheritance       Branch subset checking
+    Expansion violation    SAT(child ∧ ¬parent)
+    Internal inconsistency UNSAT(child)
+    Redundancy warning     UNSAT(parent ∧ ¬child)
+    Multi-constraint       Conjunction handling
+    XONE inheritance       Branch subset checking
     
     Formal Model:
     ─────────────
