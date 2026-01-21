@@ -1,6 +1,6 @@
 
 
-## 🎯 What Salas et al. (2025) Does
+## What Salas et al. (2025) Does
 
 | Aspect | Their Approach |
 |--------|----------------|
@@ -15,7 +15,7 @@
 
 ---
 
-## 🎯 What You Did
+## What You Did
 
 | Aspect | Our Approach |
 |--------|----------------|
@@ -26,7 +26,7 @@
 | **Comparison** | Inheritance: `SAT(child ∧ ¬parent)` = violation |
 | **Scope** | Static constraint analysis (no runtime) |
 
-**Key insight**: You analyze **policy structure**, not runtime behavior.
+**Key insight**: We analyze **policy structure**, not runtime behavior.
 
 ---
 
