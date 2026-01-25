@@ -3,10 +3,6 @@
 ## XSD-Grounded Constraints for Static Policy Analysis
 
 ---
-**Self-Contained (XSD-Grounded)** 14 
-**Reference Point Required** 3
-**Semantic Grounding Required** 14
-**Total ODRL LeftOperands**  **31**
 
 ### Self-Contained
 
