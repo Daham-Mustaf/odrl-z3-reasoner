@@ -1,0 +1,416 @@
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix lang: <http://w3id.org/odrl/bcp47/> .
+@prefix lcc-15924: <https://www.omg.org/spec/LCC/Languages/ISO15924-CodeSet/> .
+@prefix lcc-3166-1: <https://www.omg.org/spec/LCC/Countries/ISO3166-1-CountryCodes/> .
+@prefix lcc-639-1: <https://www.omg.org/spec/LCC/Languages/ISO639-1-LanguageCodes/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://w3id.org/odrl/bcp47> a owl:Ontology ;
+    dct:created "2026-01-21"^^xsd:date ;
+    dct:creator "Your Name" ;
+    dct:description """
+This ontology provides semantic grounding for ODRL language constraints (odrl:language) 
+by mapping BCP47 language tags to SKOS concepts with hierarchical relationships.
+
+DESIGN PRINCIPLES:
+1. Zero new vocabulary: Reuses only existing W3C and OMG standards
+2. Standards-based: All mappings grounded in official specifications
+3. Hierarchical: Regional and script variants linked via skos:broader
+4. Component-linked: Tags decomposed and linked to LCC authoritative URIs
+5. SPARQL-queryable: Enables semantic reasoning over language hierarchies
+
+STANDARDS REUSED:
+- SKOS (W3C): Taxonomy structure (skos:Concept, skos:broader, skos:notation)
+- OWL (W3C): Identity relations (owl:sameAs)
+- Dublin Core: Metadata and component links (dct:language, dct:spatial, dct:conformsTo)
+- LCC (OMG): Authoritative URIs for languages (ISO 639), regions (ISO 3166), scripts (ISO 15924)
+    """@en ;
+    dct:source <https://www.iso.org/standard/4766.html>,
+        <https://www.iso.org/standard/63545.html>,
+        <https://www.omg.org/spec/LCC/>,
+        <https://www.rfc-editor.org/rfc/rfc5646> ;
+    dct:title "BCP47 Language Tag Hierarchy for ODRL Policy Reasoning"@en ;
+    rdfs:comment "No custom properties or classes defined. Uses only standard vocabularies: SKOS, OWL, Dublin Core, LCC."@en ;
+    owl:versionInfo "1.0" .
+
+lang:ar-AE a skos:Concept ;
+    dct:language lcc-639-1:Arabic ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:UnitedArabEmirates ;
+    skos:broader lang:ar ;
+    skos:inScheme lang:scheme ;
+    skos:notation "ar-AE"^^xsd:language ;
+    skos:prefLabel "Arabic (United Arab Emirates)"@en .
+
+lang:ar-EG a skos:Concept ;
+    dct:language lcc-639-1:Arabic ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Egypt ;
+    skos:broader lang:ar ;
+    skos:inScheme lang:scheme ;
+    skos:notation "ar-EG"^^xsd:language ;
+    skos:prefLabel "Arabic (Egypt)"@en .
+
+lang:ar-SA a skos:Concept ;
+    dct:language lcc-639-1:Arabic ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:SaudiArabia ;
+    skos:broader lang:ar ;
+    skos:inScheme lang:scheme ;
+    skos:notation "ar-SA"^^xsd:language ;
+    skos:prefLabel "Arabic (Saudi Arabia)"@en .
+
+lang:bn a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:Bengali ;
+    skos:inScheme lang:scheme ;
+    skos:notation "bn"^^xsd:language ;
+    skos:prefLabel "Bengali"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:de-AT a skos:Concept ;
+    dct:language lcc-639-1:German ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Austria ;
+    skos:broader lang:de ;
+    skos:inScheme lang:scheme ;
+    skos:notation "de-AT"^^xsd:language ;
+    skos:prefLabel "German (Austria)"@en .
+
+lang:de-CH a skos:Concept ;
+    dct:language lcc-639-1:German ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Switzerland ;
+    skos:broader lang:de ;
+    skos:inScheme lang:scheme ;
+    skos:notation "de-CH"^^xsd:language ;
+    skos:prefLabel "German (Switzerland)"@en .
+
+lang:de-DE a skos:Concept ;
+    dct:language lcc-639-1:German ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Germany ;
+    skos:broader lang:de ;
+    skos:inScheme lang:scheme ;
+    skos:notation "de-DE"^^xsd:language ;
+    skos:prefLabel "German (Germany)"@en .
+
+lang:en-AU a skos:Concept ;
+    dct:language lcc-639-1:English ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Australia ;
+    skos:broader lang:en ;
+    skos:inScheme lang:scheme ;
+    skos:notation "en-AU"^^xsd:language ;
+    skos:prefLabel "English (Australia)"@en .
+
+lang:en-CA a skos:Concept ;
+    dct:language lcc-639-1:English ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Canada ;
+    skos:broader lang:en ;
+    skos:inScheme lang:scheme ;
+    skos:notation "en-CA"^^xsd:language ;
+    skos:prefLabel "English (Canada)"@en .
+
+lang:en-GB a skos:Concept ;
+    dct:language lcc-639-1:English ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:UnitedKingdom ;
+    skos:broader lang:en ;
+    skos:inScheme lang:scheme ;
+    skos:notation "en-GB"^^xsd:language ;
+    skos:prefLabel "English (United Kingdom)"@en .
+
+lang:en-IN a skos:Concept ;
+    dct:language lcc-639-1:English ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:India ;
+    skos:broader lang:en ;
+    skos:inScheme lang:scheme ;
+    skos:notation "en-IN"^^xsd:language ;
+    skos:prefLabel "English (India)"@en .
+
+lang:en-US a skos:Concept ;
+    dct:language lcc-639-1:English ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:UnitedStates ;
+    rdfs:comment "English (United States) is a regional variant of English. Per BCP47 (RFC 5646, Section 2.2.4), regional subtags (ISO 3166-1) specialize the primary language by geographic usage. The hierarchy 'en-US skos:broader en' represents that US variant is a more specific form of the base language."@en ;
+    skos:broader lang:en ;
+    skos:inScheme lang:scheme ;
+    skos:notation "en-US"^^xsd:language ;
+    skos:note "BCP47 tag decomposed into components: language 'en' (ISO 639-1) → lcc-639-1:English, region 'US' (ISO 3166-1) → lcc-3166-1:UnitedStates. This component pattern applies to all [language]-[region] tags in this ontology."@en ;
+    skos:prefLabel "English (United States)"@en .
+
+lang:es-AR a skos:Concept ;
+    dct:language lcc-639-1:Spanish ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Argentina ;
+    skos:broader lang:es ;
+    skos:inScheme lang:scheme ;
+    skos:notation "es-AR"^^xsd:language ;
+    skos:prefLabel "Spanish (Argentina)"@en .
+
+lang:es-CO a skos:Concept ;
+    dct:language lcc-639-1:Spanish ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Colombia ;
+    skos:broader lang:es ;
+    skos:inScheme lang:scheme ;
+    skos:notation "es-CO"^^xsd:language ;
+    skos:prefLabel "Spanish (Colombia)"@en .
+
+lang:es-ES a skos:Concept ;
+    dct:language lcc-639-1:Spanish ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Spain ;
+    skos:broader lang:es ;
+    skos:inScheme lang:scheme ;
+    skos:notation "es-ES"^^xsd:language ;
+    skos:prefLabel "Spanish (Spain)"@en .
+
+lang:es-MX a skos:Concept ;
+    dct:language lcc-639-1:Spanish ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Mexico ;
+    skos:broader lang:es ;
+    skos:inScheme lang:scheme ;
+    skos:notation "es-MX"^^xsd:language ;
+    skos:prefLabel "Spanish (Mexico)"@en .
+
+lang:fr-BE a skos:Concept ;
+    dct:language lcc-639-1:French ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Belgium ;
+    skos:broader lang:fr ;
+    skos:inScheme lang:scheme ;
+    skos:notation "fr-BE"^^xsd:language ;
+    skos:prefLabel "French (Belgium)"@en .
+
+lang:fr-CA a skos:Concept ;
+    dct:language lcc-639-1:French ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Canada ;
+    skos:broader lang:fr ;
+    skos:inScheme lang:scheme ;
+    skos:notation "fr-CA"^^xsd:language ;
+    skos:prefLabel "French (Canada)"@en .
+
+lang:fr-CH a skos:Concept ;
+    dct:language lcc-639-1:French ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Switzerland ;
+    skos:broader lang:fr ;
+    skos:inScheme lang:scheme ;
+    skos:notation "fr-CH"^^xsd:language ;
+    skos:prefLabel "French (Switzerland)"@en .
+
+lang:fr-FR a skos:Concept ;
+    dct:language lcc-639-1:French ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:France ;
+    skos:broader lang:fr ;
+    skos:inScheme lang:scheme ;
+    skos:notation "fr-FR"^^xsd:language ;
+    skos:prefLabel "French (France)"@en .
+
+lang:hi a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:Hindi ;
+    skos:inScheme lang:scheme ;
+    skos:notation "hi"^^xsd:language ;
+    skos:prefLabel "Hindi"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:ja a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:Japanese ;
+    skos:inScheme lang:scheme ;
+    skos:notation "ja"^^xsd:language ;
+    skos:prefLabel "Japanese"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:ko a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:Korean ;
+    skos:inScheme lang:scheme ;
+    skos:notation "ko"^^xsd:language ;
+    skos:prefLabel "Korean"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:pt-BR a skos:Concept ;
+    dct:language lcc-639-1:Portuguese ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Brazil ;
+    skos:broader lang:pt ;
+    skos:inScheme lang:scheme ;
+    skos:notation "pt-BR"^^xsd:language ;
+    skos:prefLabel "Portuguese (Brazil)"@en .
+
+lang:pt-PT a skos:Concept ;
+    dct:language lcc-639-1:Portuguese ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.4> ;
+    dct:spatial lcc-3166-1:Portugal ;
+    skos:broader lang:pt ;
+    skos:inScheme lang:scheme ;
+    skos:notation "pt-PT"^^xsd:language ;
+    skos:prefLabel "Portuguese (Portugal)"@en .
+
+lang:ru a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:Russian ;
+    skos:inScheme lang:scheme ;
+    skos:notation "ru"^^xsd:language ;
+    skos:prefLabel "Russian"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:sr-Cyrl a skos:Concept ;
+    dct:conformsTo lcc-15924:Cyrl ;
+    dct:language lcc-639-1:Serbian ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.3> ;
+    skos:broader lang:sr ;
+    skos:inScheme lang:scheme ;
+    skos:notation "sr-Cyrl"^^xsd:language ;
+    skos:prefLabel "Serbian (Cyrillic)"@en .
+
+lang:sr-Latn a skos:Concept ;
+    dct:conformsTo lcc-15924:Latn ;
+    dct:language lcc-639-1:Serbian ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.3> ;
+    skos:broader lang:sr ;
+    skos:inScheme lang:scheme ;
+    skos:notation "sr-Latn"^^xsd:language ;
+    skos:prefLabel "Serbian (Latin)"@en .
+
+lang:zh-Hans-CN a skos:Concept ;
+    dct:conformsTo lcc-15924:Hans ;
+    dct:language lcc-639-1:Chinese ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.1> ;
+    dct:spatial lcc-3166-1:China ;
+    rdfs:comment "Chinese (Simplified, China) is a complex tag combining script and region. Multi-level hierarchy: zh-Hans-CN → zh-Hans → zh. Per BCP47, complex tags are built by adding subtags to existing variants."@en ;
+    skos:broader lang:zh-Hans ;
+    skos:inScheme lang:scheme ;
+    skos:notation "zh-Hans-CN"^^xsd:language ;
+    skos:prefLabel "Chinese (Simplified, China)"@en .
+
+lang:zh-Hans-SG a skos:Concept ;
+    dct:conformsTo lcc-15924:Hans ;
+    dct:language lcc-639-1:Chinese ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.1> ;
+    dct:spatial lcc-3166-1:Singapore ;
+    skos:broader lang:zh-Hans ;
+    skos:inScheme lang:scheme ;
+    skos:notation "zh-Hans-SG"^^xsd:language ;
+    skos:prefLabel "Chinese (Simplified, Singapore)"@en .
+
+lang:zh-Hant-HK a skos:Concept ;
+    dct:conformsTo lcc-15924:Hant ;
+    dct:language lcc-639-1:Chinese ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.1> ;
+    dct:spatial lcc-3166-1:HongKong ;
+    skos:broader lang:zh-Hant ;
+    skos:inScheme lang:scheme ;
+    skos:notation "zh-Hant-HK"^^xsd:language ;
+    skos:prefLabel "Chinese (Traditional, Hong Kong)"@en .
+
+lang:zh-Hant-TW a skos:Concept ;
+    dct:conformsTo lcc-15924:Hant ;
+    dct:language lcc-639-1:Chinese ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.1> ;
+    dct:spatial lcc-3166-1:Taiwan ;
+    skos:broader lang:zh-Hant ;
+    skos:inScheme lang:scheme ;
+    skos:notation "zh-Hant-TW"^^xsd:language ;
+    skos:prefLabel "Chinese (Traditional, Taiwan)"@en .
+
+lang:pt a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:Portuguese ;
+    skos:inScheme lang:scheme ;
+    skos:notation "pt"^^xsd:language ;
+    skos:prefLabel "Portuguese"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:sr a skos:Concept ;
+    owl:sameAs lcc-639-1:Serbian ;
+    skos:inScheme lang:scheme ;
+    skos:notation "sr"^^xsd:language ;
+    skos:prefLabel "Serbian"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:zh a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:Chinese ;
+    skos:inScheme lang:scheme ;
+    skos:notation "zh"^^xsd:language ;
+    skos:prefLabel "Chinese"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:zh-Hans a skos:Concept ;
+    dct:conformsTo lcc-15924:Hans ;
+    dct:language lcc-639-1:Chinese ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.3> ;
+    rdfs:comment "Chinese (Simplified) is a script variant of ZH. Per BCP47 (RFC 5646, Section 2.2.3), script subtags (ISO 15924) specialize a language by writing system. The 'Hans' script (Simplified Han script) distinguishes this variant from other writing systems of the same language."@en ;
+    skos:broader lang:zh ;
+    skos:inScheme lang:scheme ;
+    skos:notation "zh-Hans"^^xsd:language ;
+    skos:prefLabel "Chinese (Simplified)"@en .
+
+lang:zh-Hant a skos:Concept ;
+    dct:conformsTo lcc-15924:Hant ;
+    dct:language lcc-639-1:Chinese ;
+    dct:source <https://www.rfc-editor.org/rfc/rfc5646#section-2.2.3> ;
+    skos:broader lang:zh ;
+    skos:inScheme lang:scheme ;
+    skos:notation "zh-Hant"^^xsd:language ;
+    skos:prefLabel "Chinese (Traditional)"@en .
+
+lang:ar a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:Arabic ;
+    skos:inScheme lang:scheme ;
+    skos:notation "ar"^^xsd:language ;
+    skos:prefLabel "Arabic"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:de a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:German ;
+    skos:inScheme lang:scheme ;
+    skos:notation "de"^^xsd:language ;
+    skos:prefLabel "German"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:es a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:Spanish ;
+    skos:inScheme lang:scheme ;
+    skos:notation "es"^^xsd:language ;
+    skos:prefLabel "Spanish"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:fr a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    owl:sameAs lcc-639-1:French ;
+    skos:inScheme lang:scheme ;
+    skos:notation "fr"^^xsd:language ;
+    skos:prefLabel "French"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:en a skos:Concept ;
+    dct:source <https://www.iso.org/standard/4766.html> ;
+    rdfs:comment "Base language concept for English (ISO 639-1: en). Linked to LCC authoritative URI via owl:sameAs. All regional and script variants of English are represented as narrower concepts (skos:broader)."@en ;
+    owl:sameAs lcc-639-1:English ;
+    skos:inScheme lang:scheme ;
+    skos:notation "en"^^xsd:language ;
+    skos:note "This is an example of the base language pattern. All base languages follow this structure: skos:Concept with notation, prefLabel, owl:sameAs to LCC, and topConceptOf the scheme."@en ;
+    skos:prefLabel "English"@en ;
+    skos:topConceptOf lang:scheme .
+
+lang:scheme a skos:ConceptScheme ;
+    dct:description "Hierarchical organization of BCP47 language tags for ODRL constraint reasoning."@en ;
+    dct:title "BCP47 Language Tags"@en .
+

@@ -1,0 +1,150 @@
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix lang: <http://example.org/lang/> .
+@prefix lcc-15924: <https://www.omg.org/spec/LCC/Languages/ISO15924-CodeSet/> .
+@prefix lcc-3166-1: <https://www.omg.org/spec/LCC/Countries/ISO3166-1-CountryCodes/> .
+@prefix lcc-639-1: <https://www.omg.org/spec/LCC/Languages/ISO639-1-LanguageCodes/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+lang:ar a skos:Concept ;
+    owl:sameAs lcc-639-1:Arabic ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "ar"^^xsd:language ;
+    skos:prefLabel "Arabic"@en ;
+    skos:topConceptOf <http://example.org/bcp47-scheme> .
+
+lang:de-AT a skos:Concept ;
+    dct:language lcc-639-1:German ;
+    dct:spatial lcc-3166-1:AT ;
+    skos:broader lang:de ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "de-AT"^^xsd:language ;
+    skos:prefLabel "German (Austria)"@en .
+
+lang:de-DE a skos:Concept ;
+    dct:language lcc-639-1:German ;
+    dct:spatial lcc-3166-1:Germany ;
+    skos:broader lang:de ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "de-DE"^^xsd:language ;
+    skos:prefLabel "German (Germany)"@en .
+
+lang:en-AU a skos:Concept ;
+    dct:language lcc-639-1:English ;
+    dct:spatial lcc-3166-1:AU ;
+    skos:broader lang:en ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "en-AU"^^xsd:language ;
+    skos:prefLabel "English (Australia)"@en .
+
+lang:en-GB a skos:Concept ;
+    dct:language lcc-639-1:English ;
+    dct:spatial lcc-3166-1:UnitedKingdom ;
+    skos:broader lang:en ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "en-GB"^^xsd:language ;
+    skos:prefLabel "English (United Kingdom)"@en .
+
+lang:en-US a skos:Concept ;
+    dct:language lcc-639-1:English ;
+    dct:spatial lcc-3166-1:UnitedStates ;
+    skos:broader lang:en ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "en-US"^^xsd:language ;
+    skos:prefLabel "English (United States)"@en .
+
+lang:es-ES a skos:Concept ;
+    dct:language lcc-639-1:Spanish ;
+    dct:spatial lcc-3166-1:Spain ;
+    skos:broader lang:es ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "es-ES"^^xsd:language ;
+    skos:prefLabel "Spanish (Spain)"@en .
+
+lang:es-MX a skos:Concept ;
+    dct:language lcc-639-1:Spanish ;
+    dct:spatial lcc-3166-1:MX ;
+    skos:broader lang:es ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "es-MX"^^xsd:language ;
+    skos:prefLabel "Spanish (Mexico)"@en .
+
+lang:fr-CA a skos:Concept ;
+    dct:language lcc-639-1:French ;
+    dct:spatial lcc-3166-1:CA ;
+    skos:broader lang:fr ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "fr-CA"^^xsd:language ;
+    skos:prefLabel "French (Canada)"@en .
+
+lang:fr-FR a skos:Concept ;
+    dct:language lcc-639-1:French ;
+    dct:spatial lcc-3166-1:France ;
+    skos:broader lang:fr ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "fr-FR"^^xsd:language ;
+    skos:prefLabel "French (France)"@en .
+
+lang:zh-Hans-CN a skos:Concept ;
+    dct:spatial lcc-3166-1:China ;
+    skos:broader lang:zh-Hans ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "zh-Hans-CN"^^xsd:language ;
+    skos:prefLabel "Chinese (Simplified, China)"@en .
+
+lang:zh-Hant a skos:Concept ;
+    dct:conformsTo lcc-15924:Hant ;
+    dct:language lcc-639-1:Chinese ;
+    skos:broader lang:zh ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "zh-Hant"^^xsd:language ;
+    skos:prefLabel "Chinese (Traditional)"@en .
+
+lang:zh-Hans a skos:Concept ;
+    dct:conformsTo lcc-15924:Hans ;
+    dct:language lcc-639-1:Chinese ;
+    skos:broader lang:zh ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "zh-Hans"^^xsd:language ;
+    skos:prefLabel "Chinese (Simplified)"@en .
+
+lang:de a skos:Concept ;
+    owl:sameAs lcc-639-1:German ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "de"^^xsd:language ;
+    skos:prefLabel "German"@en ;
+    skos:topConceptOf <http://example.org/bcp47-scheme> .
+
+lang:es a skos:Concept ;
+    owl:sameAs lcc-639-1:Spanish ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "es"^^xsd:language ;
+    skos:prefLabel "Spanish"@en ;
+    skos:topConceptOf <http://example.org/bcp47-scheme> .
+
+lang:fr a skos:Concept ;
+    owl:sameAs lcc-639-1:French ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "fr"^^xsd:language ;
+    skos:prefLabel "French"@en ;
+    skos:topConceptOf <http://example.org/bcp47-scheme> .
+
+lang:zh a skos:Concept ;
+    owl:sameAs lcc-639-1:Chinese ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "zh"^^xsd:language ;
+    skos:prefLabel "Chinese"@en ;
+    skos:topConceptOf <http://example.org/bcp47-scheme> .
+
+lang:en a skos:Concept ;
+    owl:sameAs lcc-639-1:English ;
+    skos:inScheme <http://example.org/bcp47-scheme> ;
+    skos:notation "en"^^xsd:language ;
+    skos:prefLabel "English"@en ;
+    skos:topConceptOf <http://example.org/bcp47-scheme> .
+
+<http://example.org/bcp47-scheme> a skos:ConceptScheme ;
+    dct:description "Hierarchical organization of BCP47 language tags for ODRL reasoning"@en ;
+    dct:title "BCP47 Language Tag Hierarchy"@en .
+
