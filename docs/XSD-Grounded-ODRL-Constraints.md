@@ -3,17 +3,12 @@
 ## XSD-Grounded Constraints for Static Policy Analysis
 
 ---
+**Self-Contained (XSD-Grounded)** 14 
+**Reference Point Required** 3
+**Semantic Grounding Required** 14
+**Total ODRL LeftOperands**  **31**
 
-## Summary
-
-| Category | Count | Percentage | Static Analysis |
-|----------|-------|------------|-----------------|
-| **Self-Contained (XSD-Grounded)** | 14 | 45% |  Full |
-| **Reference Point Required** | 3 | 10% | ⚠️ Partial |
-| **Semantic Grounding Required** | 14 | 45% |  Requires External KB |
-| **Total ODRL LeftOperands** | **31** | 100% | — |
-
-### Self-Contained Breakdown
+### Self-Contained
 
 | Subcategory | Count | LeftOperands |
 |-------------|-------|--------------|
