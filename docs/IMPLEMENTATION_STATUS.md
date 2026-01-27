@@ -8,29 +8,29 @@ According to ODRL 2.2 specification, there are **31 left operands**. Here's the 
 
 | Operand | XSD Type | Domain | Z3 Sort | Status |
 |---------|----------|--------|---------|--------|
-| `count` | xsd:integer | [0, ∞) | Int | ✅ DONE |
-| `percentage` | xsd:decimal | [0, 100] | Real | ✅ DONE |
-| `payAmount` | xsd:decimal | [0, ∞) | Real | ✅ DONE |
-| `absoluteSize` | xsd:decimal | [0, ∞) | Real | ✅ DONE |
-| `relativeSize` | xsd:decimal | [0, 100] | Real | ✅ DONE |
-| `resolution` | xsd:decimal | [0, ∞) | Real | ✅ DONE |
-| `absolutePosition` | xsd:decimal | (-∞, ∞) | Real | ✅ DONE |
-| `relativePosition` | xsd:decimal | [0, 100] | Real | ✅ DONE |
-| `absoluteSpatialPosition` | xsd:decimal | (-∞, ∞) | Real | ✅ DONE |
-| `relativeSpatialPosition` | xsd:decimal | [0, 100] | Real | ✅ DONE |
-| `absoluteTemporalPosition` | xsd:decimal | [0, ∞) | Real | ✅ DONE |
-| `relativeTemporalPosition` | xsd:decimal | [0, 100] | Real | ✅ DONE |
+| `count` | xsd:integer | [0, ∞) | Int |  DONE |
+| `percentage` | xsd:decimal | [0, 100] | Real |  DONE |
+| `payAmount` | xsd:decimal | [0, ∞) | Real |  DONE |
+| `absoluteSize` | xsd:decimal | [0, ∞) | Real |  DONE |
+| `relativeSize` | xsd:decimal | [0, 100] | Real |  DONE |
+| `resolution` | xsd:decimal | [0, ∞) | Real |  DONE |
+| `absolutePosition` | xsd:decimal | (-∞, ∞) | Real |  DONE |
+| `relativePosition` | xsd:decimal | [0, 100] | Real |  DONE |
+| `absoluteSpatialPosition` | xsd:decimal | (-∞, ∞) | Real |  DONE |
+| `relativeSpatialPosition` | xsd:decimal | [0, 100] | Real |  DONE |
+| `absoluteTemporalPosition` | xsd:decimal | [0, ∞) | Real |  DONE |
+| `relativeTemporalPosition` | xsd:decimal | [0, 100] | Real |  DONE |
 
-**Total: 12 numeric operands - ALL IMPLEMENTED ✅**
+**Total: 12 numeric operands - ALL IMPLEMENTED**
 
 ### B. TEMPORAL OPERANDS - FULL/PARTIAL Support
 
 | Operand | XSD Type | Normalizer | Status |
 |---------|----------|------------|--------|
-| `dateTime` | xsd:dateTime | timestamp (seconds) | ✅ DONE |
-| `timeInterval` | xsd:duration | seconds | ✅ DONE |
-| `elapsedTime` | xsd:duration | seconds | ✅ DONE (PARTIAL class) |
-| `delayPeriod` | xsd:duration | seconds | ✅ DONE (PARTIAL class) |
+| `dateTime` | xsd:dateTime | timestamp (seconds) | DONE |
+| `timeInterval` | xsd:duration | seconds | DONE |
+| `elapsedTime` | xsd:duration | seconds | DONE (PARTIAL class) |
+| `delayPeriod` | xsd:duration | seconds | DONE (PARTIAL class) |
 | `meteredTime` | xsd:duration | N/A | ⚠️ RUNTIME - cannot analyze |
 
 **Note on PARTIAL class**: `elapsedTime` and `delayPeriod` can be analyzed for conflict but need runtime values for evaluation.
@@ -71,14 +71,14 @@ According to ODRL 2.2 specification, there are **31 left operands**. Here's the 
 
 | Operator | Symbol | Z3 Encoding | Status |
 |----------|--------|-------------|--------|
-| `eq` | = | `var == value` | ✅ DONE |
-| `neq` | ≠ | `var != value` | ✅ DONE |
-| `lt` | < | `var < value` | ✅ DONE |
-| `lteq` | ≤ | `var <= value` | ✅ DONE |
-| `gt` | > | `var > value` | ✅ DONE |
-| `gteq` | ≥ | `var >= value` | ✅ DONE |
+| `eq` | = | `var == value` |  DONE |
+| `neq` | ≠ | `var != value` |  DONE |
+| `lt` | < | `var < value` |  DONE |
+| `lteq` | ≤ | `var <= value` |  DONE |
+| `gt` | > | `var > value` |  DONE |
+| `gteq` | ≥ | `var >= value` |  DONE |
 
-**Total: 6 comparison operators - ALL IMPLEMENTED ✅**
+**Total: 6 comparison operators - ALL IMPLEMENTED **
 
 ### B. SET OPERATORS - NOT Implemented
 
@@ -120,7 +120,7 @@ odrl:constraint [
 ```
 
 **Problem 2: Conflict Detection for Composites**
-- AND contradiction: count < 5 AND count > 10 → CONFLICT ✅ (if parsed)
+- AND contradiction: count < 5 AND count > 10 → CONFLICT  (if parsed)
 - OR satisfiability: count = 1 OR count = 2 → Need to check if ANY branch works
 - XONE overlap: Need to check if MULTIPLE branches can be true simultaneously
 
@@ -132,11 +132,11 @@ odrl:constraint [
 
 | Conflict Type | Example | Detection | Status |
 |---------------|---------|-----------|--------|
-| Numeric range conflict | count < 5 AND count > 10 | Z3 UNSAT | ✅ DONE |
-| DateTime disjoint | date < 2024 AND date > 2025 | Z3 UNSAT | ✅ DONE |
-| Duration conflict | elapsed < 1h AND elapsed > 2h | Z3 UNSAT | ✅ DONE |
-| Percentage bounds | pct > 100 | Domain violation | ✅ DONE |
-| Count non-negative | count < 0 | Domain violation | ✅ DONE |
+| Numeric range conflict | count < 5 AND count > 10 | Z3 UNSAT |  DONE |
+| DateTime disjoint | date < 2024 AND date > 2025 | Z3 UNSAT |  DONE |
+| Duration conflict | elapsed < 1h AND elapsed > 2h | Z3 UNSAT |  DONE |
+| Percentage bounds | pct > 100 | Domain violation |  DONE |
+| Count non-negative | count < 0 | Domain violation |  DONE |
 
 ### B. Rule-Level Conflicts
 
@@ -170,12 +170,12 @@ odrl:constraint [
 
 | XSD Type | Normalizer | Z3 Sort | Status |
 |----------|------------|---------|--------|
-| `xsd:integer` | `to_integer` | `IntSort()` | ✅ DONE |
-| `xsd:decimal` | `to_float` | `RealSort()` | ✅ DONE |
-| `xsd:double` | `to_float` | `RealSort()` | ✅ DONE |
-| `xsd:dateTime` | `datetime_to_timestamp` | `IntSort()` | ✅ DONE |
-| `xsd:date` | `datetime_to_timestamp` | `IntSort()` | ✅ DONE |
-| `xsd:duration` | `duration_to_seconds` | `IntSort()` | ✅ DONE |
+| `xsd:integer` | `to_integer` | `IntSort()` |  DONE |
+| `xsd:decimal` | `to_float` | `RealSort()` |  DONE |
+| `xsd:double` | `to_float` | `RealSort()` |  DONE |
+| `xsd:dateTime` | `datetime_to_timestamp` | `IntSort()` |  DONE |
+| `xsd:date` | `datetime_to_timestamp` | `IntSort()` |  DONE |
+| `xsd:duration` | `duration_to_seconds` | `IntSort()` |  DONE |
 | `xsd:string` | `none` | `StringSort()` | ⚠️ PARTIAL |
 | `xsd:anyURI` | `to_uri` | `StringSort()` | ⚠️ PARTIAL |
 
@@ -183,13 +183,13 @@ odrl:constraint [
 
 | Python Type | Normalization | Status |
 |-------------|---------------|--------|
-| `int` | Pass through | ✅ DONE |
-| `float` | Pass through | ✅ DONE |
-| `Decimal` | Convert to float | ✅ DONE |
-| `datetime` | Convert to timestamp | ✅ DONE |
-| `timedelta` | Convert to seconds | ✅ DONE |
-| `str` (ISO datetime) | Parse and convert | ✅ DONE |
-| `str` (ISO duration) | Parse and convert | ✅ DONE |
+| `int` | Pass through |  DONE |
+| `float` | Pass through |  DONE |
+| `Decimal` | Convert to float |  DONE |
+| `datetime` | Convert to timestamp |  DONE |
+| `timedelta` | Convert to seconds |  DONE |
+| `str` (ISO datetime) | Parse and convert |  DONE |
+| `str` (ISO duration) | Parse and convert |  DONE |
 | `str` (literal) | Pass through | ⚠️ PARTIAL |
 
 ---
@@ -237,10 +237,10 @@ cp outputs/encoder/z3_encoder_complete.py src/encoder/z3_encoder.py
 ```
 
 This adds:
-- ✅ Set operators (isAnyOf, isNoneOf, isAllOf, hasPart, isPartOf, isA)
-- ✅ String variable support for grounded operands
-- ✅ Better XONE encoding
-- ✅ Composite constraint registration
+-  Set operators (isAnyOf, isNoneOf, isAllOf, hasPart, isPartOf, isA)
+-  String variable support for grounded operands
+-  Better XONE encoding
+-  Composite constraint registration
 
 ### Step 2: Run tests to verify
 ```bash
