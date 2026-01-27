@@ -1,0 +1,1242 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix mt-ont: <https://www.w3.org/ns/iana/media-types/ontology#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://www.w3.org/ns/iana/media-types/application/1d-interleaved-parityfec#Resource> a owl:Class ;
+    rdfs:label "application/1d-interleaved-parityfec" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6015> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/1d-interleaved-parityfec" ;
+    skos:prefLabel "application/1d-interleaved-parityfec" .
+
+<https://www.w3.org/ns/iana/media-types/application/3gpdash-qoe-report+xml#Resource> a owl:Class ;
+    rdfs:label "application/3gpdash-qoe-report+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/3gpdash-qoe-report+xml" ;
+    skos:prefLabel "application/3gpdash-qoe-report+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/3gpp-ims+xml#Resource> a owl:Class ;
+    rdfs:label "application/3gpp-ims+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/3gpp-ims+xml" ;
+    skos:prefLabel "application/3gpp-ims+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/3gpp-mbs-object-manifest+json#Resource> a owl:Class ;
+    rdfs:label "application/3gpp-mbs-object-manifest+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/3gpp-mbs-object-manifest+json" ;
+    skos:prefLabel "application/3gpp-mbs-object-manifest+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/3gpp-mbs-user-service-descriptions+json#Resource> a owl:Class ;
+    rdfs:label "application/3gpp-mbs-user-service-descriptions+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/3gpp-mbs-user-service-descriptions+json" ;
+    skos:prefLabel "application/3gpp-mbs-user-service-descriptions+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/3gpp-media-delivery-metrics-report+json#Resource> a owl:Class ;
+    rdfs:label "application/3gpp-media-delivery-metrics-report+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/3gpp-media-delivery-metrics-report+json" ;
+    skos:prefLabel "application/3gpp-media-delivery-metrics-report+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/3gppHal+json#Resource> a owl:Class ;
+    rdfs:label "application/3gppHal+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/3gppHal+json" ;
+    skos:prefLabel "application/3gppHal+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/3gppHalForms+json#Resource> a owl:Class ;
+    rdfs:label "application/3gppHalForms+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/3gppHalForms+json" ;
+    skos:prefLabel "application/3gppHalForms+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/A2L#Resource> a owl:Class ;
+    rdfs:label "application/A2L" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/A2L" ;
+    skos:prefLabel "application/A2L" .
+
+<https://www.w3.org/ns/iana/media-types/application/AML#Resource> a owl:Class ;
+    rdfs:label "application/AML" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/AML" ;
+    skos:prefLabel "application/AML" .
+
+<https://www.w3.org/ns/iana/media-types/application/ATF#Resource> a owl:Class ;
+    rdfs:label "application/ATF" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/ATF" ;
+    skos:prefLabel "application/ATF" .
+
+<https://www.w3.org/ns/iana/media-types/application/ATFX#Resource> a owl:Class ;
+    rdfs:label "application/ATFX" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/ATFX" ;
+    skos:prefLabel "application/ATFX" .
+
+<https://www.w3.org/ns/iana/media-types/application/ATXML#Resource> a owl:Class ;
+    rdfs:label "application/ATXML" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/ATXML" ;
+    skos:prefLabel "application/ATXML" .
+
+<https://www.w3.org/ns/iana/media-types/application/CALS-1840#Resource> a owl:Class ;
+    rdfs:label "application/CALS-1840" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc1895> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/CALS-1840" ;
+    skos:prefLabel "application/CALS-1840" .
+
+<https://www.w3.org/ns/iana/media-types/application/CDFX+XML#Resource> a owl:Class ;
+    rdfs:label "application/CDFX+XML" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/CDFX+XML" ;
+    skos:prefLabel "application/CDFX+XML" .
+
+<https://www.w3.org/ns/iana/media-types/application/CEA#Resource> a owl:Class ;
+    rdfs:label "application/CEA" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/CEA" ;
+    skos:prefLabel "application/CEA" .
+
+<https://www.w3.org/ns/iana/media-types/application/CSTAdata+xml#Resource> a owl:Class ;
+    rdfs:label "application/CSTAdata+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/CSTAdata+xml" ;
+    skos:prefLabel "application/CSTAdata+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/DCD#Resource> a owl:Class ;
+    rdfs:label "application/DCD" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/DCD" ;
+    skos:prefLabel "application/DCD" .
+
+<https://www.w3.org/ns/iana/media-types/application/DII#Resource> a owl:Class ;
+    rdfs:label "application/DII" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/DII" ;
+    skos:prefLabel "application/DII" .
+
+<https://www.w3.org/ns/iana/media-types/application/DIT#Resource> a owl:Class ;
+    rdfs:label "application/DIT" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/DIT" ;
+    skos:prefLabel "application/DIT" .
+
+<https://www.w3.org/ns/iana/media-types/application/EDI-X12#Resource> a owl:Class ;
+    rdfs:label "application/EDI-X12" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc1767> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/EDI-X12" ;
+    skos:prefLabel "application/EDI-X12" .
+
+<https://www.w3.org/ns/iana/media-types/application/EDI-consent#Resource> a owl:Class ;
+    rdfs:label "application/EDI-consent" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc1767> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/EDI-consent" ;
+    skos:prefLabel "application/EDI-consent" .
+
+<https://www.w3.org/ns/iana/media-types/application/EDIFACT#Resource> a owl:Class ;
+    rdfs:label "application/EDIFACT" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc1767> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/EDIFACT" ;
+    skos:prefLabel "application/EDIFACT" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.Comment+xml#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.Comment+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7852> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/EmergencyCallData.Comment+xml" ;
+    skos:prefLabel "application/EmergencyCallData.Comment+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.Control+xml#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.Control+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8147> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/EmergencyCallData.Control+xml" ;
+    skos:prefLabel "application/EmergencyCallData.Control+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.DeviceInfo+xml#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.DeviceInfo+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7852> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/EmergencyCallData.DeviceInfo+xml" ;
+    skos:prefLabel "application/EmergencyCallData.DeviceInfo+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.LegacyESN+json#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.LegacyESN+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/EmergencyCallData.LegacyESN+json" ;
+    skos:prefLabel "application/EmergencyCallData.LegacyESN+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.ProviderInfo+xml#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.ProviderInfo+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7852> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/EmergencyCallData.ProviderInfo+xml" ;
+    skos:prefLabel "application/EmergencyCallData.ProviderInfo+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.ServiceInfo+xml#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.ServiceInfo+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7852> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/EmergencyCallData.ServiceInfo+xml" ;
+    skos:prefLabel "application/EmergencyCallData.ServiceInfo+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.SubscriberInfo+xml#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.SubscriberInfo+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7852> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/EmergencyCallData.SubscriberInfo+xml" ;
+    skos:prefLabel "application/EmergencyCallData.SubscriberInfo+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.VEDS+xml#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.VEDS+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8148> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/EmergencyCallData.VEDS+xml" ;
+    skos:prefLabel "application/EmergencyCallData.VEDS+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.cap+xml#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.cap+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8876> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/EmergencyCallData.cap+xml" ;
+    skos:prefLabel "application/EmergencyCallData.cap+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/EmergencyCallData.eCall.MSD#Resource> a owl:Class ;
+    rdfs:label "application/EmergencyCallData.eCall.MSD" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8147> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/EmergencyCallData.eCall.MSD" ;
+    skos:prefLabel "application/EmergencyCallData.eCall.MSD" .
+
+<https://www.w3.org/ns/iana/media-types/application/H224#Resource> a owl:Class ;
+    rdfs:label "application/H224" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc4573> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/H224" ;
+    skos:prefLabel "application/H224" .
+
+<https://www.w3.org/ns/iana/media-types/application/IOTP#Resource> a owl:Class ;
+    rdfs:label "application/IOTP" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc2935> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/IOTP" ;
+    skos:prefLabel "application/IOTP" .
+
+<https://www.w3.org/ns/iana/media-types/application/ISUP#Resource> a owl:Class ;
+    rdfs:label "application/ISUP" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc3204> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/ISUP" ;
+    skos:prefLabel "application/ISUP" .
+
+<https://www.w3.org/ns/iana/media-types/application/LXF#Resource> a owl:Class ;
+    rdfs:label "application/LXF" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/LXF" ;
+    skos:prefLabel "application/LXF" .
+
+<https://www.w3.org/ns/iana/media-types/application/MF4#Resource> a owl:Class ;
+    rdfs:label "application/MF4" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/MF4" ;
+    skos:prefLabel "application/MF4" .
+
+<https://www.w3.org/ns/iana/media-types/application/ODA#Resource> a owl:Class ;
+    rdfs:label "application/ODA" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc1494> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/ODA" ;
+    skos:prefLabel "application/ODA" .
+
+<https://www.w3.org/ns/iana/media-types/application/ODX#Resource> a owl:Class ;
+    rdfs:label "application/ODX" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/ODX" ;
+    skos:prefLabel "application/ODX" .
+
+<https://www.w3.org/ns/iana/media-types/application/PDX#Resource> a owl:Class ;
+    rdfs:label "application/PDX" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/PDX" ;
+    skos:prefLabel "application/PDX" .
+
+<https://www.w3.org/ns/iana/media-types/application/QSIG#Resource> a owl:Class ;
+    rdfs:label "application/QSIG" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc3204> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/QSIG" ;
+    skos:prefLabel "application/QSIG" .
+
+<https://www.w3.org/ns/iana/media-types/application/SGML#Resource> a owl:Class ;
+    rdfs:label "application/SGML" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc1874> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/SGML" ;
+    skos:prefLabel "application/SGML" .
+
+<https://www.w3.org/ns/iana/media-types/application/ST2110-41#Resource> a owl:Class ;
+    rdfs:label "application/ST2110-41" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/ST2110-41" ;
+    skos:prefLabel "application/ST2110-41" .
+
+<https://www.w3.org/ns/iana/media-types/application/TETRA_ISI#Resource> a owl:Class ;
+    rdfs:label "application/TETRA_ISI" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/TETRA_ISI" ;
+    skos:prefLabel "application/TETRA_ISI" .
+
+<https://www.w3.org/ns/iana/media-types/application/ace+cbor#Resource> a owl:Class ;
+    rdfs:label "application/ace+cbor" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9200> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/ace+cbor" ;
+    skos:prefLabel "application/ace+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/ace+json#Resource> a owl:Class ;
+    rdfs:label "application/ace+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9431> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/ace+json" ;
+    skos:prefLabel "application/ace+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/ace-groupcomm+cbor#Resource> a owl:Class ;
+    rdfs:label "application/ace-groupcomm+cbor" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9594> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/ace-groupcomm+cbor" ;
+    skos:prefLabel "application/ace-groupcomm+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/ace-trl+cbor#Resource> a owl:Class ;
+    rdfs:label "application/ace-trl+cbor" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9770> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/ace-trl+cbor" ;
+    skos:prefLabel "application/ace-trl+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/activemessage#Resource> a owl:Class ;
+    rdfs:label "application/activemessage" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/activemessage" ;
+    skos:prefLabel "application/activemessage" .
+
+<https://www.w3.org/ns/iana/media-types/application/activity+json#Resource> a owl:Class ;
+    rdfs:label "application/activity+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/activity+json" ;
+    skos:prefLabel "application/activity+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/aif+cbor#Resource> a owl:Class ;
+    rdfs:label "application/aif+cbor" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9237> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/aif+cbor" ;
+    skos:prefLabel "application/aif+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/aif+json#Resource> a owl:Class ;
+    rdfs:label "application/aif+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9237> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/aif+json" ;
+    skos:prefLabel "application/aif+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-cdni+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-cdni+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9241> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-cdni+json" ;
+    skos:prefLabel "application/alto-cdni+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-cdnifilter+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-cdnifilter+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9241> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-cdnifilter+json" ;
+    skos:prefLabel "application/alto-cdnifilter+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-costmap+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-costmap+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-costmap+json" ;
+    skos:prefLabel "application/alto-costmap+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-costmapfilter+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-costmapfilter+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-costmapfilter+json" ;
+    skos:prefLabel "application/alto-costmapfilter+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-directory+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-directory+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-directory+json" ;
+    skos:prefLabel "application/alto-directory+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-endpointcost+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-endpointcost+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-endpointcost+json" ;
+    skos:prefLabel "application/alto-endpointcost+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-endpointcostparams+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-endpointcostparams+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-endpointcostparams+json" ;
+    skos:prefLabel "application/alto-endpointcostparams+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-endpointprop+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-endpointprop+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-endpointprop+json" ;
+    skos:prefLabel "application/alto-endpointprop+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-endpointpropparams+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-endpointpropparams+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-endpointpropparams+json" ;
+    skos:prefLabel "application/alto-endpointpropparams+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-error+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-error+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-error+json" ;
+    skos:prefLabel "application/alto-error+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-networkmap+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-networkmap+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-networkmap+json" ;
+    skos:prefLabel "application/alto-networkmap+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-networkmapfilter+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-networkmapfilter+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7285> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-networkmapfilter+json" ;
+    skos:prefLabel "application/alto-networkmapfilter+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-propmap+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-propmap+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9240> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-propmap+json" ;
+    skos:prefLabel "application/alto-propmap+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-propmapparams+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-propmapparams+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9240> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-propmapparams+json" ;
+    skos:prefLabel "application/alto-propmapparams+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-tips+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-tips+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9569> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-tips+json" ;
+    skos:prefLabel "application/alto-tips+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-tipsparams+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-tipsparams+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9569> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-tipsparams+json" ;
+    skos:prefLabel "application/alto-tipsparams+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-updatestreamcontrol+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-updatestreamcontrol+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8895> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-updatestreamcontrol+json" ;
+    skos:prefLabel "application/alto-updatestreamcontrol+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/alto-updatestreamparams+json#Resource> a owl:Class ;
+    rdfs:label "application/alto-updatestreamparams+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8895> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/alto-updatestreamparams+json" ;
+    skos:prefLabel "application/alto-updatestreamparams+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/andrew-inset#Resource> a owl:Class ;
+    rdfs:label "application/andrew-inset" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/andrew-inset" ;
+    skos:prefLabel "application/andrew-inset" .
+
+<https://www.w3.org/ns/iana/media-types/application/applefile#Resource> a owl:Class ;
+    rdfs:label "application/applefile" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/applefile" ;
+    skos:prefLabel "application/applefile" .
+
+<https://www.w3.org/ns/iana/media-types/application/asyncapi+json#Resource> a owl:Class ;
+    rdfs:label "application/asyncapi+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/asyncapi+json" ;
+    skos:prefLabel "application/asyncapi+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/asyncapi+yaml#Resource> a owl:Class ;
+    rdfs:label "application/asyncapi+yaml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:YAMLBased ;
+    skos:notation "application/asyncapi+yaml" ;
+    skos:prefLabel "application/asyncapi+yaml" .
+
+<https://www.w3.org/ns/iana/media-types/application/at+jwt#Resource> a owl:Class ;
+    rdfs:label "application/at+jwt" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9068> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JWTBased ;
+    skos:notation "application/at+jwt" ;
+    skos:prefLabel "application/at+jwt" .
+
+<https://www.w3.org/ns/iana/media-types/application/atom+xml#Resource> a owl:Class ;
+    rdfs:label "application/atom+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc4287>,
+        <https://tools.ietf.org/html/rfcrfc5023> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/atom+xml" ;
+    skos:prefLabel "application/atom+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/atomcat+xml#Resource> a owl:Class ;
+    rdfs:label "application/atomcat+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc5023> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/atomcat+xml" ;
+    skos:prefLabel "application/atomcat+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/atomdeleted+xml#Resource> a owl:Class ;
+    rdfs:label "application/atomdeleted+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6721> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/atomdeleted+xml" ;
+    skos:prefLabel "application/atomdeleted+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/atomicmail#Resource> a owl:Class ;
+    rdfs:label "application/atomicmail" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/atomicmail" ;
+    skos:prefLabel "application/atomicmail" .
+
+<https://www.w3.org/ns/iana/media-types/application/atomsvc+xml#Resource> a owl:Class ;
+    rdfs:label "application/atomsvc+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc5023> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/atomsvc+xml" ;
+    skos:prefLabel "application/atomsvc+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/atsc-dwd+xml#Resource> a owl:Class ;
+    rdfs:label "application/atsc-dwd+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/atsc-dwd+xml" ;
+    skos:prefLabel "application/atsc-dwd+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/atsc-dynamic-event-message#Resource> a owl:Class ;
+    rdfs:label "application/atsc-dynamic-event-message" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/atsc-dynamic-event-message" ;
+    skos:prefLabel "application/atsc-dynamic-event-message" .
+
+<https://www.w3.org/ns/iana/media-types/application/atsc-held+xml#Resource> a owl:Class ;
+    rdfs:label "application/atsc-held+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/atsc-held+xml" ;
+    skos:prefLabel "application/atsc-held+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/atsc-rdt+json#Resource> a owl:Class ;
+    rdfs:label "application/atsc-rdt+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/atsc-rdt+json" ;
+    skos:prefLabel "application/atsc-rdt+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/atsc-rsat+xml#Resource> a owl:Class ;
+    rdfs:label "application/atsc-rsat+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/atsc-rsat+xml" ;
+    skos:prefLabel "application/atsc-rsat+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/auth-policy+xml#Resource> a owl:Class ;
+    rdfs:label "application/auth-policy+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc4745> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/auth-policy+xml" ;
+    skos:prefLabel "application/auth-policy+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/automationml-aml+xml#Resource> a owl:Class ;
+    rdfs:label "application/automationml-aml+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/automationml-aml+xml" ;
+    skos:prefLabel "application/automationml-aml+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/automationml-amlx+zip#Resource> a owl:Class ;
+    rdfs:label "application/automationml-amlx+zip" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:ZIPBased ;
+    skos:notation "application/automationml-amlx+zip" ;
+    skos:prefLabel "application/automationml-amlx+zip" .
+
+<https://www.w3.org/ns/iana/media-types/application/bacnet-xdd+zip#Resource> a owl:Class ;
+    rdfs:label "application/bacnet-xdd+zip" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:ZIPBased ;
+    skos:notation "application/bacnet-xdd+zip" ;
+    skos:prefLabel "application/bacnet-xdd+zip" .
+
+<https://www.w3.org/ns/iana/media-types/application/batch-SMTP#Resource> a owl:Class ;
+    rdfs:label "application/batch-SMTP" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc2442> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/batch-SMTP" ;
+    skos:prefLabel "application/batch-SMTP" .
+
+<https://www.w3.org/ns/iana/media-types/application/beep+xml#Resource> a owl:Class ;
+    rdfs:label "application/beep+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc3080> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/beep+xml" ;
+    skos:prefLabel "application/beep+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/bufr#Resource> a owl:Class ;
+    rdfs:label "application/bufr" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/bufr" ;
+    skos:prefLabel "application/bufr" .
+
+<https://www.w3.org/ns/iana/media-types/application/c2pa#Resource> a owl:Class ;
+    rdfs:label "application/c2pa" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/c2pa" ;
+    skos:prefLabel "application/c2pa" .
+
+<https://www.w3.org/ns/iana/media-types/application/calendar+json#Resource> a owl:Class ;
+    rdfs:label "application/calendar+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7265> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/calendar+json" ;
+    skos:prefLabel "application/calendar+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/calendar+xml#Resource> a owl:Class ;
+    rdfs:label "application/calendar+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6321> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/calendar+xml" ;
+    skos:prefLabel "application/calendar+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/call-completion#Resource> a owl:Class ;
+    rdfs:label "application/call-completion" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6910> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/call-completion" ;
+    skos:prefLabel "application/call-completion" .
+
+<https://www.w3.org/ns/iana/media-types/application/captive+json#Resource> a owl:Class ;
+    rdfs:label "application/captive+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8908> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/captive+json" ;
+    skos:prefLabel "application/captive+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/cbor#Resource> a owl:Class ;
+    rdfs:label "application/cbor" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8949> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cbor" ;
+    skos:prefLabel "application/cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/cbor-seq#Resource> a owl:Class ;
+    rdfs:label "application/cbor-seq" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8742> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cbor-seq" ;
+    skos:prefLabel "application/cbor-seq" .
+
+<https://www.w3.org/ns/iana/media-types/application/cccex#Resource> a owl:Class ;
+    rdfs:label "application/cccex" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cccex" ;
+    skos:prefLabel "application/cccex" .
+
+<https://www.w3.org/ns/iana/media-types/application/ccmp+xml#Resource> a owl:Class ;
+    rdfs:label "application/ccmp+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6503> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/ccmp+xml" ;
+    skos:prefLabel "application/ccmp+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/ccxml+xml#Resource> a owl:Class ;
+    rdfs:label "application/ccxml+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc4267> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/ccxml+xml" ;
+    skos:prefLabel "application/ccxml+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/cda+xml#Resource> a owl:Class ;
+    rdfs:label "application/cda+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/cda+xml" ;
+    skos:prefLabel "application/cda+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/cdmi-capability#Resource> a owl:Class ;
+    rdfs:label "application/cdmi-capability" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6208> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cdmi-capability" ;
+    skos:prefLabel "application/cdmi-capability" .
+
+<https://www.w3.org/ns/iana/media-types/application/cdmi-container#Resource> a owl:Class ;
+    rdfs:label "application/cdmi-container" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6208> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cdmi-container" ;
+    skos:prefLabel "application/cdmi-container" .
+
+<https://www.w3.org/ns/iana/media-types/application/cdmi-domain#Resource> a owl:Class ;
+    rdfs:label "application/cdmi-domain" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6208> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cdmi-domain" ;
+    skos:prefLabel "application/cdmi-domain" .
+
+<https://www.w3.org/ns/iana/media-types/application/cdmi-object#Resource> a owl:Class ;
+    rdfs:label "application/cdmi-object" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6208> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cdmi-object" ;
+    skos:prefLabel "application/cdmi-object" .
+
+<https://www.w3.org/ns/iana/media-types/application/cdmi-queue#Resource> a owl:Class ;
+    rdfs:label "application/cdmi-queue" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6208> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cdmi-queue" ;
+    skos:prefLabel "application/cdmi-queue" .
+
+<https://www.w3.org/ns/iana/media-types/application/cdni#Resource> a owl:Class ;
+    rdfs:label "application/cdni" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7736> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cdni" ;
+    skos:prefLabel "application/cdni" .
+
+<https://www.w3.org/ns/iana/media-types/application/ce+cbor#Resource> a owl:Class ;
+    rdfs:label "application/ce+cbor" ;
+    dcterms:references <https://trustedcomputinggroup.org/wp-content/uploads/TCG-DICE-Concise-Evidence-Binding-for-SPDM-Version-1.1-RC1_10April25.pdf> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/ce+cbor" ;
+    skos:prefLabel "application/ce+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/cea-2018+xml#Resource> a owl:Class ;
+    rdfs:label "application/cea-2018+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/cea-2018+xml" ;
+    skos:prefLabel "application/cea-2018+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/cellml+xml#Resource> a owl:Class ;
+    rdfs:label "application/cellml+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc4708> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/cellml+xml" ;
+    skos:prefLabel "application/cellml+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/cfw#Resource> a owl:Class ;
+    rdfs:label "application/cfw" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6230> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cfw" ;
+    skos:prefLabel "application/cfw" .
+
+<https://www.w3.org/ns/iana/media-types/application/cid#Resource> a owl:Class ;
+    rdfs:label "application/cid" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cid" ;
+    skos:prefLabel "application/cid" .
+
+<https://www.w3.org/ns/iana/media-types/application/cid-edhoc+cbor-seq#Resource> a owl:Class ;
+    rdfs:label "application/cid-edhoc+cbor-seq" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9528> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cid-edhoc+cbor-seq" ;
+    skos:prefLabel "application/cid-edhoc+cbor-seq" .
+
+<https://www.w3.org/ns/iana/media-types/application/city+json#Resource> a owl:Class ;
+    rdfs:label "application/city+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/city+json" ;
+    skos:prefLabel "application/city+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/city+json-seq#Resource> a owl:Class ;
+    rdfs:label "application/city+json-seq" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/city+json-seq" ;
+    skos:prefLabel "application/city+json-seq" .
+
+<https://www.w3.org/ns/iana/media-types/application/clr#Resource> a owl:Class ;
+    rdfs:label "application/clr" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/clr" ;
+    skos:prefLabel "application/clr" .
+
+<https://www.w3.org/ns/iana/media-types/application/clue+xml#Resource> a owl:Class ;
+    rdfs:label "application/clue+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8847> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/clue+xml" ;
+    skos:prefLabel "application/clue+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/clue_info+xml#Resource> a owl:Class ;
+    rdfs:label "application/clue_info+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8846> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/clue_info+xml" ;
+    skos:prefLabel "application/clue_info+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/cms#Resource> a owl:Class ;
+    rdfs:label "application/cms" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7193> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cms" ;
+    skos:prefLabel "application/cms" .
+
+<https://www.w3.org/ns/iana/media-types/application/cmw+cbor#Resource> a owl:Class ;
+    rdfs:label "application/cmw+cbor" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/cmw+cbor" ;
+    skos:prefLabel "application/cmw+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/cmw+cose#Resource> a owl:Class ;
+    rdfs:label "application/cmw+cose" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cmw+cose" ;
+    skos:prefLabel "application/cmw+cose" .
+
+<https://www.w3.org/ns/iana/media-types/application/cmw+json#Resource> a owl:Class ;
+    rdfs:label "application/cmw+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/cmw+json" ;
+    skos:prefLabel "application/cmw+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/cmw+jws#Resource> a owl:Class ;
+    rdfs:label "application/cmw+jws" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cmw+jws" ;
+    skos:prefLabel "application/cmw+jws" .
+
+<https://www.w3.org/ns/iana/media-types/application/cnrp+xml#Resource> a owl:Class ;
+    rdfs:label "application/cnrp+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc3367> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/cnrp+xml" ;
+    skos:prefLabel "application/cnrp+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/coap-eap#Resource> a owl:Class ;
+    rdfs:label "application/coap-eap" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9820> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/coap-eap" ;
+    skos:prefLabel "application/coap-eap" .
+
+<https://www.w3.org/ns/iana/media-types/application/coap-group+json#Resource> a owl:Class ;
+    rdfs:label "application/coap-group+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7390> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/coap-group+json" ;
+    skos:prefLabel "application/coap-group+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/coap-payload#Resource> a owl:Class ;
+    rdfs:label "application/coap-payload" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8075> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/coap-payload" ;
+    skos:prefLabel "application/coap-payload" .
+
+<https://www.w3.org/ns/iana/media-types/application/commonground#Resource> a owl:Class ;
+    rdfs:label "application/commonground" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/commonground" ;
+    skos:prefLabel "application/commonground" .
+
+<https://www.w3.org/ns/iana/media-types/application/concise-problem-details+cbor#Resource> a owl:Class ;
+    rdfs:label "application/concise-problem-details+cbor" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9290> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/concise-problem-details+cbor" ;
+    skos:prefLabel "application/concise-problem-details+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/conference-info+xml#Resource> a owl:Class ;
+    rdfs:label "application/conference-info+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc4575> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/conference-info+xml" ;
+    skos:prefLabel "application/conference-info+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/cose#Resource> a owl:Class ;
+    rdfs:label "application/cose" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9052> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cose" ;
+    skos:prefLabel "application/cose" .
+
+<https://www.w3.org/ns/iana/media-types/application/cose-key#Resource> a owl:Class ;
+    rdfs:label "application/cose-key" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9052> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cose-key" ;
+    skos:prefLabel "application/cose-key" .
+
+<https://www.w3.org/ns/iana/media-types/application/cose-key-set#Resource> a owl:Class ;
+    rdfs:label "application/cose-key-set" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9052> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cose-key-set" ;
+    skos:prefLabel "application/cose-key-set" .
+
+<https://www.w3.org/ns/iana/media-types/application/cose-x509#Resource> a owl:Class ;
+    rdfs:label "application/cose-x509" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9360> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cose-x509" ;
+    skos:prefLabel "application/cose-x509" .
+
+<https://www.w3.org/ns/iana/media-types/application/cpl+xml#Resource> a owl:Class ;
+    rdfs:label "application/cpl+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc3880> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/cpl+xml" ;
+    skos:prefLabel "application/cpl+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/csrattrs#Resource> a owl:Class ;
+    rdfs:label "application/csrattrs" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc7030> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/csrattrs" ;
+    skos:prefLabel "application/csrattrs" .
+
+<https://www.w3.org/ns/iana/media-types/application/csta+xml#Resource> a owl:Class ;
+    rdfs:label "application/csta+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/csta+xml" ;
+    skos:prefLabel "application/csta+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/csvm+json#Resource> a owl:Class ;
+    rdfs:label "application/csvm+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/csvm+json" ;
+    skos:prefLabel "application/csvm+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/cwl#Resource> a owl:Class ;
+    rdfs:label "application/cwl" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cwl" ;
+    skos:prefLabel "application/cwl" .
+
+<https://www.w3.org/ns/iana/media-types/application/cwl+json#Resource> a owl:Class ;
+    rdfs:label "application/cwl+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/cwl+json" ;
+    skos:prefLabel "application/cwl+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/cwl+yaml#Resource> a owl:Class ;
+    rdfs:label "application/cwl+yaml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:YAMLBased ;
+    skos:notation "application/cwl+yaml" ;
+    skos:prefLabel "application/cwl+yaml" .
+
+<https://www.w3.org/ns/iana/media-types/application/cwt#Resource> a owl:Class ;
+    rdfs:label "application/cwt" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8392> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cwt" ;
+    skos:prefLabel "application/cwt" .
+
+<https://www.w3.org/ns/iana/media-types/application/cybercash#Resource> a owl:Class ;
+    rdfs:label "application/cybercash" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/cybercash" ;
+    skos:prefLabel "application/cybercash" .
+
+<https://www.w3.org/ns/iana/media-types/application/dash+xml#Resource> a owl:Class ;
+    rdfs:label "application/dash+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/dash+xml" ;
+    skos:prefLabel "application/dash+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/dash-patch+xml#Resource> a owl:Class ;
+    rdfs:label "application/dash-patch+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/dash-patch+xml" ;
+    skos:prefLabel "application/dash-patch+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/dashdelta#Resource> a owl:Class ;
+    rdfs:label "application/dashdelta" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/dashdelta" ;
+    skos:prefLabel "application/dashdelta" .
+
+<https://www.w3.org/ns/iana/media-types/application/davmount+xml#Resource> a owl:Class ;
+    rdfs:label "application/davmount+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc4709> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/davmount+xml" ;
+    skos:prefLabel "application/davmount+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/dca-rft#Resource> a owl:Class ;
+    rdfs:label "application/dca-rft" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/dca-rft" ;
+    skos:prefLabel "application/dca-rft" .
+
+<https://www.w3.org/ns/iana/media-types/application/dec-dx#Resource> a owl:Class ;
+    rdfs:label "application/dec-dx" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/dec-dx" ;
+    skos:prefLabel "application/dec-dx" .
+
+<https://www.w3.org/ns/iana/media-types/application/dialog-info+xml#Resource> a owl:Class ;
+    rdfs:label "application/dialog-info+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc4235> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/dialog-info+xml" ;
+    skos:prefLabel "application/dialog-info+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/dicom#Resource> a owl:Class ;
+    rdfs:label "application/dicom" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc3240> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/dicom" ;
+    skos:prefLabel "application/dicom" .
+
+<https://www.w3.org/ns/iana/media-types/application/dicom+json#Resource> a owl:Class ;
+    rdfs:label "application/dicom+json" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/dicom+json" ;
+    skos:prefLabel "application/dicom+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/dicom+xml#Resource> a owl:Class ;
+    rdfs:label "application/dicom+xml" ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/dicom+xml" ;
+    skos:prefLabel "application/dicom+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/did#Resource> a owl:Class ;
+    rdfs:label "application/did" ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/did" ;
+    skos:prefLabel "application/did" .
+
+<https://www.w3.org/ns/iana/media-types/application/dns#Resource> a owl:Class ;
+    rdfs:label "application/dns" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc4027> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/dns" ;
+    skos:prefLabel "application/dns" .
+
+<https://www.w3.org/ns/iana/media-types/application/dns+json#Resource> a owl:Class ;
+    rdfs:label "application/dns+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8427> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/dns+json" ;
+    skos:prefLabel "application/dns+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/dns-message#Resource> a owl:Class ;
+    rdfs:label "application/dns-message" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc8484> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/dns-message" ;
+    skos:prefLabel "application/dns-message" .
+
+<https://www.w3.org/ns/iana/media-types/application/dots+cbor#Resource> a owl:Class ;
+    rdfs:label "application/dots+cbor" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9132> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/dots+cbor" ;
+    skos:prefLabel "application/dots+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/dpop+jwt#Resource> a owl:Class ;
+    rdfs:label "application/dpop+jwt" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9449> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JWTBased ;
+    skos:notation "application/dpop+jwt" ;
+    skos:prefLabel "application/dpop+jwt" .
+
+<https://www.w3.org/ns/iana/media-types/application/dskpp+xml#Resource> a owl:Class ;
+    rdfs:label "application/dskpp+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc6063> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/dskpp+xml" ;
+    skos:prefLabel "application/dskpp+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/dssc+der#Resource> a owl:Class ;
+    rdfs:label "application/dssc+der" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc5698> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:DERBased ;
+    skos:notation "application/dssc+der" ;
+    skos:prefLabel "application/dssc+der" .
+
+<https://www.w3.org/ns/iana/media-types/application/dssc+xml#Resource> a owl:Class ;
+    rdfs:label "application/dssc+xml" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc5698> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:XMLBased ;
+    skos:notation "application/dssc+xml" ;
+    skos:prefLabel "application/dssc+xml" .
+
+<https://www.w3.org/ns/iana/media-types/application/dvcs#Resource> a owl:Class ;
+    rdfs:label "application/dvcs" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc3029> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/dvcs" ;
+    skos:prefLabel "application/dvcs" .
+
+<https://www.w3.org/ns/iana/media-types/application/eat+cwt#Resource> a owl:Class ;
+    rdfs:label "application/eat+cwt" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9782> ;
+    rdfs:subClassOf mt-ont:Application ;
+    skos:notation "application/eat+cwt" ;
+    skos:prefLabel "application/eat+cwt" .
+
+<https://www.w3.org/ns/iana/media-types/application/eat+jwt#Resource> a owl:Class ;
+    rdfs:label "application/eat+jwt" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9782> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JWTBased ;
+    skos:notation "application/eat+jwt" ;
+    skos:prefLabel "application/eat+jwt" .
+
+<https://www.w3.org/ns/iana/media-types/application/eat-bun+cbor#Resource> a owl:Class ;
+    rdfs:label "application/eat-bun+cbor" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9782> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/eat-bun+cbor" ;
+    skos:prefLabel "application/eat-bun+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/eat-bun+json#Resource> a owl:Class ;
+    rdfs:label "application/eat-bun+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9782> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/eat-bun+json" ;
+    skos:prefLabel "application/eat-bun+json" .
+
+<https://www.w3.org/ns/iana/media-types/application/eat-ucs+cbor#Resource> a owl:Class ;
+    rdfs:label "application/eat-ucs+cbor" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9782> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:CBORBased ;
+    skos:notation "application/eat-ucs+cbor" ;
+    skos:prefLabel "application/eat-ucs+cbor" .
+
+<https://www.w3.org/ns/iana/media-types/application/eat-ucs+json#Resource> a owl:Class ;
+    rdfs:label "application/eat-ucs+json" ;
+    dcterms:references <https://tools.ietf.org/html/rfcrfc9782> ;
+    rdfs:subClassOf mt-ont:Application,
+        mt-ont:JSONBased ;
+    skos:notation "application/eat-ucs+json" ;
+    skos:prefLabel "application/eat-ucs+json" .
+

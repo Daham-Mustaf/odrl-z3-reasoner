@@ -1,0 +1,33 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# =============================================================================
+# CONFLICT TEST - Permission vs Prohibition on count
+# Expected: 1 permission_prohibition conflict (overlap at count 51-100)
+# =============================================================================
+
+ex:count_conflict_policy a odrl:Policy ;
+    
+    # Permission: count <= 100
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "100"^^xsd:integer
+        ]
+    ] ;
+    
+    # Prohibition: count >= 51
+    odrl:prohibition [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:gteq ;
+            odrl:rightOperand "51"^^xsd:integer
+        ]
+    ] .
+
+# Conflict: Permission allows count 1-100, Prohibition blocks count 51+
+# Overlap region: count 51-100 is both permitted AND prohibited

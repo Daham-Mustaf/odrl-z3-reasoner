@@ -1,0 +1,93 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# =============================================================================
+# SELF_CONTAINED OPERANDS TEST POLICY
+# Tests all 14 operands that can be fully analyzed statically
+# =============================================================================
+
+ex:self_contained_test a odrl:Policy ;
+    
+    # =========================================================================
+    # 1. COUNT - Numeric usage limits
+    # =========================================================================
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "100"^^xsd:integer
+        ]
+    ] ;
+    
+    # Conflict: count >= 150 contradicts count <= 100
+    odrl:prohibition [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:leftOperand odrl:count ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "50"^^xsd:integer
+        ]
+    ] ;
+    
+    # =========================================================================
+    # 2. PERCENTAGE - Percentage constraints
+    # =========================================================================
+    odrl:permission [
+        odrl:action odrl:display ;
+        odrl:constraint [
+            odrl:leftOperand odrl:percentage ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "25.0"^^xsd:decimal
+        ]
+    ] ;
+    
+    # =========================================================================
+    # 3. PAY AMOUNT - Payment constraints
+    # =========================================================================
+    odrl:duty [
+        odrl:action odrl:compensate ;
+        odrl:constraint [
+            odrl:leftOperand odrl:payAmount ;
+            odrl:operator odrl:gteq ;
+            odrl:rightOperand "9.99"^^xsd:decimal ;
+            odrl:unit <http://dbpedia.org/resource/Euro>
+        ]
+    ] ;
+    
+    # =========================================================================
+    # 4. DATE TIME - Temporal validity
+    # =========================================================================
+    odrl:permission [
+        odrl:action odrl:play ;
+        odrl:constraint [
+            odrl:leftOperand odrl:dateTime ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "2025-12-31T23:59:59Z"^^xsd:dateTime
+        ]
+    ] ;
+    
+    # =========================================================================
+    # 5. ABSOLUTE SIZE - File size limits
+    # =========================================================================
+    odrl:permission [
+        odrl:action odrl:copy ;
+        odrl:constraint [
+            odrl:leftOperand odrl:absoluteSize ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "104857600"^^xsd:integer  # 100MB in bytes
+        ]
+    ] ;
+    
+    # =========================================================================
+    # 6. RESOLUTION - Quality constraints  
+    # =========================================================================
+    odrl:permission [
+        odrl:action odrl:stream ;
+        odrl:constraint [
+            odrl:leftOperand odrl:resolution ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "1920"^^xsd:integer  # Max 1080p width
+        ]
+    ] .
