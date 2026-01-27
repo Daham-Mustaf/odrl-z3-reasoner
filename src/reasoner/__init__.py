@@ -10,12 +10,10 @@ from .conflict_detector import (
     Conflict,
     ConflictSeverity,
 )
-
 from .inheritance_checker import (
     InheritanceChecker,
     InheritanceViolation,
 )
-
 from .conflict_validator import (
     ConflictValidator,
 )

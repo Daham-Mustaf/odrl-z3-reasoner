@@ -1,29 +1,16 @@
 # src/encoder/z3_encoder.py
 """
-ODRL-SA Z3 Encoder
+ODRL-SA Z3 Encoder - Complete Implementation
 
-Encodes FULL class (L_xsd) constraints to Z3 formulas for SMT solving.
+Encodes ALL ODRL constraints to Z3 formulas for SMT solving:
+- Comparison operators (eq, neq, lt, lteq, gt, gteq)
+- Set operators (isA, isAnyOf, isAllOf, isNoneOf, hasPart, isPartOf)
+- Logical operators (and, or, xone, andSequence)
 
-Implements the abstract interpretation from the formal specification:
-    
-    Abstraction Function (Definition 8):
-        α(c) maps constraint c to abstract domain element
-        
-    For operator ⋈ and value v:
-        eq  → [v, v]
-        neq → ⊤ (over-approximation, refined by SMT)
-        lt  → [inf, v)
-        lteq → [inf, v]
-        gt  → (v, sup]
-        gteq → [v, sup]
-
-    Meet Operation (Definition 9):
-        [a,b] ⊓ [c,d] = [max(a,c), min(b,d)] if valid, else ⊥
-
-The encoder translates constraints to Z3 and checks satisfiability.
+Implements the abstract interpretation from the formal specification.
 """
 
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, List, Optional, Tuple, Any, Union, Set
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -32,19 +19,22 @@ from z3 import (
     # Sorts and values
     Int, Real, Bool, String,
     IntVal, RealVal, BoolVal, StringVal,
+    IntSort, RealSort, BoolSort, StringSort,
     # Operators
-    And, Or, Not, Implies,
+    And, Or, Not, Implies, Xor,
+    If, Sum,
     # Comparisons
     # Solver
     Solver, sat, unsat, unknown,
     # Model extraction
     is_int_value, is_rational_value, is_true, is_false,
+    # For set encoding
+    Const, SetSort, SetAdd, SetUnion, SetIntersect, IsMember, EmptySet,
 )
 
 # Import from core module
 import sys
 from pathlib import Path
-# Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.types import (
@@ -53,49 +43,61 @@ from core.types import (
     OperatorType,
     LogicalOperator,
     Judgment,
-    ConstraintClass,
 )
-from core.classifier import classify_constraint, L_XSD
+from registry import ConstraintClass
+from core.classifier import classify_constraint
 from core.judgment import JudgmentResult, is_comparable
 
 logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# DOMAIN BOUNDS (Table 6 from XSD Reference)
+# DOMAIN BOUNDS (Complete for all ODRL operands)
 # =============================================================================
 
 @dataclass
 class DomainBounds:
     """Domain bounds for a LeftOperand."""
-    min_val: Optional[float]  # None = -∞
-    max_val: Optional[float]  # None = +∞
+    min_val: Optional[float]  # None = -inf
+    max_val: Optional[float]  # None = +inf
     is_integer: bool
     use_real: bool  # Use Real sort instead of Int
 
-# Domain bounds per LeftOperand (from formal spec)
+
+# Domain bounds per LeftOperand
 DOMAIN_BOUNDS: Dict[str, DomainBounds] = {
-    # Numeric
+    # Numeric - Count/Quantity
     "count": DomainBounds(0, None, True, False),
+    
+    # Numeric - Percentage (0-100)
     "percentage": DomainBounds(0, 100, False, True),
+    
+    # Numeric - Monetary
     "payAmount": DomainBounds(0, None, False, True),
+    
+    # Numeric - Size/Resolution
+    "absoluteSize": DomainBounds(0, None, False, True),
+    "relativeSize": DomainBounds(0, 100, False, True),
     "resolution": DomainBounds(0, None, False, True),
     
-    # Temporal
-    "dateTime": DomainBounds(None, None, True, False),  # Unix timestamp
-    "timeInterval": DomainBounds(0, None, True, False),  # Seconds
-    
-    # Positional - Absolute
-    "absolutePosition": DomainBounds(0, None, False, True),
-    "absoluteSize": DomainBounds(0, None, False, True),
+    # Numeric - Position (Absolute)
+    "absolutePosition": DomainBounds(None, None, False, True),
+    "absoluteSpatialPosition": DomainBounds(None, None, False, True),
     "absoluteTemporalPosition": DomainBounds(0, None, False, True),
-    "absoluteSpatialPosition": DomainBounds(0, None, False, True),
     
-    # Positional - Relative (0-100%)
+    # Numeric - Position (Relative 0-100%)
     "relativePosition": DomainBounds(0, 100, False, True),
-    "relativeSize": DomainBounds(0, 100, False, True),
-    "relativeTemporalPosition": DomainBounds(0, 100, False, True),
     "relativeSpatialPosition": DomainBounds(0, 100, False, True),
+    "relativeTemporalPosition": DomainBounds(0, 100, False, True),
+    
+    # Temporal - DateTime (Unix timestamp)
+    "dateTime": DomainBounds(None, None, True, False),
+    
+    # Temporal - Durations (seconds)
+    "timeInterval": DomainBounds(0, None, True, False),
+    "elapsedTime": DomainBounds(0, None, True, False),
+    "delayPeriod": DomainBounds(0, None, True, False),
+    "meteredTime": DomainBounds(0, None, True, False),
 }
 
 
@@ -114,6 +116,13 @@ class Z3VariableManager:
     def __init__(self):
         self._variables: Dict[str, Any] = {}
         self._var_info: Dict[str, Dict] = {}
+        self._string_vars: Dict[str, Any] = {}  # For string/enum values
+    
+    def clear(self):
+        """Clear all variables."""
+        self._variables.clear()
+        self._var_info.clear()
+        self._string_vars.clear()
     
     def get_variable(
         self, 
@@ -121,7 +130,7 @@ class Z3VariableManager:
         unit: Optional[str] = None,
         unit_of_count: Optional[str] = None
     ) -> Any:
-        """Get or create Z3 variable for a constraint."""
+        """Get or create Z3 variable for a numeric constraint."""
         # Normalize operand name
         op = left_operand.split('#')[-1].split('/')[-1]
         
@@ -146,26 +155,36 @@ class Z3VariableManager:
         
         return self._variables[key]
     
-    def get_domain_constraints(self) -> List:
-        """Get domain bound constraints for all variables."""
+    def get_string_variable(self, left_operand: str) -> Any:
+        """Get or create Z3 String variable for grounded constraints."""
+        op = left_operand.split('#')[-1].split('/')[-1]
+        key = f"str_{op}"
+        
+        if key not in self._string_vars:
+            self._string_vars[key] = String(key)
+        
+        return self._string_vars[key]
+    
+    def get_domain_constraints(self) -> List[Any]:
+        """Get domain constraints for all variables."""
         constraints = []
         
         for key, var in self._variables.items():
-            info = self._var_info[key]
-            bounds = info.get('bounds')
-            
-            if bounds:
+            info = self._var_info.get(key)
+            if info and info.get('bounds'):
+                bounds = info['bounds']
                 if bounds.min_val is not None:
-                    constraints.append(var >= bounds.min_val)
+                    if bounds.use_real:
+                        constraints.append(var >= RealVal(bounds.min_val))
+                    else:
+                        constraints.append(var >= IntVal(int(bounds.min_val)))
                 if bounds.max_val is not None:
-                    constraints.append(var <= bounds.max_val)
+                    if bounds.use_real:
+                        constraints.append(var <= RealVal(bounds.max_val))
+                    else:
+                        constraints.append(var <= IntVal(int(bounds.max_val)))
         
         return constraints
-    
-    def clear(self):
-        """Clear all variables."""
-        self._variables.clear()
-        self._var_info.clear()
 
 
 # =============================================================================
@@ -175,40 +194,49 @@ class Z3VariableManager:
 class ConstraintEncoder:
     """
     Encodes AtomicConstraints to Z3 formulas.
+    
+    Handles:
+    - Comparison operators (eq, neq, lt, lteq, gt, gteq)
+    - Set operators (isA, isAnyOf, isAllOf, isNoneOf, hasPart, isPartOf)
     """
     
-    def __init__(self, var_manager: Z3VariableManager):
+    def __init__(self, var_manager: Z3VariableManager, debug: bool = False):
         self.var_manager = var_manager
+        self.debug = debug
+    
+    def _debug(self, msg: str):
+        if self.debug:
+            print(f"[ENCODER] {msg}")
     
     def encode(self, constraint: AtomicConstraint) -> Any:
-        """
-        Encode a single atomic constraint to Z3.
+        """Encode an atomic constraint to Z3 formula."""
+        op = constraint.operator
         
-        Returns a Z3 boolean expression.
-        """
-        # Get Z3 variable
+        # Route to appropriate encoder
+        if op.is_comparison():
+            return self._encode_comparison(constraint)
+        elif op.is_set_based():
+            return self._encode_set_operator(constraint)
+        else:
+            logger.warning(f"Unknown operator type: {op}")
+            return BoolVal(True)
+    
+    def _encode_comparison(self, constraint: AtomicConstraint) -> Any:
+        """Encode comparison operators (eq, neq, lt, lteq, gt, gteq)."""
+        # Get variable
         var = self.var_manager.get_variable(
             constraint.left_operand,
             constraint.unit,
             constraint.unit_of_count
         )
         
-        # Get value
-        value = constraint.right_operand.value
-        
         # Handle special cases
         if constraint.right_operand.is_policy_usage:
-            # policyUsage - cannot encode statically
-            logger.warning(f"Cannot encode policyUsage constraint: {constraint}")
-            return BoolVal(True)  # Over-approximate as always satisfiable
+            self._debug(f"policyUsage - cannot encode statically")
+            return BoolVal(True)  # Over-approximate
         
-        if constraint.right_operand.is_iri:
-            # IRI reference - treat as string equality
-            # This is a simplification for FULL class
-            return BoolVal(True)
-        
-        # Convert value to Z3
-        z3_value = self._to_z3_value(value, var)
+        # Get normalized Z3 value
+        z3_value = self._normalize_and_convert(constraint, var)
         
         # Encode based on operator
         op = constraint.operator
@@ -225,19 +253,121 @@ class ConstraintEncoder:
             return var > z3_value
         elif op == OperatorType.GTEQ:
             return var >= z3_value
+        
+        return BoolVal(True)
+    
+    def _encode_set_operator(self, constraint: AtomicConstraint) -> Any:
+        """
+        Encode set operators (isA, isAnyOf, isAllOf, isNoneOf, hasPart, isPartOf).
+        
+        For GROUNDED operands (language, purpose, etc.), we use string comparison.
+        For numeric operands with sets, we use Or/And of equalities.
+        """
+        op = constraint.operator
+        value = constraint.right_operand.value
+        
+        # Get the values as a set
+        if isinstance(value, (list, tuple, set)):
+            values = list(value)
+        elif isinstance(value, str):
+            # Single value or comma-separated
+            if ',' in value:
+                values = [v.strip() for v in value.split(',')]
+            else:
+                values = [value]
         else:
-            # Set-based operators - not handled in FULL class
-            logger.warning(f"Set operator {op} not handled in FULL encoder")
+            values = [value]
+        
+        # Normalize values (extract local names from URIs)
+        normalized_values = []
+        for v in values:
+            if isinstance(v, str):
+                # Extract local name from URI
+                if '#' in v:
+                    v = v.split('#')[-1]
+                elif '/' in v:
+                    v = v.split('/')[-1]
+            normalized_values.append(v)
+        
+        self._debug(f"Set operator {op} with values: {normalized_values}")
+        
+        # Use string variable for grounded operands
+        var = self.var_manager.get_string_variable(constraint.left_operand)
+        
+        if op == OperatorType.IS_ANY_OF:
+            # value IN {set} - at least one match
+            if not normalized_values:
+                return BoolVal(False)
+            return Or([var == StringVal(str(v)) for v in normalized_values])
+        
+        elif op == OperatorType.IS_NONE_OF:
+            # value NOT IN {set} - no matches
+            if not normalized_values:
+                return BoolVal(True)
+            return And([var != StringVal(str(v)) for v in normalized_values])
+        
+        elif op == OperatorType.IS_ALL_OF:
+            # For multi-valued operands: all values must be present
+            # This is complex - for static analysis, we check if the single var
+            # could match all (which is only possible if single value)
+            if len(normalized_values) == 1:
+                return var == StringVal(str(normalized_values[0]))
+            else:
+                # Cannot satisfy isAllOf with multiple required values 
+                # and a single-valued variable
+                self._debug(f"isAllOf with multiple values - needs multi-valued support")
+                return BoolVal(True)  # Over-approximate
+        
+        elif op == OperatorType.IS_A:
+            # Subsumption check - needs oracle for proper handling
+            # For now, treat as equality
+            if normalized_values:
+                return var == StringVal(str(normalized_values[0]))
             return BoolVal(True)
+        
+        elif op == OperatorType.HAS_PART:
+            # value hasPart x - the value contains x
+            # For static analysis, treat as equality for single value
+            if normalized_values:
+                return var == StringVal(str(normalized_values[0]))
+            return BoolVal(True)
+        
+        elif op == OperatorType.IS_PART_OF:
+            # value isPartOf x - value is contained in x
+            if normalized_values:
+                return var == StringVal(str(normalized_values[0]))
+            return BoolVal(True)
+        
+        return BoolVal(True)
+    
+    def _normalize_and_convert(self, constraint: AtomicConstraint, var: Any) -> Any:
+        """Normalize value and convert to Z3."""
+        from normalizer import get_normalized_value
+        
+        normalized = get_normalized_value(constraint)
+        
+        if normalized is None:
+            return IntVal(0)
+        
+        return self._to_z3_value(normalized, var)
     
     def _to_z3_value(self, value: Any, var: Any) -> Any:
         """Convert Python value to Z3 value matching variable sort."""
         if value is None:
             return IntVal(0)
         
-        # Handle datetime (convert to timestamp)
+        # Handle datetime
         if hasattr(value, 'timestamp'):
             value = int(value.timestamp())
+        
+        # Handle timedelta
+        if hasattr(value, 'total_seconds'):
+            value = int(value.total_seconds())
+        
+        # Handle Decimal
+        from decimal import Decimal
+        if isinstance(value, Decimal):
+            value = float(value)
         
         # Handle numeric
         if isinstance(value, int):
@@ -252,8 +382,8 @@ class ConstraintEncoder:
                     return RealVal(float(value))
                 return IntVal(int(value))
             except ValueError:
-                # String value - return 0 as placeholder
-                logger.warning(f"Cannot convert string '{value}' to Z3 numeric")
+                # String value - return 0 as placeholder for numeric
+                self._debug(f"Cannot convert string '{value}' to Z3 numeric")
                 return IntVal(0)
         
         return IntVal(0)
@@ -266,32 +396,59 @@ class ConstraintEncoder:
 class CompositeEncoder:
     """
     Encodes CompositeConstraints (logical combinations).
+    
+    Handles:
+    - AND: All constraints must be true (conjunction)
+    - OR: At least one must be true (disjunction)
+    - XONE: Exactly one must be true (exclusive or)
+    - AND_SEQUENCE: Ordered AND (treated as AND for static analysis)
     """
     
     def __init__(self, constraint_encoder: ConstraintEncoder):
         self.constraint_encoder = constraint_encoder
         self._constraint_map: Dict[str, AtomicConstraint] = {}
+        self._composite_map: Dict[str, CompositeConstraint] = {}
     
-    def register_constraint(self, constraint: AtomicConstraint):
-        """Register an atomic constraint for reference by composites."""
-        self._constraint_map[constraint.uid] = constraint
+    def register_constraint(self, constraint: Union[AtomicConstraint, CompositeConstraint]):
+        """Register a constraint for reference by composites."""
+        if isinstance(constraint, AtomicConstraint):
+            self._constraint_map[constraint.uid] = constraint
+        elif isinstance(constraint, CompositeConstraint):
+            self._composite_map[constraint.uid] = constraint
+    
+    def register_all(self, constraints: Dict[str, Any]):
+        """Register all constraints from a dict."""
+        for uid, constraint in constraints.items():
+            self.register_constraint(constraint)
     
     def encode(self, composite: CompositeConstraint) -> Any:
         """Encode a composite constraint."""
         # Encode all operands
         encoded_operands = []
+        
         for operand in composite.operands:
             if isinstance(operand, str):
                 # Reference to registered constraint
                 if operand in self._constraint_map:
                     atomic = self._constraint_map[operand]
-                    encoded_operands.append(self.constraint_encoder.encode(atomic))
+                    encoded = self.constraint_encoder.encode(atomic)
+                    if encoded is not None:
+                        encoded_operands.append(encoded)
+                elif operand in self._composite_map:
+                    comp = self._composite_map[operand]
+                    encoded = self.encode(comp)
+                    if encoded is not None:
+                        encoded_operands.append(encoded)
                 else:
                     logger.warning(f"Unknown constraint reference: {operand}")
             elif isinstance(operand, AtomicConstraint):
-                encoded_operands.append(self.constraint_encoder.encode(operand))
+                encoded = self.constraint_encoder.encode(operand)
+                if encoded is not None:
+                    encoded_operands.append(encoded)
             elif isinstance(operand, CompositeConstraint):
-                encoded_operands.append(self.encode(operand))
+                encoded = self.encode(operand)
+                if encoded is not None:
+                    encoded_operands.append(encoded)
         
         if not encoded_operands:
             return BoolVal(True)
@@ -301,18 +458,34 @@ class CompositeEncoder:
         
         if op == LogicalOperator.AND:
             return And(*encoded_operands)
+        
         elif op == LogicalOperator.OR:
             return Or(*encoded_operands)
+        
         elif op == LogicalOperator.XONE:
-            # Exactly one: sum of (1 if true else 0) = 1
-            # Encode as: Or of (this AND NOT all others)
-            xone_clauses = []
-            for i, enc in enumerate(encoded_operands):
-                others = [Not(e) for j, e in enumerate(encoded_operands) if j != i]
-                xone_clauses.append(And(enc, *others))
-            return Or(*xone_clauses)
+            # Exactly one must be true
+            # Encoding: exactly one = at_least_one AND at_most_one
+            # at_most_one: for each pair, NOT(both true)
+            n = len(encoded_operands)
+            if n == 0:
+                return BoolVal(False)
+            if n == 1:
+                return encoded_operands[0]
+            
+            # At least one true
+            at_least_one = Or(*encoded_operands)
+            
+            # At most one true (no two are both true)
+            at_most_one_clauses = []
+            for i in range(n):
+                for j in range(i + 1, n):
+                    at_most_one_clauses.append(Not(And(encoded_operands[i], encoded_operands[j])))
+            at_most_one = And(*at_most_one_clauses) if at_most_one_clauses else BoolVal(True)
+            
+            return And(at_least_one, at_most_one)
+        
         elif op == LogicalOperator.AND_SEQUENCE:
-            # For static analysis, treat as AND (sequence requires runtime)
+            # For static analysis, treat as AND (sequence is runtime concern)
             return And(*encoded_operands)
         
         return BoolVal(True)
@@ -324,252 +497,137 @@ class CompositeEncoder:
 
 class Z3JudgmentEngine:
     """
-    Performs judgment using Z3 SMT solver.
-    
-    Implements Definition 6 (Judgment Rules):
-        judge(c₁, c₂) = 
-            CONFLICT           if comparable ∧ ⟦c₁⟧# ⊓ ⟦c₂⟧# = ⊥
-            POSSIBLY-COMPATIBLE if comparable ∧ ⟦c₁⟧# ⊓ ⟦c₂⟧# ≠ ⊥
-            UNKNOWN            if ¬comparable
+    Main engine for constraint analysis using Z3 SMT solver.
     """
     
-    def __init__(self):
+    def __init__(self, debug: bool = False):
+        self.debug = debug
         self.var_manager = Z3VariableManager()
-        self.constraint_encoder = ConstraintEncoder(self.var_manager)
+        self.constraint_encoder = ConstraintEncoder(self.var_manager, debug)
+        self.composite_encoder = CompositeEncoder(self.constraint_encoder)
     
-    def judge(
-        self, 
-        c1: AtomicConstraint, 
-        c2: AtomicConstraint
-    ) -> JudgmentResult:
-        """
-        Judge two constraints.
-        
-        Returns:
-            CONFLICT if unsatisfiable
-            POSSIBLY-COMPATIBLE if satisfiable
-            UNKNOWN if not comparable
-        """
-        # Check comparability first
-        comp_result = is_comparable(c1, c2)
-        if not comp_result.comparable:
-            return JudgmentResult(
-                judgment=Judgment.UNKNOWN,
-                comparable=False,
-                incomparability_reason=comp_result.reason,
-                explanation=comp_result.details
-            )
-        
-        # Reset variable manager
-        self.var_manager.clear()
-        
-        # Encode constraints
-        z3_c1 = self.constraint_encoder.encode(c1)
-        z3_c2 = self.constraint_encoder.encode(c2)
-        
-        # Get domain bounds
-        domain_constraints = self.var_manager.get_domain_constraints()
-        
-        # Create solver and check satisfiability
-        solver = Solver()
-        solver.add(And(z3_c1, z3_c2))
-        solver.add(*domain_constraints)
-        
-        result = solver.check()
-        
-        if result == unsat:
-            return JudgmentResult(
-                judgment=Judgment.CONFLICT,
-                comparable=True,
-                explanation=f"UNSAT: {c1} ∧ {c2} has no solution"
-            )
-        elif result == sat:
-            # Extract counterexample
-            model = solver.model()
-            counterexample = self._extract_model(model)
-            
-            return JudgmentResult(
-                judgment=Judgment.POSSIBLY_COMPATIBLE,
-                comparable=True,
-                explanation=f"SAT: Found satisfying assignment",
-                counterexample=counterexample
-            )
-        else:
-            return JudgmentResult(
-                judgment=Judgment.UNKNOWN,
-                comparable=True,
-                explanation="Z3 returned unknown"
-            )
+    def _debug(self, msg: str):
+        if self.debug:
+            print(f"[ENGINE] {msg}")
     
-    def check_satisfiability(
+    def encode(self, constraint: Union[AtomicConstraint, CompositeConstraint]) -> Any:
+        """Encode a single constraint."""
+        if isinstance(constraint, AtomicConstraint):
+            return self.constraint_encoder.encode(constraint)
+        elif isinstance(constraint, CompositeConstraint):
+            return self.composite_encoder.encode(constraint)
+        return BoolVal(True)
+    
+    def check_consistency(
         self, 
-        constraints: List[AtomicConstraint]
+        constraints: List[AtomicConstraint],
+        composites: Optional[List[CompositeConstraint]] = None
     ) -> Tuple[Judgment, Optional[Dict]]:
         """
-        Check if a set of constraints is satisfiable.
+        Check if a set of constraints can be simultaneously satisfied.
         
         Returns:
-            (CONFLICT, None) if unsatisfiable
-            (POSSIBLY-COMPATIBLE, model) if satisfiable
-            (UNKNOWN, None) if undetermined
+            (Judgment, model_or_none)
+            - CONFLICT: Constraints are unsatisfiable
+            - POSSIBLY_COMPATIBLE: Satisfiable, model provides witness
         """
-        # Reset
         self.var_manager.clear()
         
-        # Encode all constraints
-        encoded = [self.constraint_encoder.encode(c) for c in constraints]
-        domain_constraints = self.var_manager.get_domain_constraints()
-        
-        # Solve
+        # Create solver
         solver = Solver()
-        solver.add(And(*encoded))
-        solver.add(*domain_constraints)
         
+        # Add domain constraints
+        for dc in self.var_manager.get_domain_constraints():
+            solver.add(dc)
+        
+        # Encode and add atomic constraints
+        for c in constraints:
+            formula = self.constraint_encoder.encode(c)
+            if formula is not None:
+                solver.add(formula)
+                self._debug(f"Added: {c} -> {formula}")
+        
+        # Encode and add composite constraints
+        if composites:
+            for comp in composites:
+                formula = self.composite_encoder.encode(comp)
+                if formula is not None:
+                    solver.add(formula)
+                    self._debug(f"Added composite: {comp.uid} -> {formula}")
+        
+        # Check satisfiability
         result = solver.check()
         
-        if result == unsat:
+        if result == sat:
+            model = self._extract_model(solver.model())
+            self._debug(f"SAT - Model: {model}")
+            return Judgment.POSSIBLY_COMPATIBLE, model
+        elif result == unsat:
+            self._debug("UNSAT - Conflict detected")
             return Judgment.CONFLICT, None
-        elif result == sat:
-            model = solver.model()
-            return Judgment.POSSIBLY_COMPATIBLE, self._extract_model(model)
         else:
+            self._debug("UNKNOWN")
             return Judgment.UNKNOWN, None
     
-    def _extract_model(self, model) -> Dict[str, Any]:
+    def _extract_model(self, z3_model) -> Dict:
         """Extract variable assignments from Z3 model."""
-        result = {}
-        for decl in model.decls():
-            name = decl.name()
-            val = model[decl]
-            
-            # Convert Z3 value to Python
-            if is_int_value(val):
-                result[name] = val.as_long()
-            elif is_rational_value(val):
-                result[name] = float(val.as_decimal(10).rstrip('?'))
-            elif is_true(val):
-                result[name] = True
-            elif is_false(val):
-                result[name] = False
-            else:
-                result[name] = str(val)
+        model = {}
         
-        return result
+        for var_name, var in self.var_manager._variables.items():
+            try:
+                val = z3_model[var]
+                if val is not None:
+                    if is_int_value(val):
+                        model[var_name] = val.as_long()
+                    elif is_rational_value(val):
+                        try:
+                            model[var_name] = float(val.as_decimal(10).rstrip('?'))
+                        except:
+                            model[var_name] = str(val)
+                    else:
+                        model[var_name] = str(val)
+            except:
+                pass
+        
+        # Also extract string variables
+        for var_name, var in self.var_manager._string_vars.items():
+            try:
+                val = z3_model[var]
+                if val is not None:
+                    model[var_name] = str(val).strip('"')
+            except:
+                pass
+        
+        return model
 
 
 # =============================================================================
-# CONVENIENCE FUNCTIONS
+# CONVENIENCE FUNCTION
 # =============================================================================
 
-def judge_constraints(
-    c1: AtomicConstraint, 
-    c2: AtomicConstraint
-) -> JudgmentResult:
+def check_consistency(
+    constraints: List[AtomicConstraint],
+    composites: Optional[List[CompositeConstraint]] = None,
+    debug: bool = False
+) -> Tuple[Judgment, Optional[Dict]]:
     """
-    Convenience function to judge two constraints.
+    Convenience function to check constraint consistency.
     
-    Example:
-        result = judge_constraints(c1, c2)
-        if result.judgment == Judgment.CONFLICT:
-            print("Constraints conflict!")
+    Args:
+        constraints: List of atomic constraints
+        composites: Optional list of composite constraints
+        debug: Enable debug output
+        
+    Returns:
+        (Judgment, model_or_none)
     """
-    engine = Z3JudgmentEngine()
-    return engine.judge(c1, c2)
-
-
-def check_consistency(constraints: List[AtomicConstraint]) -> Tuple[Judgment, Optional[Dict]]:
-    """
-    Check if a list of constraints is consistent (satisfiable).
+    engine = Z3JudgmentEngine(debug=debug)
     
-    Example:
-        judgment, model = check_consistency([c1, c2, c3])
-        if judgment == Judgment.CONFLICT:
-            print("Constraints are inconsistent!")
-    """
-    engine = Z3JudgmentEngine()
-    return engine.check_satisfiability(constraints)
-
-
-# =============================================================================
-# MAIN - TESTING
-# =============================================================================
-
-if __name__ == "__main__":
-    from core.types import RightOperand
+    # Register all constraints for composite resolution
+    for c in constraints:
+        engine.composite_encoder.register_constraint(c)
+    if composites:
+        for c in composites:
+            engine.composite_encoder.register_constraint(c)
     
-    print("=" * 60)
-    print("Z3 Encoder Test")
-    print("=" * 60)
-    
-    # Test 1: Conflict detection
-    print("\nTest 1: Conflict (count ≤ 10 ∧ count ≥ 20)")
-    c1 = AtomicConstraint(
-        uid='c1',
-        left_operand='count',
-        operator=OperatorType.LTEQ,
-        right_operand=RightOperand.literal(10)
-    )
-    c2 = AtomicConstraint(
-        uid='c2',
-        left_operand='count',
-        operator=OperatorType.GTEQ,
-        right_operand=RightOperand.literal(20)
-    )
-    
-    result = judge_constraints(c1, c2)
-    print(f"  c1: {c1}")
-    print(f"  c2: {c2}")
-    print(f"  Judgment: {result.judgment.value}")
-    print(f"  Explanation: {result.explanation}")
-    
-    # Test 2: Compatible
-    print("\nTest 2: Compatible (count ≤ 10 ∧ count ≥ 5)")
-    c3 = AtomicConstraint(
-        uid='c3',
-        left_operand='count',
-        operator=OperatorType.GTEQ,
-        right_operand=RightOperand.literal(5)
-    )
-    
-    result = judge_constraints(c1, c3)
-    print(f"  c1: {c1}")
-    print(f"  c3: {c3}")
-    print(f"  Judgment: {result.judgment.value}")
-    if result.counterexample:
-        print(f"  Counterexample: {result.counterexample}")
-    
-    # Test 3: DateTime conflict
-    print("\nTest 3: DateTime conflict")
-    c4 = AtomicConstraint(
-        uid='c4',
-        left_operand='dateTime',
-        operator=OperatorType.LT,
-        right_operand=RightOperand.literal(1704067200)  # 2024-01-01
-    )
-    c5 = AtomicConstraint(
-        uid='c5',
-        left_operand='dateTime',
-        operator=OperatorType.GT,
-        right_operand=RightOperand.literal(1735689600)  # 2025-01-01
-    )
-    
-    result = judge_constraints(c4, c5)
-    print(f"  c4: {c4}")
-    print(f"  c5: {c5}")
-    print(f"  Judgment: {result.judgment.value}")
-    
-    # Test 4: Consistency check
-    print("\nTest 4: Consistency check (3 constraints)")
-    constraints = [
-        AtomicConstraint('x1', 'percentage', OperatorType.GTEQ, RightOperand.literal(10)),
-        AtomicConstraint('x2', 'percentage', OperatorType.LTEQ, RightOperand.literal(50)),
-        AtomicConstraint('x3', 'percentage', OperatorType.GT, RightOperand.literal(60)),  # Conflict!
-    ]
-    
-    judgment, model = check_consistency(constraints)
-    print(f"  Constraints: {[str(c) for c in constraints]}")
-    print(f"  Judgment: {judgment.value}")
-    
-    print("\n" + "=" * 60)
-    print("All tests complete!")
-    print("=" * 60)
+    return engine.check_consistency(constraints, composites)

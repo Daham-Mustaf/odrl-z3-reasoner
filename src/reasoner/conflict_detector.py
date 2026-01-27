@@ -18,14 +18,16 @@ from enum import Enum
 import logging
 
 # NEW IMPORTS - Using new module structure
-from ..core.types import (
+from core.types import (
     AtomicConstraint,
     CompositeConstraint,
     OperatorType,
     LogicalOperator,
 )
-from ..parser.ttl_parser import Policy, Rule, RuleType
-from ..encoder.z3_encoder import Z3JudgmentEngine
+
+from parser.ttl_parser import Policy, Rule, RuleType
+from encoder.z3_encoder import Z3JudgmentEngine
+
 
 logger = logging.getLogger(__name__)
 

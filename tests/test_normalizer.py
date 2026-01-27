@@ -1,106 +1,194 @@
 # tests/test_normalizer.py
 """
-Test suite for value and constraint normalization.
+Tests for normalizer module.
 """
 
 import pytest
-from src.semantics.constraint_types import (
-    AtomicConstraint, NormalizedValue, OperatorType,
-    get_operand_semantics
+from decimal import Decimal
+from datetime import timedelta
+
+from normalizer import (
+    normalize_value,
+    get_normalized_value,
+    NormalizationResult,
+    NORMALIZERS,
 )
-from src.normalizer.constraint_normalizer import ConstraintNormalizer
+from core.types import AtomicConstraint, OperatorType, RightOperand
 
-# tests/test_normalizer.py
-# Add debug output to the test:
 
-def test_temporal_normalization():
-    """Test temporal unit conversion"""
-    normalizer = ConstraintNormalizer(debug=True)
+class TestNormalizeValue:
+    """Test normalize_value function."""
     
-    # Create constraint: elapsedTime <= 3 hours
-    constraint = AtomicConstraint(
-        id='c1',
-        left_operand='elapsedTime',
-        operator=OperatorType.LTEQ,
-        right_value=NormalizedValue(
-            canonical_value=3,
-            original_value=3,
-            original_unit='hours',
-            canonical_unit='pending'
-        ),
-        semantics=get_operand_semantics('elapsedTime'),
-        metadata={'needs_normalization': True}
-    )
+    def test_integer_normalization(self):
+        """Test integer normalization."""
+        result = normalize_value("42", "count")
+        assert result.success
+        assert result.value == 42
+        assert isinstance(result.value, int)
     
-    # Normalize
-    normalized = normalizer.normalize_constraint(constraint)
+    def test_float_normalization(self):
+        """Test float normalization."""
+        result = normalize_value("3.14", "percentage")
+        assert result.success
+        assert result.value == 3.14
+        assert isinstance(result.value, float)
     
-    # Debug output
-    print("\n=== DEBUG OUTPUT ===")
-    print(f"normalized.right_value.canonical_value = {normalized.right_value.canonical_value}")
-    print(f"normalized.right_value.canonical_unit = {normalized.right_value.canonical_unit}")
-    print(f"normalized.right_value.metadata = {normalized.right_value.metadata}")
-    print(f"normalized.metadata = {normalized.metadata}")
-    print("===================\n")
+    def test_decimal_normalization(self):
+        """Test Decimal input normalization."""
+        result = normalize_value(Decimal("99.5"), "percentage")
+        assert result.success
+        assert result.value == 99.5
+        assert isinstance(result.value, float)
     
-    # Check
-    assert normalized.right_value.canonical_value == 10800  # 3 hours in seconds
-    assert normalized.right_value.canonical_unit == 'seconds'
-    assert normalized.metadata['conversion_applied'] == True
-    assert normalized.metadata['conversion_factor'] == 3600.0
+    def test_datetime_normalization(self):
+        """Test datetime string normalization."""
+        result = normalize_value("2024-01-01T00:00:00Z", "dateTime")
+        assert result.success
+        assert isinstance(result.value, int)
+        assert result.value > 0
+    
+    def test_datetime_date_only(self):
+        """Test date-only string normalization."""
+        result = normalize_value("2024-06-15", "dateTime")
+        assert result.success
+        assert isinstance(result.value, int)
 
-def test_size_normalization():
-    """Test size unit conversion"""
-    normalizer = ConstraintNormalizer(debug=True)
-    
-    # Create constraint: absoluteSize <= 5 MB
-    constraint = AtomicConstraint(
-        id='c2',
-        left_operand='absoluteSize',
-        operator=OperatorType.LTEQ,
-        right_value=NormalizedValue(
-            canonical_value=5,
-            original_value=5,
-            original_unit='MB',
-            canonical_unit='pending'
-        ),
-        semantics=get_operand_semantics('absoluteSize'),
-        metadata={'needs_normalization': True}
-    )
-    
-    # Normalize
-    normalized = normalizer.normalize_constraint(constraint)
-    
-    # Check
-    assert normalized.right_value.canonical_value == 5_000_000  # 5 MB in bytes
-    assert normalized.right_value.canonical_unit == 'bytes'
 
-def test_monetary_normalization():
-    """Test monetary normalization to minor units"""
-    normalizer = ConstraintNormalizer(debug=True)
+class TestDurationNormalization:
+    """Test ISO 8601 duration normalization."""
     
-    # Create constraint: payAmount >= 9.99 USD
-    constraint = AtomicConstraint(
-        id='c3',
-        left_operand='payAmount',
-        operator=OperatorType.GTEQ,
-        right_value=NormalizedValue(
-            canonical_value=9.99,
-            original_value=9.99,
-            original_unit='USD',
-            canonical_unit='pending'
-        ),
-        semantics=get_operand_semantics('payAmount'),
-        metadata={'needs_normalization': True}
-    )
+    def test_seconds(self):
+        result = normalize_value("PT1S", "elapsedTime")
+        assert result.success
+        assert result.value == 1
     
-    # Normalize
-    normalized = normalizer.normalize_constraint(constraint)
+    def test_minutes(self):
+        result = normalize_value("PT1M", "elapsedTime")
+        assert result.success
+        assert result.value == 60
     
-    # Check
-    assert normalized.right_value.canonical_value == 999  # 9.99 USD in cents
-    assert normalized.right_value.canonical_unit == 'USD_cents'
-    assert normalized.metadata['currency'] == 'USD'
+    def test_hours(self):
+        result = normalize_value("PT1H", "elapsedTime")
+        assert result.success
+        assert result.value == 3600
+    
+    def test_days(self):
+        result = normalize_value("P1D", "elapsedTime")
+        assert result.success
+        assert result.value == 86400
+    
+    def test_combined_duration(self):
+        result = normalize_value("PT1H30M", "elapsedTime")
+        assert result.success
+        assert result.value == 5400  # 1.5 hours
+    
+    def test_day_and_hours(self):
+        result = normalize_value("P1DT12H", "elapsedTime")
+        assert result.success
+        assert result.value == 129600  # 36 hours
+    
+    def test_year(self):
+        result = normalize_value("P1Y", "elapsedTime")
+        assert result.success
+        assert result.value == 365 * 24 * 3600
+    
+    def test_timedelta_input(self):
+        """Test timedelta input (from RDFLib)."""
+        result = normalize_value(timedelta(hours=2), "elapsedTime")
+        assert result.success
+        assert result.value == 7200
+    
+    def test_numeric_passthrough(self):
+        """Test numeric values pass through."""
+        result = normalize_value(3600, "elapsedTime")
+        assert result.success
+        assert result.value == 3600
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+
+class TestNormalizerRegistry:
+    """Test normalizer registry."""
+    
+    def test_all_normalizers_exist(self):
+        """Test that all expected normalizers exist."""
+        expected = [
+            'to_integer',
+            'to_float',
+            'datetime_to_timestamp',
+            'duration_to_seconds',
+            'to_uri',
+            'none',
+        ]
+        for name in expected:
+            assert name in NORMALIZERS
+    
+    def test_normalizer_override(self):
+        """Test normalizer override."""
+        # Force integer normalization on a percentage value
+        result = normalize_value("42.7", "percentage", normalizer_override="to_integer")
+        assert result.value == 42
+        assert isinstance(result.value, int)
+
+
+class TestGetNormalizedValue:
+    """Test get_normalized_value with constraints."""
+    
+    def test_basic_constraint(self):
+        c = AtomicConstraint(
+            uid="test",
+            left_operand="count",
+            operator=OperatorType.LTEQ,
+            right_operand=RightOperand.literal("10")
+        )
+        value = get_normalized_value(c)
+        assert value == 10
+        assert isinstance(value, int)
+    
+    def test_decimal_constraint(self):
+        c = AtomicConstraint(
+            uid="test",
+            left_operand="percentage",
+            operator=OperatorType.GTEQ,
+            right_operand=RightOperand.literal(Decimal("75.5"))
+        )
+        value = get_normalized_value(c)
+        assert value == 75.5
+        assert isinstance(value, float)
+    
+    def test_duration_constraint(self):
+        c = AtomicConstraint(
+            uid="test",
+            left_operand="elapsedTime",
+            operator=OperatorType.LTEQ,
+            right_operand=RightOperand.literal(timedelta(hours=1))
+        )
+        value = get_normalized_value(c)
+        assert value == 3600
+    
+    def test_policy_usage_returns_none(self):
+        c = AtomicConstraint(
+            uid="test",
+            left_operand="count",
+            operator=OperatorType.LTEQ,
+            right_operand=RightOperand.policy_usage()
+        )
+        value = get_normalized_value(c)
+        assert value is None
+
+
+class TestErrorHandling:
+    """Test normalization error handling."""
+    
+    def test_invalid_datetime(self):
+        result = normalize_value("not-a-date", "dateTime")
+        assert not result.success
+        assert result.error is not None
+    
+    def test_invalid_duration(self):
+        result = normalize_value("not-a-duration", "elapsedTime")
+        assert not result.success
+    
+    def test_unknown_operand_uses_none(self):
+        """Unknown operands use 'none' normalizer."""
+        result = normalize_value("anything", "unknownOperand")
+        assert result.success
+        assert result.value == "anything"  # Passed through
