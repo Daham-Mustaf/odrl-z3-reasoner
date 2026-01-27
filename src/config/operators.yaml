@@ -1,0 +1,143 @@
+# =============================================================================
+# ODRL-SA Operator Configuration
+# =============================================================================
+#
+# Defines operator partitions and semantics per the formalism:
+#   O = O_cmp ⊎ O_set
+#   O_log = {and, or, xone, andSequence}
+#
+# =============================================================================
+
+# =============================================================================
+# COMPARISON OPERATORS (O_cmp)
+# XSD-compatible, work on ordered domains
+# =============================================================================
+comparison:
+  eq:
+    symbol: "="
+    description: "Equal to"
+    z3_encoding: "(= x y)"
+    inverse: neq
+    
+  neq:
+    symbol: "≠"
+    description: "Not equal to"
+    z3_encoding: "(not (= x y))"
+    inverse: eq
+    
+  lt:
+    symbol: "<"
+    description: "Less than"
+    z3_encoding: "(< x y)"
+    inverse: gteq
+    requires_ordering: true
+    
+  lteq:
+    symbol: "≤"
+    description: "Less than or equal to"
+    z3_encoding: "(<= x y)"
+    inverse: gt
+    requires_ordering: true
+    
+  gt:
+    symbol: ">"
+    description: "Greater than"
+    z3_encoding: "(> x y)"
+    inverse: lteq
+    requires_ordering: true
+    
+  gteq:
+    symbol: "≥"
+    description: "Greater than or equal to"
+    z3_encoding: "(>= x y)"
+    inverse: lt
+    requires_ordering: true
+
+
+# =============================================================================
+# SET-BASED OPERATORS (O_set)
+# Require semantic grounding via oracles
+# =============================================================================
+set_based:
+  isA:
+    symbol: "⊑"
+    description: "Is a subclass/instance of"
+    requires_oracle: true
+    oracle_method: "is_a"
+    transitive: true
+    
+  hasPart:
+    symbol: "⊇"
+    description: "Has part (mereological)"
+    requires_oracle: true
+    oracle_method: "has_part"
+    inverse: isPartOf
+    
+  isPartOf:
+    symbol: "⊆"
+    description: "Is part of (mereological)"
+    requires_oracle: true
+    oracle_method: "is_part_of"
+    inverse: hasPart
+    
+  isAllOf:
+    symbol: "∀∈"
+    description: "Value is all of the specified set"
+    requires_oracle: true
+    oracle_method: "is_all_of"
+    set_semantics: conjunction
+    
+  isAnyOf:
+    symbol: "∃∈"
+    description: "Value is any of the specified set"
+    requires_oracle: true
+    oracle_method: "is_any_of"
+    set_semantics: disjunction
+    
+  isNoneOf:
+    symbol: "∉"
+    description: "Value is none of the specified set"
+    requires_oracle: true
+    oracle_method: "is_none_of"
+    set_semantics: negated_disjunction
+
+
+# =============================================================================
+# LOGICAL OPERATORS (O_log)
+# For composing constraints
+# =============================================================================
+logical:
+  and:
+    symbol: "∧"
+    description: "Conjunction - all must hold"
+    z3_encoding: "(and c1 c2 ... cn)"
+    identity: true
+    
+  or:
+    symbol: "∨"
+    description: "Disjunction - at least one must hold"
+    z3_encoding: "(or c1 c2 ... cn)"
+    identity: false
+    
+  xone:
+    symbol: "⊕"
+    description: "Exclusive or - exactly one must hold"
+    z3_encoding: "(= 1 (+ (ite c1 1 0) ...))"
+    
+  andSequence:
+    symbol: "∧→"
+    description: "Sequential conjunction - must hold in order"
+    requires_temporal: true
+    note: "For static analysis, treated as AND"
+
+
+# =============================================================================
+# METADATA
+# =============================================================================
+_metadata:
+  version: "1.0"
+  operator_counts:
+    comparison: 6
+    set_based: 6
+    logical: 4
+    total: 16

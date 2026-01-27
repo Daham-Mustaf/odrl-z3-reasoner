@@ -18,13 +18,31 @@ from typing import Dict, List, Union, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+import logging
 
-from ..semantics.constraint_types import (
-    AtomicConstraint, CompositeConstraint, ConstraintType, OperatorType,
-    PolicyRuleType, Policy, PolicyRule, ODRLMetadata,
-    debug_print, is_debug_mode
+# NEW IMPORTS - Using new module structure
+from ..core.types import (
+    AtomicConstraint, 
+    CompositeConstraint, 
+    OperatorType,
+    LogicalOperator,
+    Judgment,
 )
+from ..parser.ttl_parser import Policy, Rule, RuleType
 from ..reasoner.conflict_detector import Conflict, ConflictSeverity
+
+logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# DEBUG UTILITIES
+# =============================================================================
+
+def debug_print(category: str, message: str, data: Any = None):
+    """Print debug message."""
+    print(f"[{category}] {message}")
+    if data:
+        print(f"         {data}")
 
 
 # =============================================================================
@@ -105,25 +123,25 @@ class PolicyAnalyzer:
     # Operator symbols for display
     OP_SYMBOLS = {
         OperatorType.EQ: '=',
-        OperatorType.NEQ: '≠',
+        OperatorType.NEQ: '!=',
         OperatorType.LT: '<',
-        OperatorType.LTEQ: '≤',
+        OperatorType.LTEQ: '<=',
         OperatorType.GT: '>',
-        OperatorType.GTEQ: '≥',
-        OperatorType.IS_ANY_OF: '∈',
-        OperatorType.IS_ALL_OF: '⊇',
-        OperatorType.IS_NONE_OF: '∉',
+        OperatorType.GTEQ: '>=',
+        OperatorType.IS_ANY_OF: 'in',
+        OperatorType.IS_ALL_OF: 'contains-all',
+        OperatorType.IS_NONE_OF: 'not-in',
         OperatorType.HAS_PART: 'contains',
-        OperatorType.IS_PART_OF: 'in',
+        OperatorType.IS_PART_OF: 'part-of',
         OperatorType.IS_A: 'is-a',
     }
     
-    # Constraint type display
+    # Composite constraint type display
     COMPOSITE_SYMBOLS = {
-        ConstraintType.AND: 'AND',
-        ConstraintType.OR: 'OR',
-        ConstraintType.XONE: 'XONE',
-        ConstraintType.ANDSEQUENCE: 'SEQ',
+        LogicalOperator.AND: 'AND',
+        LogicalOperator.OR: 'OR',
+        LogicalOperator.XONE: 'XONE',
+        LogicalOperator.AND_SEQUENCE: 'SEQ',
     }
     
     def __init__(self, debug: bool = False):
@@ -138,18 +156,19 @@ class PolicyAnalyzer:
     # MAIN ANALYSIS
     # =========================================================================
     
-    def analyze(self, policy: Policy, conflicts: List[Conflict]) -> PolicyAnalysis:
+    def analyze(self, policy: Policy, conflicts: List[Conflict], constraints: Dict[str, Any]) -> PolicyAnalysis:
         """
         Generate complete policy analysis.
         
         Args:
             policy: Policy object to analyze
             conflicts: List of detected conflicts
+            constraints: Dict of constraint_id -> constraint
             
         Returns:
             PolicyAnalysis with all details
         """
-        self._debug(f"Analyzing policy: {policy.id}")
+        self._debug(f"Analyzing policy: {policy.uid}")
         
         # Categorize rules
         permissions = []
@@ -157,7 +176,7 @@ class PolicyAnalyzer:
         duties = []
         
         for rule in policy.rules:
-            rule_info = self._analyze_rule(rule, policy.constraints)
+            rule_info = self._analyze_rule(rule, constraints)
             
             rule_type = self._get_rule_type(rule)
             if rule_type == 'permission':
@@ -168,73 +187,64 @@ class PolicyAnalyzer:
                 duties.append(rule_info)
         
         # Analyze constraints
-        all_constraints = {}
+        all_constraints_summary = {}
         constraint_details = {}
         
-        for cid, constraint in policy.constraints.items():
-            all_constraints[cid] = self._constraint_to_human(constraint, policy.constraints)
-            constraint_details[cid] = self._extract_constraint_detail(constraint, policy.constraints)
+        for cid, constraint in constraints.items():
+            all_constraints_summary[cid] = self._constraint_to_human(constraint, constraints)
+            constraint_details[cid] = self._extract_constraint_detail(constraint, constraints)
         
         # Generate explanations
         explanations = []
         for i, conflict in enumerate(conflicts, 1):
             explanation = self._explain_conflict(
-                i, conflict, policy, permissions, prohibitions, duties, all_constraints
+                i, conflict, policy, permissions, prohibitions, duties, all_constraints_summary
             )
             explanations.append(explanation)
         
         # Calculate statistics
-        stats = self._calculate_stats(policy, conflicts)
+        stats = self._calculate_stats(policy, conflicts, constraints)
         
         return PolicyAnalysis(
-            policy_id=policy.id,
-            policy_type=policy.metadata.get('policy_type', 'Policy'),
+            policy_id=policy.uid,
+            policy_type=policy.policy_type or 'Policy',
             permissions=permissions,
             prohibitions=prohibitions,
             duties=duties,
-            all_constraints=all_constraints,
+            all_constraints=all_constraints_summary,
             constraint_details=constraint_details,
             conflicts=conflicts,
             explanations=explanations,
             stats=stats,
-            inherits_from=getattr(policy, 'inherits_from', None),
+            inherits_from=policy.inherits_from,
         )
     
     # =========================================================================
     # RULE ANALYSIS
     # =========================================================================
     
-    def _analyze_rule(self, rule: PolicyRule, constraints: Dict) -> RuleInfo:
+    def _analyze_rule(self, rule: Rule, constraints: Dict) -> RuleInfo:
         """Analyze a single rule"""
-        constraint_ids = self._get_constraint_ids(rule)
+        constraint_ids = rule.constraint_ids if hasattr(rule, 'constraint_ids') else []
         
         return RuleInfo(
-            rule_id=rule.id,
+            rule_id=rule.uid,
             rule_type=self._get_rule_type(rule),
             action=rule.action or 'unknown',
             constraint_ids=constraint_ids,
             constraint_summary=self._summarize_constraints(constraint_ids, constraints),
-            target=getattr(rule, 'target', None),
-            assigner=getattr(rule, 'assigner', None),
-            assignee=getattr(rule, 'assignee', None),
+            target=rule.target,
+            assigner=rule.assigner,
+            assignee=rule.assignee,
         )
     
-    def _get_rule_type(self, rule) -> str:
+    def _get_rule_type(self, rule: Rule) -> str:
         """Get rule type as string"""
-        rule_type = getattr(rule, 'rule_type', None)
-        if rule_type is None:
-            return 'unknown'
-        if isinstance(rule_type, PolicyRuleType):
-            return rule_type.value
-        return str(rule_type).lower()
-    
-    def _get_constraint_ids(self, rule) -> List[str]:
-        """Get constraint IDs from rule"""
-        if hasattr(rule, 'constraint_ids') and rule.constraint_ids:
-            return list(rule.constraint_ids)
-        elif hasattr(rule, 'constraint_id') and rule.constraint_id:
-            return [rule.constraint_id]
-        return []
+        if hasattr(rule, 'rule_type'):
+            if isinstance(rule.rule_type, RuleType):
+                return rule.rule_type.value
+            return str(rule.rule_type).lower()
+        return 'unknown'
     
     # =========================================================================
     # CONSTRAINT ANALYSIS
@@ -248,37 +258,34 @@ class PolicyAnalyzer:
         """Extract detailed constraint information"""
         
         if isinstance(constraint, AtomicConstraint):
-            # Get ODRL metadata
-            odrl_meta = getattr(constraint, 'odrl_metadata', None) or ODRLMetadata()
-            
-            # Get unit from metadata or right_value
-            unit = odrl_meta.unit
-            if not unit and hasattr(constraint.right_value, 'canonical_unit'):
-                unit = constraint.right_value.canonical_unit
+            # Get metadata
+            metadata = constraint.metadata
+            unit = metadata.unit if metadata else None
+            unit_of_count = metadata.unit_of_count if metadata else None
             
             return ConstraintDetail(
-                constraint_id=constraint.id,
+                constraint_id=constraint.uid,
                 constraint_type='atomic',
                 human_readable=self._constraint_to_human(constraint, all_constraints),
                 left_operand=constraint.left_operand,
-                operator=self.OP_SYMBOLS.get(constraint.operator, str(constraint.operator)),
-                right_value=str(constraint.right_value.canonical_value),
+                operator=self.OP_SYMBOLS.get(constraint.operator, str(constraint.operator.value)),
+                right_value=str(constraint.right_operand.value),
                 unit=unit,
-                unit_of_count=odrl_meta.unit_of_count,
-                domain=constraint.semantics.domain.value if constraint.semantics else None,
+                unit_of_count=unit_of_count,
+                domain=None,  # Could get from registry if needed
             )
         
         elif isinstance(constraint, CompositeConstraint):
             type_name = self.COMPOSITE_SYMBOLS.get(
-                constraint.constraint_type, 
-                str(constraint.constraint_type)
+                constraint.operator, 
+                str(constraint.operator.value)
             )
             
             return ConstraintDetail(
-                constraint_id=constraint.id,
+                constraint_id=constraint.uid,
                 constraint_type=type_name.lower(),
                 human_readable=self._constraint_to_human(constraint, all_constraints),
-                children=list(constraint.children),
+                children=list(constraint.operands),
             )
         
         return ConstraintDetail(
@@ -296,29 +303,22 @@ class PolicyAnalyzer:
         
         if isinstance(constraint, AtomicConstraint):
             op_symbol = self.OP_SYMBOLS.get(constraint.operator, constraint.operator.value)
+            value = str(constraint.right_operand.value)
             
-            # Get unit for formatting
-            unit = None
-            if hasattr(constraint.right_value, 'canonical_unit'):
-                unit = constraint.right_value.canonical_unit
-            
-            value = self._format_value(constraint.right_value.canonical_value, unit)
-            
-            # Add unit suffix if present in ODRL metadata
-            odrl_meta = getattr(constraint, 'odrl_metadata', None)
+            # Add unit suffix if present
             suffix = ""
-            if odrl_meta:
-                if odrl_meta.unit:
-                    unit_name = self._extract_local_name(odrl_meta.unit)
+            if constraint.metadata:
+                if constraint.metadata.unit:
+                    unit_name = self._extract_local_name(constraint.metadata.unit)
                     suffix += f" [{unit_name}]"
-                if odrl_meta.unit_of_count:
-                    suffix += f" per {odrl_meta.unit_of_count}"
+                if constraint.metadata.unit_of_count:
+                    suffix += f" per {constraint.metadata.unit_of_count}"
             
             return f"{constraint.left_operand} {op_symbol} {value}{suffix}"
         
         elif isinstance(constraint, CompositeConstraint):
             children_str = []
-            for child_id in constraint.children:
+            for child_id in constraint.operands:
                 child = all_constraints.get(child_id)
                 if child:
                     if isinstance(child, str):
@@ -328,14 +328,14 @@ class PolicyAnalyzer:
                 else:
                     children_str.append(f"[{child_id[:20]}...]")
             
-            if constraint.constraint_type == ConstraintType.AND:
+            if constraint.operator == LogicalOperator.AND:
                 return f"({' AND '.join(children_str)})"
-            elif constraint.constraint_type == ConstraintType.OR:
+            elif constraint.operator == LogicalOperator.OR:
                 return f"({' OR '.join(children_str)})"
-            elif constraint.constraint_type == ConstraintType.XONE:
+            elif constraint.operator == LogicalOperator.XONE:
                 return f"EXACTLY-ONE({', '.join(children_str)})"
-            elif constraint.constraint_type == ConstraintType.ANDSEQUENCE:
-                return f"SEQUENCE({' → '.join(children_str)})"
+            elif constraint.operator == LogicalOperator.AND_SEQUENCE:
+                return f"SEQUENCE({' -> '.join(children_str)})"
         
         return str(constraint)
     
@@ -437,14 +437,14 @@ class PolicyAnalyzer:
         lines = []
         
         # Header with severity
-        severity_icon = {
-            ConflictSeverity.CRITICAL: '❌',
-            ConflictSeverity.WARNING: '⚠️',
-            ConflictSeverity.INFO: 'ℹ️',
-        }.get(conflict.severity, '•')
+        severity_marker = {
+            ConflictSeverity.CRITICAL: '[CRITICAL]',
+            ConflictSeverity.WARNING: '[WARNING]',
+            ConflictSeverity.INFO: '[INFO]',
+        }.get(conflict.severity, '[?]')
         
         lines.append(f"\n{'='*60}")
-        lines.append(f"{severity_icon} CONFLICT #{num}: {conflict.conflict_type.replace('_', ' ').upper()}")
+        lines.append(f"{severity_marker} CONFLICT #{num}: {conflict.conflict_type.replace('_', ' ').upper()}")
         lines.append(f"   Severity: {conflict.severity.value}")
         if conflict.action and conflict.action != 'none':
             lines.append(f"   Action: {conflict.action}")
@@ -486,11 +486,11 @@ class PolicyAnalyzer:
                 lines.append("\nConstraints involved:")
                 for cid in conflict.constraint_ids:
                     summary = constraint_summaries.get(cid, cid)
-                    lines.append(f"  • {summary}")
+                    lines.append(f"  - {summary}")
             if conflict.counterexample:
                 lines.append("\nCounterexample:")
                 for k, v in conflict.counterexample.items():
-                    lines.append(f"  • {k} = {v}")
+                    lines.append(f"  - {k} = {v}")
         
         return '\n'.join(lines)
     
@@ -504,7 +504,7 @@ class PolicyAnalyzer:
         involved_perms = [p for p in permissions if conflict.action == p.action]
         involved_prohibs = [p for p in prohibitions if conflict.action == p.action]
         
-        lines.append(f"\n⚠️  Action '{conflict.action}' has conflicting rules:")
+        lines.append(f"\n[!] Action '{conflict.action}' has conflicting rules:")
         
         if involved_perms:
             lines.append(f"\n  PERMISSION allows '{conflict.action}' when:")
@@ -512,19 +512,19 @@ class PolicyAnalyzer:
                 lines.append(f"     {perm.constraint_summary}")
         
         if involved_prohibs:
-            lines.append(f"\n  🚫 PROHIBITION blocks '{conflict.action}' when:")
+            lines.append(f"\n  PROHIBITION blocks '{conflict.action}' when:")
             for prohib in involved_prohibs:
                 lines.append(f"     {prohib.constraint_summary}")
         
         if conflict.counterexample:
-            lines.append(f"\n  📍 CONFLICT OCCURS when:")
+            lines.append(f"\n  CONFLICT OCCURS when:")
             for var, val in conflict.counterexample.items():
                 formatted = self._format_counterexample_value(var, val)
-                lines.append(f"     • {var} = {formatted}")
-            lines.append(f"\n  💡 With these values, BOTH permission AND prohibition are satisfied.")
+                lines.append(f"     - {var} = {formatted}")
+            lines.append(f"\n  With these values, BOTH permission AND prohibition are satisfied.")
         
         # Fix suggestions
-        lines.append(f"\n  🔧 SUGGESTED FIXES:")
+        lines.append(f"\n  SUGGESTED FIXES:")
         lines.extend(self._suggest_fixes_for_perm_prohib(conflict))
         
         return lines
@@ -539,21 +539,21 @@ class PolicyAnalyzer:
         involved_duties = [d for d in duties if conflict.action == d.action]
         involved_prohibs = [p for p in prohibitions if conflict.action == p.action]
         
-        lines.append(f"\n⚠️  Action '{conflict.action}' is REQUIRED but also PROHIBITED:")
+        lines.append(f"\n[!] Action '{conflict.action}' is REQUIRED but also PROHIBITED:")
         
         if involved_duties:
-            lines.append(f"\n  📋 DUTY requires '{conflict.action}' when:")
+            lines.append(f"\n  DUTY requires '{conflict.action}' when:")
             for duty in involved_duties:
                 lines.append(f"     {duty.constraint_summary}")
         
         if involved_prohibs:
-            lines.append(f"\n  🚫 PROHIBITION blocks '{conflict.action}' when:")
+            lines.append(f"\n  PROHIBITION blocks '{conflict.action}' when:")
             for prohib in involved_prohibs:
                 lines.append(f"     {prohib.constraint_summary}")
         
-        lines.append(f"\n  💡 This creates an IMPOSSIBLE obligation - the action is both required and forbidden!")
+        lines.append(f"\n  This creates an IMPOSSIBLE obligation - the action is both required and forbidden!")
         
-        lines.append(f"\n  🔧 SUGGESTED FIXES:")
+        lines.append(f"\n  SUGGESTED FIXES:")
         lines.append(f"     1. Remove either the duty or the prohibition")
         lines.append(f"     2. Make their conditions mutually exclusive")
         
@@ -564,30 +564,30 @@ class PolicyAnalyzer:
         lines = []
         
         if 'overlap' in conflict.conflict_type:
-            lines.append(f"\n⚠️  XONE constraint has OVERLAPPING branches:")
+            lines.append(f"\n[!] XONE constraint has OVERLAPPING branches:")
             lines.append(f"\n  XONE requires EXACTLY ONE branch to be true.")
             lines.append(f"  But multiple branches can be true simultaneously:")
             
             for cid in conflict.constraint_ids[1:]:  # Skip XONE itself
                 summary = summaries.get(cid, cid)
-                lines.append(f"  • {summary}")
+                lines.append(f"  - {summary}")
             
             if conflict.counterexample:
-                lines.append(f"\n  📍 OVERLAP when:")
+                lines.append(f"\n  OVERLAP when:")
                 for k, v in conflict.counterexample.items():
-                    lines.append(f"     • {k} = {v}")
+                    lines.append(f"     - {k} = {v}")
             
             lines.append(f"\n  FIX: Make XONE branches mutually exclusive")
         
         elif 'unsatisfiable' in conflict.conflict_type:
-            lines.append(f"\n⚠️  XONE constraint has NO satisfiable branches:")
+            lines.append(f"\n[!] XONE constraint has NO satisfiable branches:")
             lines.append(f"  None of the branches can be true, making XONE unsatisfiable.")
             lines.append(f"\n  FIX: Ensure at least one branch is satisfiable")
         
         elif 'trivial' in conflict.conflict_type:
-            lines.append(f"\n⚠️  XONE constraint has only ONE satisfiable branch:")
+            lines.append(f"\n[!] XONE constraint has only ONE satisfiable branch:")
             lines.append(f"  This makes the XONE trivial (not really a choice).")
-            lines.append(f"\n  🔧 FIX: Add more satisfiable options or simplify to regular constraint")
+            lines.append(f"\n  FIX: Add more satisfiable options or simplify to regular constraint")
         
         return lines
     
@@ -595,14 +595,14 @@ class PolicyAnalyzer:
         """Explain constraint inconsistency"""
         lines = []
         
-        lines.append(f"\n⚠️  Constraints are CONTRADICTORY:")
+        lines.append(f"\n[!] Constraints are CONTRADICTORY:")
         
         for cid in conflict.constraint_ids:
             summary = summaries.get(cid, cid)
-            lines.append(f"  • {summary}")
+            lines.append(f"  - {summary}")
         
         lines.append(f"\n These constraints cannot ALL be true at the same time.")
-        lines.append(f"  → No valid value exists that satisfies all constraints.")
+        lines.append(f"  -> No valid value exists that satisfies all constraints.")
         
         lines.append(f"\n SUGGESTED FIXES:")
         lines.append(f"     1. Adjust constraint bounds to be compatible")
@@ -615,14 +615,14 @@ class PolicyAnalyzer:
         """Explain tautology"""
         lines = []
         
-        lines.append(f"\n⚠️  Constraint is ALWAYS TRUE (tautology):")
+        lines.append(f"\n[!] Constraint is ALWAYS TRUE (tautology):")
         
         for cid in conflict.constraint_ids:
             summary = summaries.get(cid, cid)
-            lines.append(f"  • {summary}")
+            lines.append(f"  - {summary}")
         
-        lines.append(f"\n  💡 This constraint provides no restriction - it's always satisfied.")
-        lines.append(f"\n  🔧 FIX: Remove the constraint or adjust to add meaningful restriction")
+        lines.append(f"\n  This constraint provides no restriction - it's always satisfied.")
+        lines.append(f"\n  FIX: Remove the constraint or adjust to add meaningful restriction")
         
         return lines
     
@@ -630,17 +630,17 @@ class PolicyAnalyzer:
         """Explain redundancy"""
         lines = []
         
-        lines.append(f"\n⚠️  REDUNDANT constraint detected:")
+        lines.append(f"\n[!] REDUNDANT constraint detected:")
         
         if len(conflict.constraint_ids) >= 2:
             stronger = summaries.get(conflict.constraint_ids[0], conflict.constraint_ids[0])
             weaker = summaries.get(conflict.constraint_ids[1], conflict.constraint_ids[1])
             
             lines.append(f"\n  Stronger: {stronger}")
-            lines.append(f"  Weaker:   {weaker} ← REDUNDANT")
-            lines.append(f"\n  💡 The weaker constraint is implied by the stronger one.")
+            lines.append(f"  Weaker:   {weaker} <- REDUNDANT")
+            lines.append(f"\n  The weaker constraint is implied by the stronger one.")
         
-        lines.append(f"\n  🔧 FIX: Remove the redundant (weaker) constraint")
+        lines.append(f"\n  FIX: Remove the redundant (weaker) constraint")
         
         return lines
     
@@ -648,17 +648,17 @@ class PolicyAnalyzer:
         """Explain unreachable permission"""
         lines = []
         
-        lines.append(f"\n⚠️  Permission is UNREACHABLE:")
+        lines.append(f"\n[!] Permission is UNREACHABLE:")
         lines.append(f"  A prohibition completely blocks this permission.")
         
         for cid in conflict.constraint_ids:
             summary = summaries.get(cid, cid)
-            lines.append(f"  • {summary}")
+            lines.append(f"  - {summary}")
         
-        lines.append(f"\n  💡 The permission can never be exercised because the prohibition")
+        lines.append(f"\n  The permission can never be exercised because the prohibition")
         lines.append(f"     always applies when the permission would.")
         
-        lines.append(f"\n  🔧 SUGGESTED FIXES:")
+        lines.append(f"\n  SUGGESTED FIXES:")
         lines.append(f"     1. Narrow the prohibition scope")
         lines.append(f"     2. Broaden the permission scope")
         lines.append(f"     3. Remove the unreachable permission")
@@ -669,7 +669,7 @@ class PolicyAnalyzer:
         """Explain ANDSEQUENCE info"""
         lines = []
         
-        lines.append(f"\nℹ️  SEQUENTIAL constraint (andSequence):")
+        lines.append(f"\n[i] SEQUENTIAL constraint (andSequence):")
         lines.append(f"  Order is preserved but not enforced in static analysis.")
         
         if conflict.metadata and 'sequence_order' in conflict.metadata:
@@ -746,10 +746,10 @@ class PolicyAnalyzer:
     # STATISTICS
     # =========================================================================
     
-    def _calculate_stats(self, policy: Policy, conflicts: List[Conflict]) -> Dict[str, int]:
+    def _calculate_stats(self, policy: Policy, conflicts: List[Conflict], constraints: Dict) -> Dict[str, int]:
         """Calculate analysis statistics"""
-        atomic = sum(1 for c in policy.constraints.values() if isinstance(c, AtomicConstraint))
-        composite = sum(1 for c in policy.constraints.values() if isinstance(c, CompositeConstraint))
+        atomic = sum(1 for c in constraints.values() if isinstance(c, AtomicConstraint))
+        composite = sum(1 for c in constraints.values() if isinstance(c, CompositeConstraint))
         
         critical = sum(1 for c in conflicts if c.severity == ConflictSeverity.CRITICAL)
         warnings = sum(1 for c in conflicts if c.severity == ConflictSeverity.WARNING)
@@ -757,10 +757,10 @@ class PolicyAnalyzer:
         
         return {
             'total_rules': len(policy.rules),
-            'permissions': sum(1 for r in policy.rules if self._get_rule_type(r) == 'permission'),
-            'prohibitions': sum(1 for r in policy.rules if self._get_rule_type(r) == 'prohibition'),
-            'duties': sum(1 for r in policy.rules if self._get_rule_type(r) in ('duty', 'obligation')),
-            'total_constraints': len(policy.constraints),
+            'permissions': len(policy.permissions),
+            'prohibitions': len(policy.prohibitions),
+            'duties': len(policy.duties),
+            'total_constraints': len(constraints),
             'atomic_constraints': atomic,
             'composite_constraints': composite,
             'total_conflicts': len(conflicts),
@@ -790,18 +790,18 @@ class PolicyAnalyzer:
         s = analysis.stats
         print(f"\n Statistics:")
         print(f"   Rules: {s.get('total_rules', 0)}")
-        print(f"     • Permissions:  {s.get('permissions', 0)}")
-        print(f"     • Prohibitions: {s.get('prohibitions', 0)}")
-        print(f"     • Duties:       {s.get('duties', 0)}")
+        print(f"     - Permissions:  {s.get('permissions', 0)}")
+        print(f"     - Prohibitions: {s.get('prohibitions', 0)}")
+        print(f"     - Duties:       {s.get('duties', 0)}")
         print(f"   Constraints: {s.get('total_constraints', 0)}")
-        print(f"     • Atomic:    {s.get('atomic_constraints', 0)}")
-        print(f"     • Composite: {s.get('composite_constraints', 0)}")
+        print(f"     - Atomic:    {s.get('atomic_constraints', 0)}")
+        print(f"     - Composite: {s.get('composite_constraints', 0)}")
         
         # Permissions
         if analysis.permissions:
-            print(f"\n{'─' * 70}")
+            print(f"\n{'-' * 70}")
             print("PERMISSIONS")
-            print(f"{'─' * 70}")
+            print(f"{'-' * 70}")
             for perm in analysis.permissions:
                 print(f"\n  Action: {perm.action}")
                 if perm.target:
@@ -810,9 +810,9 @@ class PolicyAnalyzer:
         
         # Prohibitions
         if analysis.prohibitions:
-            print(f"\n{'─' * 70}")
-            print("🚫 PROHIBITIONS")
-            print(f"{'─' * 70}")
+            print(f"\n{'-' * 70}")
+            print("PROHIBITIONS")
+            print(f"{'-' * 70}")
             for prohib in analysis.prohibitions:
                 print(f"\n  Action: {prohib.action}")
                 if prohib.target:
@@ -821,9 +821,9 @@ class PolicyAnalyzer:
         
         # Duties
         if analysis.duties:
-            print(f"\n{'─' * 70}")
-            print("📋 DUTIES")
-            print(f"{'─' * 70}")
+            print(f"\n{'-' * 70}")
+            print("DUTIES")
+            print(f"{'-' * 70}")
             for duty in analysis.duties:
                 print(f"\n  Action: {duty.action}")
                 if duty.target:
@@ -832,9 +832,9 @@ class PolicyAnalyzer:
         
         # Constraint details (debug mode)
         if self.debug and analysis.constraint_details:
-            print(f"\n{'─' * 70}")
-            print("🔍 CONSTRAINT DETAILS")
-            print(f"{'─' * 70}")
+            print(f"\n{'-' * 70}")
+            print("CONSTRAINT DETAILS")
+            print(f"{'-' * 70}")
             for cid, detail in analysis.constraint_details.items():
                 print(f"\n  ID: {cid[:40]}{'...' if len(cid) > 40 else ''}")
                 print(f"  Type: {detail.constraint_type}")
@@ -847,10 +847,10 @@ class PolicyAnalyzer:
                     print(f"  Domain: {detail.domain}")
         
         # Conflicts
-        print(f"\n{'─' * 70}")
-        print(f"⚠️  CONFLICT ANALYSIS: {s.get('total_conflicts', 0)} issue(s)")
+        print(f"\n{'-' * 70}")
+        print(f"CONFLICT ANALYSIS: {s.get('total_conflicts', 0)} issue(s)")
         print(f"   ({s.get('critical', 0)} critical, {s.get('warnings', 0)} warnings, {s.get('info', 0)} info)")
-        print(f"{'─' * 70}")
+        print(f"{'-' * 70}")
         
         if not analysis.conflicts:
             print("\n  No conflicts detected! Policy is logically consistent.")
@@ -861,9 +861,9 @@ class PolicyAnalyzer:
         # Final summary
         print("\n" + "=" * 70)
         if s.get('critical', 0) > 0:
-            print("❌ POLICY HAS CRITICAL ISSUES - Must fix before deployment")
+            print("[CRITICAL] POLICY HAS CRITICAL ISSUES - Must fix before deployment")
         elif s.get('warnings', 0) > 0:
-            print("⚠️  POLICY HAS WARNINGS - Review recommended")
+            print("[WARNING] POLICY HAS WARNINGS - Review recommended")
         else:
-            print("POLICY IS VALID")
+            print("[OK] POLICY IS VALID")
         print("=" * 70 + "\n")

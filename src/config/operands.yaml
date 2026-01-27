@@ -1,0 +1,413 @@
+# =============================================================================
+# ODRL-SA LeftOperand Configuration
+# =============================================================================
+#
+# This is the SINGLE SOURCE OF TRUTH for the ODRL-SA formalism.
+# All modules read from this configuration via the OperandRegistry.
+#
+# To change the formalism:
+#   1. Edit this file
+#   2. That's it! All modules automatically pick up changes.
+#
+# Structure per operand:
+#   class: FULL | PARTIAL | GROUNDED | DEFERRED | RUNTIME
+#   category: numeric | temporal | positional | categorical | identity
+#   z3_sort: Int | Real | String | Bool (for SMT encoding)
+#   domain:
+#     min: number or null (for -infinity)
+#     max: number or null (for +infinity)
+#   normalize: normalization function name
+#   operators: list of valid operators
+#   oracle: oracle class name (for GROUNDED)
+#   reference_point: reference point type (for PARTIAL)
+#
+# =============================================================================
+
+# =============================================================================
+# FULL CLASS (L_xsd) - XSD-typed, fully analyzable via SMT
+# Total: 14 operands
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Numeric (4)
+# -----------------------------------------------------------------------------
+count:
+  class: FULL
+  category: numeric
+  z3_sort: Int
+  domain:
+    min: 0
+    max: null
+  normalize: to_integer
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Number of times action can be performed"
+
+percentage:
+  class: FULL
+  category: numeric
+  z3_sort: Real
+  domain:
+    min: 0
+    max: 100
+  normalize: to_float
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Percentage value (0-100)"
+
+payAmount:
+  class: FULL
+  category: numeric
+  z3_sort: Real
+  domain:
+    min: 0
+    max: null
+  normalize: to_float
+  unit_required: true
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Payment amount (requires unit for currency)"
+
+resolution:
+  class: FULL
+  category: numeric
+  z3_sort: Real
+  domain:
+    min: 0
+    max: null
+  normalize: to_float
+  unit_required: true
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Resolution value (DPI, PPI, etc.)"
+
+# -----------------------------------------------------------------------------
+# Temporal - Absolute (2)
+# -----------------------------------------------------------------------------
+dateTime:
+  class: FULL
+  category: temporal
+  z3_sort: Int
+  domain:
+    min: null
+    max: null
+  normalize: datetime_to_timestamp
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Absolute point in time (ISO 8601)"
+
+timeInterval:
+  class: FULL
+  category: temporal
+  z3_sort: Int
+  domain:
+    min: 0
+    max: null
+  normalize: duration_to_seconds
+  operators: [eq]
+  operator_note: "ODRL spec: Only eq operator SHOULD be used"
+  description: "Recurring time interval duration"
+
+# -----------------------------------------------------------------------------
+# Positional - Absolute (4)
+# -----------------------------------------------------------------------------
+absolutePosition:
+  class: FULL
+  category: positional
+  z3_sort: Real
+  domain:
+    min: 0
+    max: null
+  normalize: to_float
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Absolute position in media (seconds/bytes)"
+
+absoluteSize:
+  class: FULL
+  category: positional
+  z3_sort: Real
+  domain:
+    min: 0
+    max: null
+  normalize: to_float
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Absolute size (bytes/pixels)"
+
+absoluteSpatialPosition:
+  class: FULL
+  category: positional
+  z3_sort: Real
+  domain:
+    min: 0
+    max: null
+  normalize: to_float
+  operators: [eq, neq]
+  operator_note: "Spatial coordinates - typically equality only"
+  description: "Absolute x,y position in visual media"
+
+absoluteTemporalPosition:
+  class: FULL
+  category: positional
+  z3_sort: Real
+  domain:
+    min: 0
+    max: null
+  normalize: to_float
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Absolute time position in media (seconds)"
+
+# -----------------------------------------------------------------------------
+# Positional - Relative (4)
+# -----------------------------------------------------------------------------
+relativePosition:
+  class: FULL
+  category: positional
+  z3_sort: Real
+  domain:
+    min: 0
+    max: 100
+  normalize: to_float
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Relative position (0-100%)"
+
+relativeSize:
+  class: FULL
+  category: positional
+  z3_sort: Real
+  domain:
+    min: 0
+    max: 100
+  normalize: to_float
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Relative size (0-100%)"
+
+relativeSpatialPosition:
+  class: FULL
+  category: positional
+  z3_sort: Real
+  domain:
+    min: 0
+    max: 100
+  normalize: to_float
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Relative x,y position (0-100%)"
+
+relativeTemporalPosition:
+  class: FULL
+  category: positional
+  z3_sort: Real
+  domain:
+    min: 0
+    max: 100
+  normalize: to_float
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Relative time position (0-100%)"
+
+
+# =============================================================================
+# PARTIAL CLASS (L_ref) - Reference-point dependent
+# Total: 2 operands
+# =============================================================================
+
+elapsedTime:
+  class: PARTIAL
+  category: temporal
+  z3_sort: Int
+  domain:
+    min: 0
+    max: null
+  normalize: duration_to_seconds
+  reference_point: policy_activation
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Time elapsed since policy activation"
+  comparability_note: "Only comparable with same reference point"
+
+delayPeriod:
+  class: PARTIAL
+  category: temporal
+  z3_sort: Int
+  domain:
+    min: 0
+    max: null
+  normalize: duration_to_seconds
+  reference_point: triggering_event
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Delay period before action is allowed"
+  comparability_note: "Only comparable with same reference point"
+
+
+# =============================================================================
+# GROUNDED CLASS (L_kb) - Requires KB/Ontology reasoning
+# Total: 13 operands
+# =============================================================================
+
+language:
+  class: GROUNDED
+  category: categorical
+  oracle: LanguageOracle
+  oracle_data: bcp47.ttl
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "Language constraint (BCP47 tags)"
+  implemented: true
+
+purpose:
+  class: GROUNDED
+  category: categorical
+  oracle: PurposeOracle
+  oracle_data: dpv-owl.ttl
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf, hasPart, isPartOf]
+  description: "Purpose of use (DPV taxonomy)"
+  implemented: true
+
+fileFormat:
+  class: GROUNDED
+  category: categorical
+  oracle: MediaTypeOracle
+  oracle_data: media-types.ttl
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "File format / MIME type (IANA registry)"
+  implemented: true
+
+media:
+  class: GROUNDED
+  category: categorical
+  oracle: MediaOracle
+  oracle_data: null
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "Media type constraint"
+  implemented: false
+
+deliveryChannel:
+  class: GROUNDED
+  category: categorical
+  oracle: DeliveryChannelOracle
+  oracle_data: null
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "Delivery channel constraint"
+  implemented: false
+
+event:
+  class: GROUNDED
+  category: categorical
+  oracle: EventOracle
+  oracle_data: schema-org.ttl
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "Event type constraint (Schema.org)"
+  implemented: false
+
+industry:
+  class: GROUNDED
+  category: categorical
+  oracle: IndustryOracle
+  oracle_data: isic.ttl
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "Industry classification (ISIC/NAICS)"
+  implemented: false
+
+product:
+  class: GROUNDED
+  category: categorical
+  oracle: ProductOracle
+  oracle_data: unspsc.ttl
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "Product classification (UNSPSC)"
+  implemented: false
+
+recipient:
+  class: GROUNDED
+  category: identity
+  oracle: RecipientOracle
+  oracle_data: null
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "Recipient/party constraint"
+  implemented: false
+
+spatial:
+  class: GROUNDED
+  category: categorical
+  oracle: SpatialOracle
+  oracle_data: geonames.ttl
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf, isPartOf, hasPart]
+  description: "Spatial/geographic constraint (GeoNames)"
+  implemented: false
+
+spatialCoordinates:
+  class: GROUNDED
+  category: categorical
+  oracle: SpatialOracle
+  oracle_data: geosparql.ttl
+  normalize: to_coordinates
+  operators: [eq, neq]
+  description: "Spatial coordinates (GeoSPARQL)"
+  implemented: false
+
+systemDevice:
+  class: GROUNDED
+  category: identity
+  oracle: SystemOracle
+  oracle_data: null
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "System/device constraint"
+  implemented: false
+
+virtualLocation:
+  class: GROUNDED
+  category: identity
+  oracle: VirtualLocationOracle
+  oracle_data: null
+  normalize: to_uri
+  operators: [eq, neq, isA, isAnyOf, isNoneOf]
+  description: "Virtual location (IP, domain, etc.)"
+  implemented: false
+
+
+# =============================================================================
+# DEFERRED CLASS (L_deref) - Requires runtime dereferencing
+# Total: 1 operand
+# =============================================================================
+
+version:
+  class: DEFERRED
+  category: categorical
+  normalize: none
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Version constraint (often via rightOperandReference)"
+  reason: "Value must be dereferenced at runtime"
+
+
+# =============================================================================
+# RUNTIME CLASS (L_run) - Cannot analyze statically
+# Total: 1 operand
+# =============================================================================
+
+meteredTime:
+  class: RUNTIME
+  category: temporal
+  normalize: none
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  description: "Cumulative metered usage time"
+  reason: "Requires runtime usage counter"
+
+
+# =============================================================================
+# METADATA
+# =============================================================================
+_metadata:
+  version: "1.0"
+  total_operands: 31
+  class_counts:
+    FULL: 14
+    PARTIAL: 2
+    GROUNDED: 13
+    DEFERRED: 1
+    RUNTIME: 1
+  implemented_oracles:
+    - LanguageOracle
+    - PurposeOracle
+    - MediaTypeOracle
