@@ -1,12 +1,13 @@
 # src/parser/ttl_parser.py
 """
-ODRL-SA TTL Parser (Enhanced)
+ODRL-SA TTL Parser (Complete Implementation)
 
 Parses ODRL policies from Turtle (TTL) files and extracts:
 - Policy structure (permissions, prohibitions, duties)
 - Constraints (atomic and composite)
 - Full ODRL metadata (unit, unitOfCount, status, dataType)
 - Inheritance relationships (odrl:inheritFrom)
+- Logical constraints (AND, OR, XONE, andSequence)
 
 Based on the formal specification constraint tuple:
     c = (ℓ, ⋈, v, u?, d?, r?, s?)
@@ -20,9 +21,11 @@ from pathlib import Path
 from enum import Enum
 import logging
 import os
+import warnings
 
-from rdflib import Graph, URIRef, Literal, BNode, Namespace
-from rdflib.namespace import RDF, RDFS, XSD
+from rdflib import Graph, URIRef, Literal, BNode, Namespace, RDF
+from rdflib.collection import Collection
+from rdflib.namespace import RDFS, XSD
 
 # Import core types
 import sys
@@ -115,6 +118,10 @@ class Policy:
     @property
     def duties(self) -> List[Rule]:
         return [r for r in self.rules if r.rule_type in {RuleType.DUTY, RuleType.OBLIGATION}]
+    
+    def is_empty(self) -> bool:
+        """Check if policy has no rules."""
+        return len(self.rules) == 0
 
 
 @dataclass
@@ -127,9 +134,12 @@ class ParseResult:
     # All constraints (keyed by UID)
     constraints: Dict[str, Constraint] = field(default_factory=dict)
     
-    # Parsing errors
+    # Parsing errors and warnings
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
+    
+    # Statistics
+    stats: Dict[str, int] = field(default_factory=dict)
     
     def get_atomic_constraints(self) -> List[AtomicConstraint]:
         """Get all atomic constraints."""
@@ -154,6 +164,23 @@ class ParseResult:
     def get_constraint(self, uid: str) -> Optional[Constraint]:
         """Get a constraint by UID."""
         return self.constraints.get(uid)
+    
+    def has_errors(self) -> bool:
+        """Check if parsing had errors."""
+        return len(self.errors) > 0
+    
+    def has_policies(self) -> bool:
+        """Check if any policies were found."""
+        return len(self.policies) > 0
+    
+    def summary(self) -> str:
+        """Get a summary string."""
+        return (
+            f"ParseResult: {len(self.policies)} policies, "
+            f"{len(self.get_atomic_constraints())} atomic constraints, "
+            f"{len(self.get_composite_constraints())} composite constraints, "
+            f"{len(self.errors)} errors"
+        )
 
 
 # =============================================================================
@@ -166,10 +193,11 @@ class ODRLParser:
     
     Features:
     - Full policy structure extraction
-    - Atomic and composite constraints
+    - Atomic and composite constraints (AND, OR, XONE)
     - Complete ODRL metadata
     - Inheritance relationships
-    - Debug mode with detailed output
+    - RDF Collection handling for logical constraints
+    - Robust error handling
     """
     
     def __init__(self, debug: bool = False):
@@ -182,7 +210,9 @@ class ODRLParser:
         self.debug = debug
         self.graph: Optional[Graph] = None
         self._constraint_counter = 0
+        self._rule_counter = 0
         self._processed_nodes: Set = set()
+        self._node_to_uid: Dict[Any, str] = {}
     
     def parse_file(self, filepath: str) -> ParseResult:
         """
@@ -194,8 +224,12 @@ class ODRLParser:
         Returns:
             ParseResult with policies and constraints
         """
+        result = ParseResult()
+        
+        # Check file exists
         if not os.path.exists(filepath):
-            raise FileNotFoundError(f"File not found: {filepath}")
+            result.errors.append(f"File not found: {filepath}")
+            return result
         
         # Determine format
         ext = os.path.splitext(filepath)[1].lower()
@@ -212,12 +246,21 @@ class ODRLParser:
         
         self._debug(f"Parsing file: {filepath} (format: {rdf_format})")
         
-        self.graph = Graph()
-        self.graph.parse(filepath, format=rdf_format)
+        # Parse with error handling
+        try:
+            self.graph = Graph()
+            # Suppress rdflib warnings about invalid URIs
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.graph.parse(filepath, format=rdf_format)
+        except Exception as e:
+            result.errors.append(f"Failed to parse RDF: {e}")
+            return result
         
         self._debug(f"Loaded {len(self.graph)} triples")
+        result.stats['triples'] = len(self.graph)
         
-        return self._extract_all()
+        return self._extract_all(result)
     
     def parse_string(self, ttl_string: str, format: str = 'turtle') -> ParseResult:
         """
@@ -230,37 +273,66 @@ class ODRLParser:
         Returns:
             ParseResult with policies and constraints
         """
-        self.graph = Graph()
-        self.graph.parse(data=ttl_string, format=format)
+        result = ParseResult()
+        
+        # Handle empty string
+        if not ttl_string or not ttl_string.strip():
+            result.warnings.append("Empty TTL string provided")
+            return result
+        
+        # Parse with error handling
+        try:
+            self.graph = Graph()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.graph.parse(data=ttl_string, format=format)
+        except Exception as e:
+            result.errors.append(f"Failed to parse RDF: {e}")
+            return result
         
         self._debug(f"Parsed {len(self.graph)} triples from string")
+        result.stats['triples'] = len(self.graph)
         
-        return self._extract_all()
+        return self._extract_all(result)
     
     # =========================================================================
-    # EXTRACTION
+    # MAIN EXTRACTION
     # =========================================================================
     
-    def _extract_all(self) -> ParseResult:
+    def _extract_all(self, result: ParseResult) -> ParseResult:
         """Extract all ODRL structures from the graph."""
         self._constraint_counter = 0
+        self._rule_counter = 0
         self._processed_nodes = set()
-        
-        result = ParseResult()
+        self._node_to_uid = {}
         
         # Find all policies
         policy_uris = self._find_policies()
         self._debug(f"Found {len(policy_uris)} policies")
+        result.stats['policies_found'] = len(policy_uris)
+        
+        if not policy_uris:
+            result.warnings.append("No ODRL policies found in the input")
+            return result
         
         # Extract each policy
         for policy_uri in policy_uris:
             try:
                 policy = self._extract_policy(policy_uri, result)
-                result.policies.append(policy)
+                if policy:
+                    result.policies.append(policy)
             except Exception as e:
                 error_msg = f"Failed to extract policy {policy_uri}: {e}"
                 logger.error(error_msg)
                 result.errors.append(error_msg)
+                if self.debug:
+                    import traceback
+                    traceback.print_exc()
+        
+        # Update statistics
+        result.stats['policies'] = len(result.policies)
+        result.stats['atomic_constraints'] = len(result.get_atomic_constraints())
+        result.stats['composite_constraints'] = len(result.get_composite_constraints())
         
         return result
     
@@ -271,12 +343,14 @@ class ODRLParser:
         # ODRL policy types
         policy_types = [
             ODRL.Policy, ODRL.Set, ODRL.Offer, 
-            ODRL.Agreement, ODRL.Request, ODRL.Privacy
+            ODRL.Agreement, ODRL.Request, ODRL.Privacy,
+            ODRL.Ticket, ODRL.Assertion
         ]
         
         for ptype in policy_types:
             for s in self.graph.subjects(RDF.type, ptype):
-                policies.add(s)
+                if isinstance(s, (URIRef, BNode)):
+                    policies.add(s)
         
         # Also check for subjects with rules (implicit policies)
         for pred in [ODRL.permission, ODRL.prohibition, ODRL.duty, ODRL.obligation]:
@@ -286,14 +360,19 @@ class ODRLParser:
         
         return list(policies)
     
-    def _extract_policy(self, policy_uri: URIRef, result: ParseResult) -> Policy:
+    # =========================================================================
+    # POLICY EXTRACTION
+    # =========================================================================
+    
+    def _extract_policy(self, policy_uri: Any, result: ParseResult) -> Optional[Policy]:
         """Extract a single policy."""
         self._debug(f"Extracting policy: {policy_uri}")
         
         # Get policy type
         policy_type = None
         for ptype in self.graph.objects(policy_uri, RDF.type):
-            if str(ptype).startswith(str(ODRL)):
+            ptype_str = str(ptype)
+            if ptype_str.startswith(str(ODRL)):
                 policy_type = self._local_name(ptype)
                 break
         
@@ -334,19 +413,31 @@ class ODRLParser:
         
         for predicate, rule_type in rule_mappings:
             for rule_node in self.graph.objects(policy_uri, predicate):
-                rule = self._extract_rule(rule_node, rule_type, result)
-                policy.rules.append(rule)
+                try:
+                    rule = self._extract_rule(rule_node, rule_type, result)
+                    if rule:
+                        policy.rules.append(rule)
+                except Exception as e:
+                    result.warnings.append(f"Failed to extract rule: {e}")
         
         self._debug(f"Extracted policy with {len(policy.rules)} rules")
         
+        # Warn if policy is empty
+        if policy.is_empty():
+            result.warnings.append(f"Policy {policy.uid} has no rules")
+        
         return policy
+    
+    # =========================================================================
+    # RULE EXTRACTION
+    # =========================================================================
     
     def _extract_rule(
         self, 
         rule_node: Any, 
         rule_type: RuleType, 
         result: ParseResult
-    ) -> Rule:
+    ) -> Optional[Rule]:
         """Extract a single rule."""
         rule_uid = self._make_uid(rule_node, 'rule')
         
@@ -362,14 +453,12 @@ class ODRLParser:
             target = str(t)
             break
         
-        # Get assigner
+        # Get assigner/assignee
         assigner = None
+        assignee = None
         for a in self.graph.objects(rule_node, ODRL.assigner):
             assigner = str(a)
             break
-        
-        # Get assignee
-        assignee = None
         for a in self.graph.objects(rule_node, ODRL.assignee):
             assignee = str(a)
             break
@@ -383,21 +472,31 @@ class ODRLParser:
             assignee=assignee
         )
         
-        # Extract constraints
+        # Extract constraints from odrl:constraint
         for constraint_node in self.graph.objects(rule_node, ODRL.constraint):
-            constraint_uid = self._extract_constraint(constraint_node, result)
-            if constraint_uid:
-                rule.constraint_ids.append(constraint_uid)
+            try:
+                constraint_uid = self._extract_constraint(constraint_node, result)
+                if constraint_uid:
+                    rule.constraint_ids.append(constraint_uid)
+            except Exception as e:
+                result.warnings.append(f"Failed to extract constraint: {e}")
         
-        # Also check refinements
+        # Extract refinements
         for constraint_node in self.graph.objects(rule_node, ODRL.refinement):
-            constraint_uid = self._extract_constraint(constraint_node, result)
-            if constraint_uid:
-                rule.constraint_ids.append(constraint_uid)
+            try:
+                constraint_uid = self._extract_constraint(constraint_node, result)
+                if constraint_uid:
+                    rule.constraint_ids.append(constraint_uid)
+            except Exception as e:
+                result.warnings.append(f"Failed to extract refinement: {e}")
         
         self._debug(f"Extracted {rule_type.value} with {len(rule.constraint_ids)} constraints")
         
         return rule
+    
+    # =========================================================================
+    # CONSTRAINT EXTRACTION
+    # =========================================================================
     
     def _extract_constraint(
         self, 
@@ -409,61 +508,80 @@ class ODRLParser:
         
         Returns the constraint UID.
         """
-        if node in self._processed_nodes:
-            # Already processed - find existing UID
-            for uid, c in result.constraints.items():
-                if hasattr(c, '_node') and c._node == node:
-                    return uid
-            return self._make_uid(node, 'constraint')
+        # Check if already processed
+        if node in self._node_to_uid:
+            return self._node_to_uid[node]
         
-        self._processed_nodes.add(node)
-        
-        # Check for logical operators (composite)
-        logical_ops = [
+        # Check for logical operators (composite) - MUST check these first
+        # ODRL uses odrl:and, odrl:or, odrl:xone for logical constraints
+        logical_predicates = [
             (ODRL['and'], LogicalOperator.AND),
             (ODRL['or'], LogicalOperator.OR),
             (ODRL.xone, LogicalOperator.XONE),
             (ODRL.andSequence, LogicalOperator.AND_SEQUENCE),
         ]
         
-        for pred, op in logical_ops:
-            children = list(self.graph.objects(node, pred))
-            if children:
-                return self._extract_composite(node, op, children, result)
+        for pred, operator in logical_predicates:
+            # Check if this node has the logical predicate
+            logical_obj = self.graph.value(node, pred)
+            if logical_obj is not None:
+                self._debug(f"Found {operator.value} constraint at {node}")
+                return self._extract_composite(node, operator, logical_obj, result)
         
-        # Atomic constraint
+        # Check if this is a LogicalConstraint type
+        for rdf_type in self.graph.objects(node, RDF.type):
+            if rdf_type == ODRL.LogicalConstraint:
+                # It's a LogicalConstraint but we need to find which operator
+                for pred, operator in logical_predicates:
+                    logical_obj = self.graph.value(node, pred)
+                    if logical_obj is not None:
+                        return self._extract_composite(node, operator, logical_obj, result)
+        
+        # Otherwise it's an atomic constraint
         return self._extract_atomic(node, result)
     
     def _extract_composite(
         self, 
         node: Any, 
         operator: LogicalOperator,
-        children: List,
+        list_node: Any,
         result: ParseResult
-    ) -> str:
-        """Extract a composite constraint."""
-        uid = self._make_uid(node, 'composite')
+    ) -> Optional[str]:
+        """
+        Extract a composite constraint (AND, OR, XONE, andSequence).
         
-        # Parse RDF list if needed
-        all_children = []
-        for child in children:
-            if isinstance(child, BNode):
-                # Could be RDF list
-                list_items = self._parse_rdf_list(child)
-                if list_items:
-                    all_children.extend(list_items)
-                else:
-                    all_children.append(child)
-            else:
-                all_children.append(child)
+        The list_node is typically an RDF Collection (list) of child constraints.
+        """
+        uid = self._make_uid(node, f'{operator.value}')
+        self._node_to_uid[node] = uid
         
-        # Extract each child
+        self._debug(f"Extracting {operator.value} composite: {uid}")
+        
+        # Parse the RDF Collection to get child nodes
+        child_nodes = self._parse_rdf_collection(list_node)
+        
+        if not child_nodes:
+            # Maybe it's not a collection, try direct children
+            child_nodes = [list_node]
+        
+        self._debug(f"  Found {len(child_nodes)} children in {operator.value}")
+        
+        # Extract each child constraint
         child_uids = []
-        for child in all_children:
-            child_uid = self._extract_constraint(child, result)
-            if child_uid:
-                child_uids.append(child_uid)
+        for child_node in child_nodes:
+            try:
+                child_uid = self._extract_constraint(child_node, result)
+                if child_uid:
+                    child_uids.append(child_uid)
+                    self._debug(f"    Child: {child_uid}")
+            except Exception as e:
+                result.warnings.append(f"Failed to extract child constraint: {e}")
         
+        if not child_uids:
+            result.warnings.append(f"Composite constraint {uid} has no valid children")
+            return None
+        
+        # Create composite constraint
         composite = CompositeConstraint(
             uid=uid,
             operator=operator,
@@ -471,48 +589,95 @@ class ODRLParser:
         )
         
         result.constraints[uid] = composite
-        self._debug(f"Extracted {operator.value} composite with {len(child_uids)} children")
+        self._debug(f"Created {operator.value} composite with {len(child_uids)} children: {child_uids}")
         
         return uid
+    
+    def _parse_rdf_collection(self, node: Any) -> List[Any]:
+        """
+        Parse an RDF Collection (list) to get all items.
+        
+        RDF Collections use rdf:first/rdf:rest pattern.
+        """
+        if node is None:
+            return []
+        
+        # Try using rdflib's Collection helper
+        try:
+            items = list(Collection(self.graph, node))
+            if items:
+                return items
+        except Exception:
+            pass
+        
+        # Manual parsing as fallback
+        items = []
+        current = node
+        visited = set()
+        max_iterations = 100
+        
+        for _ in range(max_iterations):
+            if current is None:
+                break
+            if current == RDF.nil:
+                break
+            if current in visited:
+                break  # Avoid infinite loops
+            visited.add(current)
+            
+            # Get rdf:first
+            first = self.graph.value(current, RDF.first)
+            if first is not None:
+                items.append(first)
+            
+            # Move to rdf:rest
+            current = self.graph.value(current, RDF.rest)
+        
+        return items
     
     def _extract_atomic(self, node: Any, result: ParseResult) -> Optional[str]:
         """Extract an atomic constraint."""
         uid = self._make_uid(node, 'constraint')
+        self._node_to_uid[node] = uid
         
         # leftOperand (REQUIRED)
         left_op = self.graph.value(node, ODRL.leftOperand)
-        if not left_op:
+        if left_op is None:
             self._debug(f"Constraint {node} missing leftOperand")
             result.warnings.append(f"Constraint missing leftOperand: {node}")
             return None
         
         # operator (REQUIRED)
         op_uri = self.graph.value(node, ODRL.operator)
-        if not op_uri:
+        if op_uri is None:
             self._debug(f"Constraint {node} missing operator")
             result.warnings.append(f"Constraint missing operator: {node}")
             return None
         
+        # Parse operator
         try:
             operator = OperatorType.from_string(str(op_uri))
-        except ValueError:
+        except ValueError as e:
             self._debug(f"Unknown operator: {op_uri}")
             result.warnings.append(f"Unknown operator: {op_uri}")
             return None
         
-        # rightOperand
+        # rightOperand or rightOperandReference
         right_op = self.graph.value(node, ODRL.rightOperand)
         right_op_ref = self.graph.value(node, ODRL.rightOperandReference)
         
         if right_op is None and right_op_ref is None:
-            # Check for policyUsage
-            if (node, ODRL.rightOperand, ODRL.policyUsage) in self.graph:
-                right_operand = RightOperand.policy_usage()
+            # Check for special values
+            # Check if rightOperand is policyUsage
+            for _, _, o in self.graph.triples((node, ODRL.rightOperand, None)):
+                if o == ODRL.policyUsage:
+                    right_operand = RightOperand.policy_usage()
+                    break
             else:
                 self._debug(f"Constraint {node} missing rightOperand")
                 result.warnings.append(f"Constraint missing rightOperand: {node}")
                 return None
-        elif right_op_ref:
+        elif right_op_ref is not None:
             right_operand = RightOperand.iri(str(right_op_ref))
         else:
             right_operand = self._parse_right_operand(right_op)
@@ -548,11 +713,14 @@ class ODRLParser:
         # unitOfCount
         unit_of_count = self.graph.value(node, ODRL.unitOfCount)
         
+        # status
+        status = self.graph.value(node, ODRL.status)
+        
         return ConstraintMetadata(
             unit=str(unit) if unit else None,
             datatype=str(datatype) if datatype else None,
             right_operand_reference=str(right_op_ref) if right_op_ref else None,
-            unit_of_count=str(unit_of_count) if unit_of_count else None
+            unit_of_count=str(unit_of_count) if unit_of_count else None,
         )
     
     def _parse_right_operand(self, value: Any) -> RightOperand:
@@ -566,34 +734,20 @@ class ODRLParser:
             return RightOperand.iri(str(value))
         
         elif isinstance(value, BNode):
-            # Could be a list
-            items = self._parse_rdf_list(value)
+            # Could be a list - try to parse it
+            items = self._parse_rdf_collection(value)
             if items:
-                return RightOperand.literal(items)
+                # Convert items to Python values
+                py_items = []
+                for item in items:
+                    if isinstance(item, Literal):
+                        py_items.append(item.toPython())
+                    else:
+                        py_items.append(str(item))
+                return RightOperand.literal(tuple(py_items))
             return RightOperand.literal(str(value))
         
         return RightOperand.literal(str(value))
-    
-    def _parse_rdf_list(self, node: Any) -> List[Any]:
-        """Parse an RDF list."""
-        items = []
-        current = node
-        max_iter = 100
-        
-        for _ in range(max_iter):
-            if current is None or current == RDF.nil:
-                break
-            
-            first = self.graph.value(current, RDF.first)
-            if first is not None:
-                if isinstance(first, Literal):
-                    items.append(first.toPython())
-                else:
-                    items.append(str(first))
-            
-            current = self.graph.value(current, RDF.rest)
-        
-        return items
     
     # =========================================================================
     # UTILITIES
@@ -601,6 +755,8 @@ class ODRLParser:
     
     def _local_name(self, uri: Any) -> str:
         """Extract local name from URI."""
+        if uri is None:
+            return ""
         uri_str = str(uri)
         if '#' in uri_str:
             return uri_str.split('#')[-1]
@@ -609,10 +765,13 @@ class ODRLParser:
         return uri_str
     
     def _make_uid(self, node: Any, prefix: str) -> str:
-        """Generate a unique ID."""
+        """Generate a unique ID for a node."""
         if isinstance(node, URIRef):
-            return self._local_name(node)
+            local = self._local_name(node)
+            if local and local != str(node):
+                return local
         
+        # Generate sequential ID
         self._constraint_counter += 1
         return f"{prefix}_{self._constraint_counter}"
     
@@ -622,7 +781,6 @@ class ODRLParser:
             print(f"[PARSER] {message}")
             if data:
                 print(f"         {data}")
-            logger.debug(f"[PARSER] {message}")
 
 
 # =============================================================================
@@ -633,8 +791,17 @@ def parse_ttl_file(filepath: str, debug: bool = False) -> ParseResult:
     """
     Parse an ODRL TTL file.
     
+    Args:
+        filepath: Path to TTL file
+        debug: Enable debug output
+        
+    Returns:
+        ParseResult with policies and constraints
+        
     Example:
         result = parse_ttl_file("policy.ttl")
+        if result.has_errors():
+            print("Errors:", result.errors)
         for policy in result.policies:
             print(policy)
         for c in result.get_atomic_constraints():
@@ -648,8 +815,17 @@ def parse_ttl_string(ttl_string: str, debug: bool = False) -> ParseResult:
     """
     Parse ODRL from a TTL string.
     
+    Args:
+        ttl_string: TTL content
+        debug: Enable debug output
+        
+    Returns:
+        ParseResult with policies and constraints
+        
     Example:
         result = parse_ttl_string(ttl_content)
+        if not result.has_policies():
+            print("No policies found")
     """
     parser = ODRLParser(debug=debug)
     return parser.parse_string(ttl_string)
@@ -660,11 +836,13 @@ def parse_ttl_string(ttl_string: str, debug: bool = False) -> ParseResult:
 # =============================================================================
 
 if __name__ == "__main__":
+    # Test with various constraint types
     test_ttl = '''
     @prefix odrl: <http://www.w3.org/ns/odrl/2/> .
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
     @prefix ex: <http://example.org/> .
     
+    # Simple policy with atomic constraints
     ex:policy1 a odrl:Set ;
         odrl:permission [
             odrl:target ex:asset1 ;
@@ -690,8 +868,8 @@ if __name__ == "__main__":
             ]
         ] .
     
+    # Policy with AND composite constraint
     ex:policy2 a odrl:Set ;
-        odrl:inheritFrom ex:policy1 ;
         odrl:permission [
             odrl:action odrl:use ;
             odrl:constraint [
@@ -705,34 +883,96 @@ if __name__ == "__main__":
                 )
             ]
         ] .
+    
+    # Policy with OR composite constraint
+    ex:policy3 a odrl:Set ;
+        odrl:permission [
+            odrl:action odrl:play ;
+            odrl:constraint [
+                odrl:or (
+                    [ odrl:leftOperand odrl:count ;
+                      odrl:operator odrl:eq ;
+                      odrl:rightOperand "1"^^xsd:integer ]
+                    [ odrl:leftOperand odrl:count ;
+                      odrl:operator odrl:eq ;
+                      odrl:rightOperand "2"^^xsd:integer ]
+                    [ odrl:leftOperand odrl:count ;
+                      odrl:operator odrl:eq ;
+                      odrl:rightOperand "3"^^xsd:integer ]
+                )
+            ]
+        ] .
+    
+    # Policy with XONE (exactly one) constraint
+    ex:policy4 a odrl:Set ;
+        odrl:permission [
+            odrl:action odrl:display ;
+            odrl:constraint [
+                odrl:xone (
+                    [ odrl:leftOperand odrl:percentage ;
+                      odrl:operator odrl:lteq ;
+                      odrl:rightOperand "50"^^xsd:decimal ]
+                    [ odrl:leftOperand odrl:percentage ;
+                      odrl:operator odrl:gt ;
+                      odrl:rightOperand "75"^^xsd:decimal ]
+                )
+            ]
+        ] .
+    
+    # Policy with set operator
+    ex:policy5 a odrl:Set ;
+        odrl:permission [
+            odrl:action odrl:use ;
+            odrl:constraint [
+                odrl:leftOperand odrl:language ;
+                odrl:operator odrl:isAnyOf ;
+                odrl:rightOperand ( "en" "de" "fr" )
+            ]
+        ] .
     '''
     
-    print("=" * 60)
-    print("ODRL Parser Test (Enhanced)")
-    print("=" * 60)
+    print("=" * 70)
+    print("ODRL Parser Test (Complete Implementation)")
+    print("=" * 70)
     
     result = parse_ttl_string(test_ttl, debug=True)
     
-    print(f"\nPolicies: {len(result.policies)}")
+    print(f"\n{result.summary()}")
+    
+    print(f"\n{'='*70}")
+    print("POLICIES")
+    print("=" * 70)
     for policy in result.policies:
-        print(f"\n  Policy: {policy.uid}")
-        print(f"    Type: {policy.policy_type}")
-        print(f"    Inherits: {policy.inherits_from}")
-        print(f"    Rules: {len(policy.rules)}")
+        print(f"\nPolicy: {policy.uid}")
+        print(f"  Type: {policy.policy_type}")
+        print(f"  Rules: {len(policy.rules)}")
         for rule in policy.rules:
-            print(f"      - {rule}")
+            print(f"    - {rule} -> constraints: {rule.constraint_ids}")
     
-    print(f"\nAtomic Constraints: {len(result.get_atomic_constraints())}")
+    print(f"\n{'='*70}")
+    print("ATOMIC CONSTRAINTS")
+    print("=" * 70)
     for c in result.get_atomic_constraints():
-        print(f"  - {c}")
+        print(f"  [{c.uid}] {c}")
     
-    print(f"\nComposite Constraints: {len(result.get_composite_constraints())}")
+    print(f"\n{'='*70}")
+    print("COMPOSITE CONSTRAINTS")
+    print("=" * 70)
     for c in result.get_composite_constraints():
-        print(f"  - {c}")
+        print(f"  [{c.uid}] {c.operator.value}({c.operands})")
     
     if result.errors:
-        print(f"\nErrors: {result.errors}")
-    if result.warnings:
-        print(f"\nWarnings: {result.warnings}")
+        print(f"\n{'='*70}")
+        print("ERRORS")
+        print("=" * 70)
+        for e in result.errors:
+            print(f"  - {e}")
     
-    print("\n" + "=" * 60)
+    if result.warnings:
+        print(f"\n{'='*70}")
+        print("WARNINGS")
+        print("=" * 70)
+        for w in result.warnings:
+            print(f"  - {w}")
+    
+    print("\n" + "=" * 70)

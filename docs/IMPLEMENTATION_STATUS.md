@@ -21,16 +21,16 @@ According to ODRL 2.2 specification, there are **31 left operands**. Here's the 
 | `absoluteTemporalPosition` | xsd:decimal | [0, ∞) | Real |  DONE |
 | `relativeTemporalPosition` | xsd:decimal | [0, 100] | Real |  DONE |
 
-**Total: 12 numeric operands - ALL IMPLEMENTED**
+**Total: 12 numeric operands - ALL IMPLEMENTED **
 
 ### B. TEMPORAL OPERANDS - FULL/PARTIAL Support
 
 | Operand | XSD Type | Normalizer | Status |
 |---------|----------|------------|--------|
-| `dateTime` | xsd:dateTime | timestamp (seconds) | DONE |
-| `timeInterval` | xsd:duration | seconds | DONE |
-| `elapsedTime` | xsd:duration | seconds | DONE (PARTIAL class) |
-| `delayPeriod` | xsd:duration | seconds | DONE (PARTIAL class) |
+| `dateTime` | xsd:dateTime | timestamp (seconds) |  DONE |
+| `timeInterval` | xsd:duration | seconds |  DONE |
+| `elapsedTime` | xsd:duration | seconds |  DONE (PARTIAL class) |
+| `delayPeriod` | xsd:duration | seconds |  DONE (PARTIAL class) |
 | `meteredTime` | xsd:duration | N/A | ⚠️ RUNTIME - cannot analyze |
 
 **Note on PARTIAL class**: `elapsedTime` and `delayPeriod` can be analyzed for conflict but need runtime values for evaluation.
