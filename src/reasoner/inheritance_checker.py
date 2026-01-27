@@ -4,15 +4,15 @@ Monotonic Constraint Inheritance Checker (ODRL Spec Compliant)
 
 ODRL CUMULATIVE SEMANTICS:
 - Child INHERITS all rules from parent
-- Effective child = parent rules ∧ child's own rules
+- Effective child = parent rules AND child's own rules
 - Adding constraints can only RESTRICT, never EXPAND
 
 Formal Model:
 - Parent policy P has constraints [[P]]
 - Child policy C has own constraints [[C_own]]
-- Effective child: [[C_eff]] = [[P]] ∧ [[C_own]]
-- Valid inheritance: [[C_eff]] ⇒ [[P]] (always true by construction!)
-- Violation: [[P]] ∧ [[C_own]] is UNSAT (contradiction)
+- Effective child: [[C_eff]] = [[P]] AND [[C_own]]
+- Valid inheritance: [[C_eff]] => [[P]] (always true by construction!)
+- Violation: [[P]] AND [[C_own]] is UNSAT (contradiction)
 
 Violation Types:
 - inconsistent: Child contradicts parent (combined is UNSAT)
@@ -24,9 +24,14 @@ from typing import Dict, List, Optional, Any, Set, Tuple
 from z3 import Solver, Not, And, Or, sat, unsat, BoolVal, is_int, is_real, is_string
 import logging
 
-from ..semantics.constraint_types import debug_print
-
 logger = logging.getLogger(__name__)
+
+
+def debug_print(category: str, message: str, data: Any = None):
+    """Debug print helper."""
+    print(f"[{category}] {message}")
+    if data:
+        print(f"         {data}")
 
 
 @dataclass
@@ -46,7 +51,7 @@ class InheritanceChecker:
     Check monotonic constraint inheritance between policies.
     
     ODRL Cumulative Semantics:
-    - Effective child = parent constraints ∧ child's own constraints
+    - Effective child = parent constraints AND child's own constraints
     - Under this model, EXPANSION IS IMPOSSIBLE
     - Only violation is when child contradicts parent (inconsistent)
     """
@@ -77,7 +82,7 @@ class InheritanceChecker:
         Check if child policy validly inherits from parent.
         
         ODRL CUMULATIVE SEMANTICS:
-        - Effective child = parent ∧ child_own
+        - Effective child = parent AND child_own
         - Expansion is IMPOSSIBLE (cumulative only restricts)
         - Check for: inconsistency (contradiction) and redundancy
         """
@@ -87,7 +92,7 @@ class InheritanceChecker:
         child_id = self._get_policy_id(child_policy)
         
         self._debug(f"Checking ODRL inheritance: {child_id} -> {parent_id}")
-        self._debug("Using cumulative semantics: effective_child = parent ∧ child_own")
+        self._debug("Using cumulative semantics: effective_child = parent AND child_own")
         
         # Encode both policies in the SAME encoder context (share variables)
         self.encoder.reset()
@@ -131,11 +136,11 @@ class InheritanceChecker:
             return []
         
         # Case 3: Both have constraints
-        # Effective child = parent ∧ child_own
+        # Effective child = parent AND child_own
         effective_child = And(parent_formula, child_own_formula)
         
         # Check 1: Is effective child consistent?
-        # If UNSAT(parent ∧ child_own), child contradicts parent
+        # If UNSAT(parent AND child_own), child contradicts parent
         inconsistency = self._check_combined_consistency(
             effective_child, domains, parent_id, child_id
         )
@@ -145,7 +150,7 @@ class InheritanceChecker:
             return violations
         
         # Check 2: Redundancy - does child_own add any restriction?
-        # If parent ⇒ child_own, then child_own is implied by parent (redundant)
+        # If parent => child_own, then child_own is implied by parent (redundant)
         redundancy = self._check_redundancy(
             parent_formula, child_own_formula,
             domains,
@@ -223,7 +228,7 @@ class InheritanceChecker:
                                    parent_id: str, child_id: str,
                                    action: str = None) -> Optional[InheritanceViolation]:
         """
-        Check if combined (parent ∧ child_own) is satisfiable.
+        Check if combined (parent AND child_own) is satisfiable.
         
         If UNSAT, child contradicts parent.
         """
@@ -267,7 +272,7 @@ class InheritanceChecker:
         """
         self._stats['total_checks'] += 1
         
-        # Check if parent ⇒ child (parent implies child's constraint)
+        # Check if parent => child (parent implies child's constraint)
         solver = Solver()
         solver.add(parent_formula)
         solver.add(Not(child_formula))
@@ -277,7 +282,7 @@ class InheritanceChecker:
         result = solver.check()
         
         if result == unsat:
-            # parent ⇒ child, so child adds no restriction
+            # parent => child, so child adds no restriction
             self._stats['unsat_results'] += 1
             desc = f"Child '{child_id}' constraint is implied by parent '{parent_id}' (adds no restriction)"
             if action:
@@ -301,6 +306,8 @@ class InheritanceChecker:
     
     def _get_policy_id(self, policy) -> str:
         """Extract policy ID from policy object or dict."""
+        if hasattr(policy, 'uid'):
+            return str(policy.uid)
         if hasattr(policy, 'id'):
             return str(policy.id)
         if isinstance(policy, dict):
@@ -321,7 +328,9 @@ class InheritanceChecker:
         top_level = set()
         if hasattr(policy, 'rules'):
             for rule in policy.rules:
-                if hasattr(rule, 'constraint_id') and rule.constraint_id:
+                if hasattr(rule, 'constraint_ids') and rule.constraint_ids:
+                    top_level.update(rule.constraint_ids)
+                elif hasattr(rule, 'constraint_id') and rule.constraint_id:
                     top_level.add(rule.constraint_id)
         return top_level
     
@@ -356,7 +365,9 @@ class InheritanceChecker:
         action_constraint_ids = set()
         for rule in policy.rules:
             if hasattr(rule, 'action') and str(rule.action) == str(action):
-                if hasattr(rule, 'constraint_id') and rule.constraint_id:
+                if hasattr(rule, 'constraint_ids') and rule.constraint_ids:
+                    action_constraint_ids.update(rule.constraint_ids)
+                elif hasattr(rule, 'constraint_id') and rule.constraint_id:
                     action_constraint_ids.add(rule.constraint_id)
         
         if not action_constraint_ids:
@@ -394,10 +405,12 @@ class InheritanceChecker:
         for pid in parent_ids:
             if pid in constraints:
                 parent = constraints[pid]
-                if hasattr(parent, 'children') and parent.children:
-                    if constraint_id in parent.children:
+                # Check for operands (new CompositeConstraint) or children (old)
+                children = getattr(parent, 'operands', None) or getattr(parent, 'children', None)
+                if children:
+                    if constraint_id in children:
                         return True
-                    for child_id in parent.children:
+                    for child_id in children:
                         if self._is_child_of(constraint_id, {child_id}, constraints):
                             return True
         return False

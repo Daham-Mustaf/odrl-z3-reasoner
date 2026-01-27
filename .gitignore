@@ -1,11 +1,53 @@
-# Python-generated files
+# Python
+
 __pycache__/
-*.py[oc]
-build/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
 dist/
-wheels/
-*.egg-info
+build/
+*.egg
 
 # Virtual environments
-.venv
+
+venv/
+env/
+ENV/
+
+# Testing
+
+.pytest_cache/
 .coverage
+htmlcov/
+.tox/
+
+# IDE
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Project specific
+
+backup_old/
+*.log
+
+# Temporary/migration scripts (optional)
+
+analyze_test_files.py
+migrate_to_new_architecture.sh
+cleanup.sh
+
+# UV lock can stay (it's like package-lock.json)
+
+# uv.lock  <- NICHT ignorieren!

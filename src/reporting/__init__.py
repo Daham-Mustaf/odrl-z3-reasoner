@@ -16,6 +16,9 @@ from .report_generator import (
     PolicyStatus,
     IssueType,
     Severity,
+    ConstraintExpr,
+    RuleAnalyzed,
+    InheritanceCheck,
     generate_report,
     print_report,
 )
@@ -28,6 +31,9 @@ __all__ = [
     'PolicyStatus',
     'IssueType',
     'Severity',
+    'ConstraintExpr',
+    'RuleAnalyzed',
+    'InheritanceCheck',
     'generate_report',
     'print_report',
 ]

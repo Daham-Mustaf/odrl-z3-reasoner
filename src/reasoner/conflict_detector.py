@@ -11,20 +11,30 @@ Detects:
 - ANDSEQUENCE issues
 """
 
-from z3 import *
+from z3 import Solver, And, Not, sat, unsat, is_int, is_real, is_string
 from typing import List, Dict, Tuple, Optional, Set, Any
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
 
-from ..semantics.constraint_types import (
-    Policy, PolicyRule, PolicyRuleType,
-    AtomicConstraint, CompositeConstraint, ConstraintType,
-    debug_print, is_debug_mode
+# NEW IMPORTS - Using new module structure
+from ..core.types import (
+    AtomicConstraint,
+    CompositeConstraint,
+    OperatorType,
+    LogicalOperator,
 )
-from ..encoder.z3_encoder import Z3Encoder
+from ..parser.ttl_parser import Policy, Rule, RuleType
+from ..encoder.z3_encoder import Z3JudgmentEngine
 
 logger = logging.getLogger(__name__)
+
+
+def debug_print(category: str, message: str, data: Any = None):
+    """Debug print helper."""
+    print(f"[{category}] {message}")
+    if data:
+        print(f"         {data}")
 
 
 # =============================================================================
@@ -67,8 +77,9 @@ class ConflictDetector:
     
     def __init__(self, debug: bool = False):
         self.debug = debug
-        self.encoder = Z3Encoder(debug=debug)
+        self.encoder = Z3JudgmentEngine(debug=debug)
         self.policy: Optional[Policy] = None
+        self.constraints: Dict[str, Any] = {}
         self.conflicts: List[Conflict] = []
         
         # Statistics
@@ -84,27 +95,26 @@ class ConflictDetector:
             debug_print("DETECTOR", message, data)
             logger.debug(f"[DETECTOR] {message}")
     
-    def detect_all_conflicts(self, policy: Policy) -> List[Conflict]:
+    def detect_all_conflicts(self, policy: Policy, constraints: Dict[str, Any]) -> List[Conflict]:
         """
         Main entry point: detect all conflicts in a policy.
         
         Args:
-            policy: ODRL policy with rules and constraints
+            policy: ODRL policy with rules
+            constraints: Dict of constraint_id -> constraint
             
         Returns:
             List of detected conflicts
         """
         self.policy = policy
+        self.constraints = constraints
         self.conflicts = []
         
-        self._debug(f"Detecting conflicts in policy: {policy.id}")
-        logger.info(f"Detecting conflicts in policy: {policy.id}")
+        self._debug(f"Detecting conflicts in policy: {policy.uid}")
+        logger.info(f"Detecting conflicts in policy: {policy.uid}")
         
         # Encode all constraints
-        self.encoder.encode_policy(policy.constraints)
-        
-        if self.debug:
-            self.encoder.print_encoding_summary()
+        self._encode_all_constraints()
         
         # Run all conflict detection checks
         self._debug("Running conflict detection checks...")
@@ -129,6 +139,53 @@ class ConflictDetector:
         
         return self.conflicts
     
+    def _encode_all_constraints(self):
+        """Encode all constraints to Z3."""
+        self.encoder.var_manager.clear()
+        self._formulas = {}
+        
+        for cid, constraint in self.constraints.items():
+            if isinstance(constraint, AtomicConstraint):
+                formula = self.encoder.encode(constraint)
+                self._formulas[cid] = formula
+            elif isinstance(constraint, CompositeConstraint):
+                formula = self._encode_composite(constraint)
+                self._formulas[cid] = formula
+    
+    def _encode_composite(self, constraint: CompositeConstraint) -> Any:
+        """Encode a composite constraint."""
+        child_formulas = []
+        for child_id in constraint.operands:
+            child = self.constraints.get(child_id)
+            if child:
+                if isinstance(child, AtomicConstraint):
+                    child_formulas.append(self.encoder.encode(child))
+                elif isinstance(child, CompositeConstraint):
+                    child_formulas.append(self._encode_composite(child))
+        
+        if not child_formulas:
+            from z3 import BoolVal
+            return BoolVal(True)
+        
+        if constraint.operator == LogicalOperator.AND:
+            return And(child_formulas)
+        elif constraint.operator == LogicalOperator.OR:
+            from z3 import Or
+            return Or(child_formulas)
+        elif constraint.operator == LogicalOperator.XONE:
+            # Exactly one must be true
+            from z3 import Sum, If, BoolVal
+            return Sum([If(f, 1, 0) for f in child_formulas]) == 1
+        elif constraint.operator == LogicalOperator.AND_SEQUENCE:
+            # For static analysis, treat as AND
+            return And(child_formulas)
+        
+        return And(child_formulas)
+    
+    def get_formula(self, constraint_id: str) -> Optional[Any]:
+        """Get encoded formula for a constraint."""
+        return self._formulas.get(constraint_id)
+    
     # =========================================================================
     # RULE-LEVEL CONFLICTS
     # =========================================================================
@@ -151,30 +208,32 @@ class ConflictDetector:
                 if perm.action != prohib.action:
                     continue
                 
-                # Check if constraints overlap
-                if perm.constraint_id and prohib.constraint_id:
-                    overlap, model = self._check_overlap(
-                        perm.constraint_id, 
-                        prohib.constraint_id
-                    )
-                    
-                    if overlap:
-                        self.conflicts.append(Conflict(
-                            conflict_type='permission_prohibition',
-                            severity=ConflictSeverity.CRITICAL,
-                            action=perm.action,
-                            description=f"Permission({perm.id}) conflicts with Prohibition({prohib.id})",
-                            constraint_ids=[perm.constraint_id, prohib.constraint_id],
-                            counterexample=model
-                        ))
+                perm_constraints = perm.constraint_ids if hasattr(perm, 'constraint_ids') else []
+                prohib_constraints = prohib.constraint_ids if hasattr(prohib, 'constraint_ids') else []
                 
-                elif not perm.constraint_id and not prohib.constraint_id:
+                # Check if constraints overlap
+                if perm_constraints and prohib_constraints:
+                    for pc in perm_constraints:
+                        for prc in prohib_constraints:
+                            overlap, model = self._check_overlap(pc, prc)
+                            
+                            if overlap:
+                                self.conflicts.append(Conflict(
+                                    conflict_type='permission_prohibition',
+                                    severity=ConflictSeverity.CRITICAL,
+                                    action=perm.action,
+                                    description=f"Permission({perm.uid}) conflicts with Prohibition({prohib.uid})",
+                                    constraint_ids=[pc, prc],
+                                    counterexample=model
+                                ))
+                
+                elif not perm_constraints and not prohib_constraints:
                     # Both unconditional - always conflict
                     self.conflicts.append(Conflict(
                         conflict_type='permission_prohibition',
                         severity=ConflictSeverity.CRITICAL,
                         action=perm.action,
-                        description=f"Unconditional Permission({perm.id}) conflicts with unconditional Prohibition({prohib.id})",
+                        description=f"Unconditional Permission({perm.uid}) conflicts with unconditional Prohibition({prohib.uid})",
                         constraint_ids=[]
                     ))
     
@@ -190,28 +249,30 @@ class ConflictDetector:
                 if duty.action != prohib.action:
                     continue
                 
-                if duty.constraint_id and prohib.constraint_id:
-                    overlap, model = self._check_overlap(
-                        duty.constraint_id,
-                        prohib.constraint_id
-                    )
-                    
-                    if overlap:
-                        self.conflicts.append(Conflict(
-                            conflict_type='duty_prohibition',
-                            severity=ConflictSeverity.CRITICAL,
-                            action=duty.action,
-                            description=f"Duty({duty.id}) conflicts with Prohibition({prohib.id}) - required action is prohibited",
-                            constraint_ids=[duty.constraint_id, prohib.constraint_id],
-                            counterexample=model
-                        ))
+                duty_constraints = duty.constraint_ids if hasattr(duty, 'constraint_ids') else []
+                prohib_constraints = prohib.constraint_ids if hasattr(prohib, 'constraint_ids') else []
                 
-                elif not duty.constraint_id and not prohib.constraint_id:
+                if duty_constraints and prohib_constraints:
+                    for dc in duty_constraints:
+                        for prc in prohib_constraints:
+                            overlap, model = self._check_overlap(dc, prc)
+                            
+                            if overlap:
+                                self.conflicts.append(Conflict(
+                                    conflict_type='duty_prohibition',
+                                    severity=ConflictSeverity.CRITICAL,
+                                    action=duty.action,
+                                    description=f"Duty({duty.uid}) conflicts with Prohibition({prohib.uid}) - required action is prohibited",
+                                    constraint_ids=[dc, prc],
+                                    counterexample=model
+                                ))
+                
+                elif not duty_constraints and not prohib_constraints:
                     self.conflicts.append(Conflict(
                         conflict_type='duty_prohibition',
                         severity=ConflictSeverity.CRITICAL,
                         action=duty.action,
-                        description=f"Unconditional Duty({duty.id}) conflicts with unconditional Prohibition({prohib.id})",
+                        description=f"Unconditional Duty({duty.uid}) conflicts with unconditional Prohibition({prohib.uid})",
                         constraint_ids=[]
                     ))
     
@@ -225,15 +286,20 @@ class ConflictDetector:
                 if prohib1.action != prohib2.action:
                     continue
                 
-                if prohib1.constraint_id and prohib2.constraint_id:
-                    if self._check_subsumption(prohib1.constraint_id, prohib2.constraint_id):
-                        self.conflicts.append(Conflict(
-                            conflict_type='prohibition_redundancy',
-                            severity=ConflictSeverity.WARNING,
-                            action=prohib1.action,
-                            description=f"Prohibition({prohib2.id}) is subsumed by Prohibition({prohib1.id}) - redundant",
-                            constraint_ids=[prohib1.constraint_id, prohib2.constraint_id]
-                        ))
+                p1_constraints = prohib1.constraint_ids if hasattr(prohib1, 'constraint_ids') else []
+                p2_constraints = prohib2.constraint_ids if hasattr(prohib2, 'constraint_ids') else []
+                
+                if p1_constraints and p2_constraints:
+                    for c1 in p1_constraints:
+                        for c2 in p2_constraints:
+                            if self._check_subsumption(c1, c2):
+                                self.conflicts.append(Conflict(
+                                    conflict_type='prohibition_redundancy',
+                                    severity=ConflictSeverity.WARNING,
+                                    action=prohib1.action,
+                                    description=f"Prohibition({prohib2.uid}) is subsumed by Prohibition({prohib1.uid}) - redundant",
+                                    constraint_ids=[c1, c2]
+                                ))
     
     def _detect_permission_ambiguity(self):
         """Detect ambiguous permissions (WARNING)"""
@@ -245,25 +311,27 @@ class ConflictDetector:
                 if perm1.action != perm2.action:
                     continue
                 
-                if perm1.constraint_id and perm2.constraint_id:
-                    overlap, model = self._check_overlap(
-                        perm1.constraint_id,
-                        perm2.constraint_id
-                    )
-                    
-                    if overlap:
-                        subsumes_1_2 = self._check_subsumption(perm1.constraint_id, perm2.constraint_id)
-                        subsumes_2_1 = self._check_subsumption(perm2.constraint_id, perm1.constraint_id)
-                        
-                        if not subsumes_1_2 and not subsumes_2_1:
-                            self.conflicts.append(Conflict(
-                                conflict_type='permission_ambiguity',
-                                severity=ConflictSeverity.WARNING,
-                                action=perm1.action,
-                                description=f"Ambiguous permissions: Permission({perm1.id}) and Permission({perm2.id}) overlap without subsumption",
-                                constraint_ids=[perm1.constraint_id, perm2.constraint_id],
-                                counterexample=model
-                            ))
+                p1_constraints = perm1.constraint_ids if hasattr(perm1, 'constraint_ids') else []
+                p2_constraints = perm2.constraint_ids if hasattr(perm2, 'constraint_ids') else []
+                
+                if p1_constraints and p2_constraints:
+                    for c1 in p1_constraints:
+                        for c2 in p2_constraints:
+                            overlap, model = self._check_overlap(c1, c2)
+                            
+                            if overlap:
+                                subsumes_1_2 = self._check_subsumption(c1, c2)
+                                subsumes_2_1 = self._check_subsumption(c2, c1)
+                                
+                                if not subsumes_1_2 and not subsumes_2_1:
+                                    self.conflicts.append(Conflict(
+                                        conflict_type='permission_ambiguity',
+                                        severity=ConflictSeverity.WARNING,
+                                        action=perm1.action,
+                                        description=f"Ambiguous permissions: Permission({perm1.uid}) and Permission({perm2.uid}) overlap without subsumption",
+                                        constraint_ids=[c1, c2],
+                                        counterexample=model
+                                    ))
     
     def _detect_permission_subsumption(self):
         """Detect permission subsumption (INFO)"""
@@ -275,15 +343,20 @@ class ConflictDetector:
                 if perm1.action != perm2.action:
                     continue
                 
-                if perm1.constraint_id and perm2.constraint_id:
-                    if self._check_subsumption(perm1.constraint_id, perm2.constraint_id):
-                        self.conflicts.append(Conflict(
-                            conflict_type='permission_subsumption',
-                            severity=ConflictSeverity.INFO,
-                            action=perm1.action,
-                            description=f"Permission({perm1.id}) subsumes Permission({perm2.id}) - latter is redundant",
-                            constraint_ids=[perm1.constraint_id, perm2.constraint_id]
-                        ))
+                p1_constraints = perm1.constraint_ids if hasattr(perm1, 'constraint_ids') else []
+                p2_constraints = perm2.constraint_ids if hasattr(perm2, 'constraint_ids') else []
+                
+                if p1_constraints and p2_constraints:
+                    for c1 in p1_constraints:
+                        for c2 in p2_constraints:
+                            if self._check_subsumption(c1, c2):
+                                self.conflicts.append(Conflict(
+                                    conflict_type='permission_subsumption',
+                                    severity=ConflictSeverity.INFO,
+                                    action=perm1.action,
+                                    description=f"Permission({perm1.uid}) subsumes Permission({perm2.uid}) - latter is redundant",
+                                    constraint_ids=[c1, c2]
+                                ))
     
     def _detect_unreachable_permissions(self):
         """Detect permissions blocked by prohibitions (WARNING)"""
@@ -297,15 +370,20 @@ class ConflictDetector:
                 if perm.action != prohib.action:
                     continue
                 
-                if perm.constraint_id and prohib.constraint_id:
-                    if self._check_subsumption(prohib.constraint_id, perm.constraint_id):
-                        self.conflicts.append(Conflict(
-                            conflict_type='unreachable_permission',
-                            severity=ConflictSeverity.WARNING,
-                            action=perm.action,
-                            description=f"Permission({perm.id}) is unreachable - always blocked by Prohibition({prohib.id})",
-                            constraint_ids=[perm.constraint_id, prohib.constraint_id]
-                        ))
+                perm_constraints = perm.constraint_ids if hasattr(perm, 'constraint_ids') else []
+                prohib_constraints = prohib.constraint_ids if hasattr(prohib, 'constraint_ids') else []
+                
+                if perm_constraints and prohib_constraints:
+                    for pc in perm_constraints:
+                        for prc in prohib_constraints:
+                            if self._check_subsumption(prc, pc):
+                                self.conflicts.append(Conflict(
+                                    conflict_type='unreachable_permission',
+                                    severity=ConflictSeverity.WARNING,
+                                    action=perm.action,
+                                    description=f"Permission({perm.uid}) is unreachable - always blocked by Prohibition({prohib.uid})",
+                                    constraint_ids=[pc, prc]
+                                ))
     
     def _detect_duty_incompatibility(self):
         """Detect incompatible duties (CRITICAL)"""
@@ -317,17 +395,22 @@ class ConflictDetector:
                 if duty1.action != duty2.action:
                     continue
                 
-                if duty1.constraint_id and duty2.constraint_id:
-                    overlap, _ = self._check_overlap(duty1.constraint_id, duty2.constraint_id)
-                    
-                    if not overlap:
-                        self.conflicts.append(Conflict(
-                            conflict_type='duty_incompatibility',
-                            severity=ConflictSeverity.CRITICAL,
-                            action=duty1.action,
-                            description=f"Incompatible duties: Duty({duty1.id}) and Duty({duty2.id}) cannot both be satisfied",
-                            constraint_ids=[duty1.constraint_id, duty2.constraint_id]
-                        ))
+                d1_constraints = duty1.constraint_ids if hasattr(duty1, 'constraint_ids') else []
+                d2_constraints = duty2.constraint_ids if hasattr(duty2, 'constraint_ids') else []
+                
+                if d1_constraints and d2_constraints:
+                    for c1 in d1_constraints:
+                        for c2 in d2_constraints:
+                            overlap, _ = self._check_overlap(c1, c2)
+                            
+                            if not overlap:
+                                self.conflicts.append(Conflict(
+                                    conflict_type='duty_incompatibility',
+                                    severity=ConflictSeverity.CRITICAL,
+                                    action=duty1.action,
+                                    description=f"Incompatible duties: Duty({duty1.uid}) and Duty({duty2.uid}) cannot both be satisfied",
+                                    constraint_ids=[c1, c2]
+                                ))
     
     # =========================================================================
     # CONSTRAINT-LEVEL CONFLICTS
@@ -335,16 +418,17 @@ class ConflictDetector:
     
     def _detect_xone_overlaps(self):
         """Detect XONE constraints with overlapping branches (CRITICAL)"""
-        for constraint_id, constraint in self.policy.constraints.items():
+        for constraint_id, constraint in self.constraints.items():
             if not isinstance(constraint, CompositeConstraint):
                 continue
             
-            if constraint.constraint_type != ConstraintType.XONE:
+            if constraint.operator != LogicalOperator.XONE:
                 continue
             
             overlaps = []
-            for i, child1_id in enumerate(constraint.children):
-                for child2_id in constraint.children[i+1:]:
+            children = list(constraint.operands)
+            for i, child1_id in enumerate(children):
+                for child2_id in children[i+1:]:
                     overlap, model = self._check_overlap(child1_id, child2_id)
                     if overlap:
                         overlaps.append((child1_id, child2_id, model))
@@ -361,15 +445,15 @@ class ConflictDetector:
     
     def _detect_xone_trivial(self):
         """Detect XONE with only one satisfiable child (WARNING)"""
-        for constraint_id, constraint in self.policy.constraints.items():
+        for constraint_id, constraint in self.constraints.items():
             if not isinstance(constraint, CompositeConstraint):
                 continue
             
-            if constraint.constraint_type != ConstraintType.XONE:
+            if constraint.operator != LogicalOperator.XONE:
                 continue
             
             satisfiable_count = 0
-            for child_id in constraint.children:
+            for child_id in constraint.operands:
                 if self._check_satisfiable(child_id):
                     satisfiable_count += 1
             
@@ -392,11 +476,11 @@ class ConflictDetector:
     
     def _detect_and_contradictions(self):
         """Detect AND constraints with contradictory children (CRITICAL)"""
-        for constraint_id, constraint in self.policy.constraints.items():
+        for constraint_id, constraint in self.constraints.items():
             if not isinstance(constraint, CompositeConstraint):
                 continue
             
-            if constraint.constraint_type != ConstraintType.AND:
+            if constraint.operator != LogicalOperator.AND:
                 continue
             
             if not self._check_satisfiable(constraint_id):
@@ -405,16 +489,16 @@ class ConflictDetector:
                     severity=ConflictSeverity.CRITICAL,
                     action='none',
                     description=f"AND({constraint_id}) has contradictory children - unsatisfiable",
-                    constraint_ids=[constraint_id] + list(constraint.children)
+                    constraint_ids=[constraint_id] + list(constraint.operands)
                 ))
     
     def _detect_or_unsatisfiable(self):
         """Detect OR constraints with all unsatisfiable children (CRITICAL)"""
-        for constraint_id, constraint in self.policy.constraints.items():
+        for constraint_id, constraint in self.constraints.items():
             if not isinstance(constraint, CompositeConstraint):
                 continue
             
-            if constraint.constraint_type != ConstraintType.OR:
+            if constraint.operator != LogicalOperator.OR:
                 continue
             
             if not self._check_satisfiable(constraint_id):
@@ -423,16 +507,16 @@ class ConflictDetector:
                     severity=ConflictSeverity.CRITICAL,
                     action='none',
                     description=f"OR({constraint_id}) has no satisfiable children - unsatisfiable",
-                    constraint_ids=[constraint_id] + list(constraint.children)
+                    constraint_ids=[constraint_id] + list(constraint.operands)
                 ))
     
     def _detect_andsequence_issues(self):
         """Detect ANDSEQUENCE constraints and check satisfiability"""
-        for constraint_id, constraint in self.policy.constraints.items():
+        for constraint_id, constraint in self.constraints.items():
             if not isinstance(constraint, CompositeConstraint):
                 continue
             
-            if constraint.constraint_type != ConstraintType.ANDSEQUENCE:
+            if constraint.operator != LogicalOperator.AND_SEQUENCE:
                 continue
             
             self._debug(f"Found ANDSEQUENCE constraint: {constraint_id}")
@@ -443,21 +527,21 @@ class ConflictDetector:
                     severity=ConflictSeverity.CRITICAL,
                     action='none',
                     description=f"ANDSEQUENCE({constraint_id}) has contradictory children - unsatisfiable regardless of ordering",
-                    constraint_ids=[constraint_id] + list(constraint.children)
+                    constraint_ids=[constraint_id] + list(constraint.operands)
                 ))
             else:
                 self.conflicts.append(Conflict(
                     conflict_type='andsequence_ordering',
                     severity=ConflictSeverity.INFO,
                     action='none',
-                    description=f"ANDSEQUENCE({constraint_id}) has {len(constraint.children)} ordered constraints. Temporal ordering preserved but not enforced.",
+                    description=f"ANDSEQUENCE({constraint_id}) has {len(constraint.operands)} ordered constraints. Temporal ordering preserved but not enforced.",
                     constraint_ids=[constraint_id],
-                    metadata={'sequence_order': list(constraint.children), 'is_satisfiable': True}
+                    metadata={'sequence_order': list(constraint.operands), 'is_satisfiable': True}
                 ))
     
     def _detect_unsatisfiable_atomic(self):
         """Detect unsatisfiable atomic constraints (CRITICAL)"""
-        for constraint_id, constraint in self.policy.constraints.items():
+        for constraint_id, constraint in self.constraints.items():
             if not isinstance(constraint, AtomicConstraint):
                 continue
             
@@ -466,13 +550,13 @@ class ConflictDetector:
                     conflict_type='unsatisfiable',
                     severity=ConflictSeverity.CRITICAL,
                     action='none',
-                    description=f"Constraint({constraint_id}) is unsatisfiable: {constraint.left_operand} {constraint.operator.value} {constraint.right_value.canonical_value}",
+                    description=f"Constraint({constraint_id}) is unsatisfiable: {constraint.left_operand} {constraint.operator.value} {constraint.right_operand.value}",
                     constraint_ids=[constraint_id]
                 ))
     
     def _detect_tautologies(self):
         """Detect tautological constraints (WARNING)"""
-        for constraint_id, constraint in self.policy.constraints.items():
+        for constraint_id, constraint in self.constraints.items():
             if not isinstance(constraint, AtomicConstraint):
                 continue
             
@@ -481,7 +565,7 @@ class ConflictDetector:
                     conflict_type='tautology',
                     severity=ConflictSeverity.WARNING,
                     action='none',
-                    description=f"Constraint({constraint_id}) is always true - tautology: {constraint.left_operand} {constraint.operator.value} {constraint.right_value.canonical_value}",
+                    description=f"Constraint({constraint_id}) is always true - tautology: {constraint.left_operand} {constraint.operator.value} {constraint.right_operand.value}",
                     constraint_ids=[constraint_id]
                 ))
     
@@ -495,11 +579,11 @@ class ConflictDetector:
         
         s = Solver()
         
-        for dc in self.encoder.get_domain_constraints():
+        for dc in self.encoder.var_manager.get_domain_constraints():
             s.add(dc)
         
-        f1 = self.encoder.get_formula(c1_id)
-        f2 = self.encoder.get_formula(c2_id)
+        f1 = self.get_formula(c1_id)
+        f2 = self.get_formula(c2_id)
         
         if f1 is None or f2 is None:
             self._debug(f"Missing formula for {c1_id} or {c2_id}")
@@ -522,11 +606,11 @@ class ConflictDetector:
         
         s = Solver()
         
-        for dc in self.encoder.get_domain_constraints():
+        for dc in self.encoder.var_manager.get_domain_constraints():
             s.add(dc)
         
-        f_general = self.encoder.get_formula(general_id)
-        f_specific = self.encoder.get_formula(specific_id)
+        f_general = self.get_formula(general_id)
+        f_specific = self.get_formula(specific_id)
         
         if f_general is None or f_specific is None:
             return False
@@ -547,10 +631,10 @@ class ConflictDetector:
         
         s = Solver()
         
-        for dc in self.encoder.get_domain_constraints():
+        for dc in self.encoder.var_manager.get_domain_constraints():
             s.add(dc)
         
-        formula = self.encoder.get_formula(constraint_id)
+        formula = self.get_formula(constraint_id)
         
         if formula is None:
             return False
@@ -571,10 +655,10 @@ class ConflictDetector:
         
         s = Solver()
         
-        for dc in self.encoder.get_domain_constraints():
+        for dc in self.encoder.var_manager.get_domain_constraints():
             s.add(dc)
         
-        formula = self.encoder.get_formula(constraint_id)
+        formula = self.get_formula(constraint_id)
         
         if formula is None:
             return False
@@ -593,7 +677,7 @@ class ConflictDetector:
         """Extract variable assignments from Z3 model"""
         model = {}
         
-        for var_name, var in self.encoder.variables.items():
+        for var_name, var in self.encoder.var_manager._variables.items():
             try:
                 val = z3_model[var]
                 if val is not None:
@@ -617,14 +701,13 @@ class ConflictDetector:
     # HELPERS
     # =========================================================================
     
-    def _get_rule_type(self, rule) -> str:
+    def _get_rule_type(self, rule: Rule) -> str:
         """Get rule type as lowercase string"""
-        rule_type = getattr(rule, 'rule_type', None)
-        if rule_type is None:
-            return 'unknown'
-        if isinstance(rule_type, PolicyRuleType):
-            return rule_type.value
-        return str(rule_type).lower()
+        if hasattr(rule, 'rule_type'):
+            if isinstance(rule.rule_type, RuleType):
+                return rule.rule_type.value
+            return str(rule.rule_type).lower()
+        return 'unknown'
     
     # =========================================================================
     # REPORTING
@@ -648,7 +731,7 @@ class ConflictDetector:
     def print_conflict_report(self):
         """Print human-readable conflict report"""
         print("\n" + "="*70)
-        print("📋 ODRL CONFLICT DETECTION REPORT")
+        print("ODRL CONFLICT DETECTION REPORT")
         print("="*70)
         print()
         
@@ -656,11 +739,11 @@ class ConflictDetector:
         warnings = self.get_conflicts_by_severity(ConflictSeverity.WARNING)
         info = self.get_conflicts_by_severity(ConflictSeverity.INFO)
         
-        print(f"📊 Summary: {len(critical)} Critical | {len(warnings)} Warnings | {len(info)} Info")
+        print(f"Summary: {len(critical)} Critical | {len(warnings)} Warnings | {len(info)} Info")
         print()
         
         if critical:
-            print("❌ CRITICAL CONFLICTS:")
+            print("[CRITICAL] CONFLICTS:")
             print("-" * 70)
             for i, conflict in enumerate(critical, 1):
                 print(f"{i}. [{conflict.conflict_type}] {conflict.action}")
@@ -670,7 +753,7 @@ class ConflictDetector:
             print()
         
         if warnings:
-            print("⚠️  WARNINGS:")
+            print("[WARNING] WARNINGS:")
             print("-" * 70)
             for i, conflict in enumerate(warnings, 1):
                 print(f"{i}. [{conflict.conflict_type}] {conflict.action}")
@@ -678,7 +761,7 @@ class ConflictDetector:
             print()
         
         if info:
-            print("ℹ️  INFORMATIONAL:")
+            print("[INFO] INFORMATIONAL:")
             print("-" * 70)
             for i, conflict in enumerate(info, 1):
                 print(f"{i}. [{conflict.conflict_type}] {conflict.action}")
@@ -686,7 +769,7 @@ class ConflictDetector:
             print()
         
         if not self.conflicts:
-            print(" No conflicts detected - policy is valid")
+            print("[OK] No conflicts detected - policy is valid")
             print()
         
         print("="*70)

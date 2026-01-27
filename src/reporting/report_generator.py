@@ -20,10 +20,14 @@ from typing import Dict, List, Optional, Any, Union
 from enum import Enum
 from datetime import datetime
 
-from ..semantics.constraint_types import (
-    AtomicConstraint, CompositeConstraint, ConstraintType, OperatorType,
-    PolicyRuleType, Policy
+# NEW IMPORTS - Using new module structure
+from ..core.types import (
+    AtomicConstraint,
+    CompositeConstraint,
+    OperatorType,
+    LogicalOperator,
 )
+from ..parser.ttl_parser import Policy, Rule, RuleType
 from ..reasoner.conflict_detector import Conflict, ConflictSeverity
 from ..reasoner.inheritance_checker import InheritanceViolation
 
@@ -224,6 +228,7 @@ class ReportGenerator:
         self,
         policy: Policy,
         conflicts: List[Conflict],
+        constraints: Dict[str, Any],
         inheritance_violations: Optional[List[InheritanceViolation]] = None,
         parent_policy_id: Optional[str] = None
     ) -> AnalysisResult:
@@ -233,6 +238,7 @@ class ReportGenerator:
         Args:
             policy: Analyzed policy
             conflicts: Detected conflicts
+            constraints: Dict of constraint_id -> constraint
             inheritance_violations: Optional inheritance check results
             parent_policy_id: Parent policy ID if inheritance check
             
@@ -240,12 +246,12 @@ class ReportGenerator:
             AnalysisResult ready for formatting
         """
         # Convert conflicts to issues
-        issues = self._conflicts_to_issues(conflicts, policy)
+        issues = self._conflicts_to_issues(conflicts, constraints)
         
         # Add inheritance violations
         if inheritance_violations:
             issues.extend(self._inheritance_to_issues(
-                inheritance_violations, parent_policy_id, policy.id
+                inheritance_violations, parent_policy_id, policy.uid
             ))
         
         # Calculate summary
@@ -270,20 +276,20 @@ class ReportGenerator:
                              if v.violation_type != 'redundant']
             inheritance_check = InheritanceCheck(
                 parent_policy_id=parent_policy_id or "unknown",
-                child_policy_id=policy.id,
+                child_policy_id=policy.uid,
                 inheritance_valid=len(hard_violations) == 0,
                 violations=[i for i in issues if i.type == IssueType.EXPANSION 
                            or i.type == IssueType.NEW_ACTION]
             )
         
         return AnalysisResult(
-            policy_id=policy.id,
+            policy_id=policy.uid,
             status=status,
             timestamp=datetime.utcnow().isoformat() + "Z",
             analyzer_version=self.VERSION,
             summary=Summary(
                 total_rules=len(policy.rules),
-                total_constraints=len(policy.constraints),
+                total_constraints=len(constraints),
                 consistent=errors == 0,
                 inheritance_valid=inheritance_check.inheritance_valid if inheritance_check else None,
                 errors=errors,
@@ -296,15 +302,15 @@ class ReportGenerator:
         )
     
     # =========================================================================
-    # CONFLICT → ISSUE CONVERSION
+    # CONFLICT -> ISSUE CONVERSION
     # =========================================================================
     
-    def _conflicts_to_issues(self, conflicts: List[Conflict], policy: Policy) -> List[Issue]:
+    def _conflicts_to_issues(self, conflicts: List[Conflict], constraints: Dict[str, Any]) -> List[Issue]:
         """Convert Conflict objects to Issue objects"""
         issues = []
         
         for i, conflict in enumerate(conflicts, 1):
-            issue = self._conflict_to_issue(conflict, policy, f"issue-{i:03d}")
+            issue = self._conflict_to_issue(conflict, constraints, f"issue-{i:03d}")
             if issue:
                 issues.append(issue)
         
@@ -313,7 +319,7 @@ class ReportGenerator:
         
         return issues
     
-    def _conflict_to_issue(self, conflict: Conflict, policy: Policy, issue_id: str) -> Optional[Issue]:
+    def _conflict_to_issue(self, conflict: Conflict, constraints: Dict[str, Any], issue_id: str) -> Optional[Issue]:
         """Convert single Conflict to Issue"""
         
         # Map conflict types to issue types
@@ -348,19 +354,19 @@ class ReportGenerator:
         severity = severity_map.get(conflict.severity, Severity.ERROR)
         
         # Build constraint expressions
-        constraints = []
+        constraint_exprs = []
         for cid in conflict.constraint_ids:
-            constraint = policy.constraints.get(cid)
+            constraint = constraints.get(cid)
             if constraint and isinstance(constraint, AtomicConstraint):
-                constraints.append(ConstraintExpr(
+                constraint_exprs.append(ConstraintExpr(
                     id=cid,
                     left_operand=constraint.left_operand,
-                    operator=OP_SYMBOLS.get(constraint.operator, str(constraint.operator)),
-                    right_operand=constraint.right_value.canonical_value
+                    operator=OP_SYMBOLS.get(constraint.operator, str(constraint.operator.value)),
+                    right_operand=constraint.right_operand.value
                 ))
         
         # Build message (concise)
-        message = self._build_message(conflict, constraints)
+        message = self._build_message(conflict, constraint_exprs)
         
         # Create issue based on type
         issue = Issue(
@@ -369,7 +375,7 @@ class ReportGenerator:
             severity=severity,
             message=message,
             constraint_ids=conflict.constraint_ids,
-            constraints=constraints,
+            constraints=constraint_exprs,
             counterexample=conflict.counterexample,
             action=conflict.action if conflict.action != 'none' else None,
         )
@@ -380,19 +386,19 @@ class ReportGenerator:
             if len(conflict.constraint_ids) >= 2:
                 issue.permission_id = conflict.constraint_ids[0]
                 issue.prohibition_id = conflict.constraint_ids[1]
-                if len(constraints) >= 2:
-                    issue.permission_constraint = constraints[0].to_string()
-                    issue.prohibition_constraint = constraints[1].to_string()
+                if len(constraint_exprs) >= 2:
+                    issue.permission_constraint = constraint_exprs[0].to_string()
+                    issue.prohibition_constraint = constraint_exprs[1].to_string()
         
         elif issue_type == IssueType.XONE_VIOLATION:
             issue.expected_count = 1
             issue.satisfied_count = conflict.metadata.get('overlapping_pairs', 2) if conflict.metadata else 2
-            issue.satisfied_constraints = [c.to_string() for c in constraints]
+            issue.satisfied_constraints = [c.to_string() for c in constraint_exprs]
         
         elif issue_type == IssueType.REDUNDANCY:
-            if len(constraints) >= 2:
-                issue.redundant_constraint = constraints[1].to_string()
-                issue.implied_by = constraints[0].to_string()
+            if len(constraint_exprs) >= 2:
+                issue.redundant_constraint = constraint_exprs[1].to_string()
+                issue.implied_by = constraint_exprs[0].to_string()
                 issue.suggestion = f"Remove {conflict.constraint_ids[1]}"
         
         return issue
@@ -458,7 +464,7 @@ class ReportGenerator:
                 rule_issues.setdefault(issue.rule_id, []).append(issue)
         
         for rule in policy.rules:
-            rule_id = rule.id
+            rule_id = rule.uid
             
             # Determine status
             if rule_id in rule_issues:
@@ -473,12 +479,18 @@ class ReportGenerator:
             else:
                 status = "OK"
             
+            # Get rule type
+            rule_type_str = rule.rule_type.value if isinstance(rule.rule_type, RuleType) else str(rule.rule_type)
+            
+            # Get constraint count
+            constraint_count = len(rule.constraint_ids) if hasattr(rule, 'constraint_ids') and rule.constraint_ids else 0
+            
             rules.append(RuleAnalyzed(
                 rule_id=rule_id,
-                rule_type=rule.rule_type.value if isinstance(rule.rule_type, PolicyRuleType) else str(rule.rule_type),
+                rule_type=rule_type_str,
                 action=rule.action,
-                target=getattr(rule, 'target', None),
-                constraint_count=1 if rule.constraint_id else 0,
+                target=rule.target,
+                constraint_count=constraint_count,
                 status=status
             ))
         
@@ -524,11 +536,11 @@ class ReportGenerator:
         # Issues
         if result.issues:
             lines.append("Issues:")
-            lines.append("━" * 60)
+            lines.append("=" * 60)
             
             for issue in result.issues:
                 lines.append(self._format_issue_cli(issue, verbose))
-                lines.append("━" * 60)
+                lines.append("=" * 60)
         
         # Summary
         lines.append("")
@@ -545,7 +557,7 @@ class ReportGenerator:
         status_icon = self._status_icon(result.status)
         
         if result.status == PolicyStatus.VALID:
-            return f"Policy: {result.policy_id}\nStatus: VALID ✓\nAnalysis time: {result.summary.analysis_time_ms}ms"
+            return f"Policy: {result.policy_id}\nStatus: VALID [OK]\nAnalysis time: {result.summary.analysis_time_ms}ms"
         
         lines = [
             f"Policy: {result.policy_id}",
@@ -562,9 +574,9 @@ class ReportGenerator:
     
     def _format_issue_cli(self, issue: Issue, verbose: bool) -> str:
         """Format single issue for CLI"""
-        icon = "❌" if issue.severity == Severity.ERROR else "⚠️" if issue.severity == Severity.WARNING else "ℹ️"
+        icon = "[ERROR]" if issue.severity == Severity.ERROR else "[WARN]" if issue.severity == Severity.WARNING else "[INFO]"
         
-        lines = [f"[{issue.severity.value}] {issue.type.value}"]
+        lines = [f"{icon} {issue.type.value}"]
         
         if issue.rule_id:
             lines[0] += f" in {issue.rule_id}"
@@ -577,11 +589,11 @@ class ReportGenerator:
             if issue.constraints:
                 lines.append("  Constraints:")
                 for i, c in enumerate(issue.constraints):
-                    prefix = "├─" if i < len(issue.constraints) - 1 else "└─"
+                    prefix = "|-" if i < len(issue.constraints) - 1 else "`-"
                     lines.append(f"  {prefix} {c.to_string()}")
             if issue.counterexample:
                 explanation = issue.counterexample.get('explanation', 'impossible')
-                lines.append(f"  → {explanation}")
+                lines.append(f"  -> {explanation}")
         
         elif issue.type == IssueType.PERMISSION_PROHIBITION_CONFLICT:
             lines.append(f"  Permission: {issue.permission_id}")
@@ -589,15 +601,15 @@ class ReportGenerator:
             lines.append("")
             lines.append("  Overlap:")
             if issue.permission_constraint:
-                lines.append(f"  ├─ Permission:  {issue.permission_constraint}")
+                lines.append(f"  |- Permission:  {issue.permission_constraint}")
             if issue.prohibition_constraint:
-                lines.append(f"  └─ Prohibition: {issue.prohibition_constraint}")
+                lines.append(f"  `- Prohibition: {issue.prohibition_constraint}")
             if issue.counterexample:
                 lines.append("")
                 lines.append("  Counterexample:")
                 for k, v in issue.counterexample.items():
                     if k != 'explanation':
-                        lines.append(f"  └─ {k} = {v} → both satisfied ⚠️")
+                        lines.append(f"  `- {k} = {v} -> both satisfied [!]")
         
         elif issue.type == IssueType.XONE_VIOLATION:
             lines.append(f"  Expected: exactly {issue.expected_count} constraint satisfied")
@@ -606,13 +618,13 @@ class ReportGenerator:
                 lines.append("")
                 lines.append("  Both satisfied:")
                 for c in issue.satisfied_constraints:
-                    lines.append(f"  • {c}")
+                    lines.append(f"  - {c}")
             if issue.counterexample:
                 lines.append("")
                 lines.append("  When:")
                 for k, v in issue.counterexample.items():
                     if k != 'explanation':
-                        lines.append(f"  └─ {k} = {v}")
+                        lines.append(f"  `- {k} = {v}")
         
         elif issue.type == IssueType.EXPANSION:
             lines.append(f"  Parent: {issue.parent_policy_id}")
@@ -625,8 +637,8 @@ class ReportGenerator:
                 lines.append("")
                 lines.append("  Counterexample:")
                 for k, v in issue.counterexample.items():
-                    lines.append(f"  └─ {k} = {v}")
-                lines.append("  → Child allows value parent doesn't")
+                    lines.append(f"  `- {k} = {v}")
+                lines.append("  -> Child allows value parent doesn't")
         
         elif issue.type == IssueType.REDUNDANCY:
             if issue.redundant_constraint:
@@ -634,7 +646,7 @@ class ReportGenerator:
             if issue.implied_by:
                 lines.append(f"  Implied by: {issue.implied_by}")
             if issue.suggestion:
-                lines.append(f"  → Suggestion: {issue.suggestion}")
+                lines.append(f"  -> Suggestion: {issue.suggestion}")
         
         else:
             # Generic format
@@ -649,10 +661,10 @@ class ReportGenerator:
     def _status_icon(self, status: PolicyStatus) -> str:
         """Get status icon"""
         return {
-            PolicyStatus.VALID: "✓",
-            PolicyStatus.INVALID: "❌",
-            PolicyStatus.WARNING: "⚠️"
-        }.get(status, "?")
+            PolicyStatus.VALID: "[OK]",
+            PolicyStatus.INVALID: "[FAIL]",
+            PolicyStatus.WARNING: "[WARN]"
+        }.get(status, "[?]")
     
     # =========================================================================
     # CONVENIENCE METHODS
@@ -671,6 +683,7 @@ class ReportGenerator:
         self,
         policy: Policy,
         conflicts: List[Conflict],
+        constraints: Dict[str, Any],
         format: str = "cli",
         verbose: bool = False,
         inheritance_violations: Optional[List[InheritanceViolation]] = None,
@@ -678,7 +691,7 @@ class ReportGenerator:
     ):
         """Generate report and print immediately"""
         result = self.generate(
-            policy, conflicts, inheritance_violations, parent_policy_id
+            policy, conflicts, constraints, inheritance_violations, parent_policy_id
         )
         
         if format == "json":
@@ -698,12 +711,13 @@ class ReportGenerator:
 def generate_report(
     policy: Policy,
     conflicts: List[Conflict],
+    constraints: Dict[str, Any],
     format: str = "cli",
     verbose: bool = False
 ) -> str:
     """Quick function to generate report string"""
     generator = ReportGenerator()
-    result = generator.generate(policy, conflicts)
+    result = generator.generate(policy, conflicts, constraints)
     
     if format == "json":
         return generator.format_json(result)
@@ -716,8 +730,9 @@ def generate_report(
 def print_report(
     policy: Policy,
     conflicts: List[Conflict],
+    constraints: Dict[str, Any],
     format: str = "cli",
     verbose: bool = False
 ):
     """Quick function to print report"""
-    print(generate_report(policy, conflicts, format, verbose))
+    print(generate_report(policy, conflicts, constraints, format, verbose))
