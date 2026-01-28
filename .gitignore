@@ -56,3 +56,9 @@ test_adversarial.py
 test_parser_fix.py
 test_percentage.py
 test_self_contained.py
+check_composites.py
+debug_policy.py
+test_adversarial.py
+test_parser_fix.py
+test_percentage.py
+test_self_contained.py
