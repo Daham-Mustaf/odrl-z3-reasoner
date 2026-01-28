@@ -18,7 +18,7 @@ from enum import Enum
 import logging
 
 # NEW IMPORTS - Using new module structure
-from core.types import (
+from core.constraint_types import (
     AtomicConstraint,
     CompositeConstraint,
     OperatorType,

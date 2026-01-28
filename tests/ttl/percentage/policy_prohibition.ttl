@@ -1,0 +1,23 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+ex:policy a odrl:Set ;
+  odrl:prohibition [
+    odrl:action odrl:use ;
+    odrl:constraint ex:pr_and ;
+  ] .
+
+# percentage >= 20 AND percentage <= 40
+ex:pr1 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:gteq ;
+  odrl:rightOperand "20"^^xsd:decimal .
+
+ex:pr2 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:lteq ;
+  odrl:rightOperand "40"^^xsd:decimal .
+
+ex:pr_and a odrl:LogicalConstraint ;
+  odrl:and (ex:pr1 ex:pr2) .

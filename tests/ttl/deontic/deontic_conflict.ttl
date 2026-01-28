@@ -1,0 +1,47 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: DEONTIC-CONFLICT
+# 
+# Theory Reference: Section 7.4 - Policy-Level Deontic Conflict
+#
+# This policy has:
+#   - Permission: Use if percentage <= 50
+#   - Prohibition: Do not use if percentage <= 30
+#
+# Both rules are individually CONSISTENT:
+#   Φ_perm: percentage ≤ 50  (SAT: e.g., 25)
+#   Φ_prohib: percentage ≤ 30  (SAT: e.g., 20)
+#
+# But their conjunction is ALSO satisfiable:
+#   Φ_perm ∧ Φ_prohib: percentage ≤ 30  (SAT: e.g., 20)
+#
+# Therefore: DEONTIC-CONFLICT
+# Any world where percentage ∈ [0, 30] has both permission AND prohibition!
+
+ex:policy a odrl:Set ;
+  odrl:permission ex:perm1 ;
+  odrl:prohibition ex:prohib1 .
+
+# Permission: Use asset if percentage <= 50
+ex:perm1 a odrl:Permission ;
+  odrl:action odrl:use ;
+  odrl:target ex:asset1 ;
+  odrl:constraint ex:c_perm .
+
+ex:c_perm a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:lteq ;
+  odrl:rightOperand "50"^^xsd:decimal .
+
+# Prohibition: Do NOT use asset if percentage <= 30
+ex:prohib1 a odrl:Prohibition ;
+  odrl:action odrl:use ;
+  odrl:target ex:asset1 ;
+  odrl:constraint ex:c_prohib .
+
+ex:c_prohib a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:lteq ;
+  odrl:rightOperand "30"^^xsd:decimal .

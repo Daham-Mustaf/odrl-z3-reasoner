@@ -1,0 +1,28 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: POSSIBLY-COMPATIBLE
+# Reason: XONE(percentage = 25, percentage = 50) - exactly one must be true
+#   For percentage = 25: first true, second false ✓
+#   For percentage = 50: first false, second true ✓
+# Model: percentage = 25 (or percentage = 50)
+
+ex:policy a odrl:Set ;
+  odrl:permission [
+    odrl:action odrl:use ;
+    odrl:constraint ex:xone_constraint
+  ] .
+
+ex:xone_constraint a odrl:LogicalConstraint ;
+  odrl:xone ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:eq ;
+  odrl:rightOperand "25"^^xsd:decimal .
+
+ex:c2 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:eq ;
+  odrl:rightOperand "50"^^xsd:decimal .

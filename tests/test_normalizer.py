@@ -13,7 +13,7 @@ from normalizer import (
     NormalizationResult,
     NORMALIZERS,
 )
-from core.types import AtomicConstraint, OperatorType, RightOperand
+from core.constraint_types import AtomicConstraint, OperatorType, RightOperand
 
 
 class TestNormalizeValue:

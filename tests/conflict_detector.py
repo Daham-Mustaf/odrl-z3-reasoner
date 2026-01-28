@@ -18,7 +18,7 @@ from enum import Enum
 import logging
 
 # Use absolute imports (works with sys.path including src/)
-from core.types import (
+from core.constraint_types import (
     AtomicConstraint,
     CompositeConstraint,
     OperatorType,

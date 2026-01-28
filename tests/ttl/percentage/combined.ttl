@@ -1,0 +1,42 @@
+# @prefix odrl: <http://www.w3.org/ns/odrl/2/\> .
+# @prefix xsd:  <http://www.w3.org/2001/XMLSchema\#\> .
+# @prefix ex:   <http://example.org/\> .
+
+# ex:policy1 a odrl:Set ;
+#   odrl:permission [
+#     odrl:action odrl:use ;
+#     odrl:constraint ex:p1 ;
+#   ] .
+
+# ex:p1 a odrl:Constraint ;
+#   odrl:leftOperand odrl:percentage ;
+#   odrl:operator odrl:lteq ;
+#   odrl:rightOperand "50"^^xsd:decimal .
+# @prefix odrl: <http://www.w3.org/ns/odrl/2/\> .
+# @prefix xsd:  <http://www.w3.org/2001/XMLSchema\#\> .
+# @prefix ex:   <http://example.org/\> .
+
+# ex:policy2 a odrl:Set ;
+#   odrl:prohibition [
+#     odrl:action odrl:use ;
+#     odrl:constraint ex:pr1 ;
+#   ] .
+
+# ex:pr1 a odrl:Constraint ;
+#   odrl:leftOperand odrl:percentage ;
+#   odrl:operator odrl:gt ;
+#   odrl:rightOperand "80"^^xsd:decimal .
+# @prefix odrl: <http://www.w3.org/ns/odrl/2/\> .
+# @prefix xsd:  <http://www.w3.org/2001/XMLSchema\#\> .
+# @prefix ex:   <http://example.org/\> .
+
+# ex:policy3 a odrl:Set ;
+#   odrl:duty [
+#     odrl:action odrl:compensate ;
+#     odrl:constraint ex:d1 ;
+#   ] .
+
+# ex:d1 a odrl:Constraint ;
+#   odrl:leftOperand odrl:count ;
+#   odrl:operator odrl:lteq ;
+#   odrl:rightOperand "3"^^xsd:integer .

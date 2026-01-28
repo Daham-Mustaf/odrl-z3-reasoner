@@ -1,0 +1,24 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+
+ex:policy_ti_xone a odrl:Set ;
+  odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+  odrl:action odrl:use ;
+  odrl:constraint ex:xoneC .
+
+ex:xoneC a odrl:Constraint ;
+  odrl:xone ( ex:c1 ex:c2 ) .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:timeInterval ;
+  odrl:operator odrl:eq ;
+  odrl:rightOperand "P1D"^^xsd:duration .
+
+ex:c2 a odrl:Constraint ;
+  odrl:leftOperand odrl:timeInterval ;
+  odrl:operator odrl:eq ;
+  odrl:rightOperand "P30D"^^xsd:duration .

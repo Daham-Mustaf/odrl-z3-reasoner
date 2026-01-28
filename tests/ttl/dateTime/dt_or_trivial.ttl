@@ -1,0 +1,23 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+ex:policy_dt_or_trivial a odrl:Set ;
+  odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+  odrl:action odrl:use ;
+  odrl:constraint ex:orC .
+
+ex:orC a odrl:Constraint ;
+  odrl:or ( ex:c1 ex:c2 ) .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:dateTime ;
+  odrl:operator odrl:gteq ;
+  odrl:rightOperand "1970-01-01T00:00:00Z"^^xsd:dateTime .
+
+ex:c2 a odrl:Constraint ;
+  odrl:leftOperand odrl:dateTime ;
+  odrl:operator odrl:lteq ;
+  odrl:rightOperand "2100-01-01T00:00:00Z"^^xsd:dateTime .

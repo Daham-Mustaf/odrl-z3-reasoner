@@ -1,0 +1,18 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: POSSIBLY-COMPATIBLE
+# Reason: percentage = 25 is valid (within domain [0, 100])
+# Model: percentage = 25
+
+ex:policy a odrl:Set ;
+  odrl:permission [
+    odrl:action odrl:use ;
+    odrl:constraint ex:c1
+  ] .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:eq ;
+  odrl:rightOperand "25"^^xsd:decimal .

@@ -7,7 +7,7 @@ import pytest
 from decimal import Decimal
 from datetime import timedelta
 
-from core.types import AtomicConstraint, OperatorType, RightOperand, Judgment
+from core.constraint_types import AtomicConstraint, OperatorType, RightOperand, Judgment
 from encoder import Z3JudgmentEngine, check_consistency
 
 

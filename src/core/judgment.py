@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple, Any
 from enum import Enum, auto
 
-from .types import (
+from .constraint_types import (
     AtomicConstraint, 
     Judgment, 
     ConstraintClass,

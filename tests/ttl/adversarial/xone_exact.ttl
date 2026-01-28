@@ -1,0 +1,26 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: CONFLICT (or POSSIBLY-COMPATIBLE depending on interpretation)
+# Reason: Both branches can be true simultaneously (count < 10 implies count < 20)
+# XONE requires EXACTLY ONE to be true, but here both are true for count=5
+
+ex:policy a odrl:Set ;
+  odrl:permission [
+    odrl:action odrl:use ;
+    odrl:constraint ex:xone_constraint
+  ] .
+
+ex:xone_constraint a odrl:LogicalConstraint ;
+  odrl:xone ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:count ;
+  odrl:operator odrl:lt ;
+  odrl:rightOperand "10"^^xsd:integer .
+
+ex:c2 a odrl:Constraint ;
+  odrl:leftOperand odrl:count ;
+  odrl:operator odrl:lt ;
+  odrl:rightOperand "20"^^xsd:integer .

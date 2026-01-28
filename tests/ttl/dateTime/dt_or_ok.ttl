@@ -1,0 +1,23 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+ex:policy_dt_or_ok a odrl:Set ;
+  odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+  odrl:action odrl:use ;
+  odrl:constraint ex:orC .
+
+ex:orC a odrl:Constraint ;
+  odrl:or ( ex:c_before ex:c_after ) .
+
+ex:c_before a odrl:Constraint ;
+  odrl:leftOperand odrl:dateTime ;
+  odrl:operator odrl:lt ;
+  odrl:rightOperand "2025-06-01T00:00:00Z"^^xsd:dateTime .
+
+ex:c_after a odrl:Constraint ;
+  odrl:leftOperand odrl:dateTime ;
+  odrl:operator odrl:gt ;
+  odrl:rightOperand "2025-09-01T00:00:00Z"^^xsd:dateTime .

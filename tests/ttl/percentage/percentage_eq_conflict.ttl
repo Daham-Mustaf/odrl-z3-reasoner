@@ -1,0 +1,24 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: CONFLICT
+# Reason: percentage = 30 AND percentage = 50 is impossible
+#   [30, 30] ∩ [50, 50] = ∅
+
+ex:policy a odrl:Set ;
+  odrl:permission [
+    odrl:action odrl:use ;
+    odrl:constraint ex:c1 ;
+    odrl:constraint ex:c2
+  ] .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:eq ;
+  odrl:rightOperand "30"^^xsd:decimal .
+
+ex:c2 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:eq ;
+  odrl:rightOperand "50"^^xsd:decimal .

@@ -1,0 +1,22 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: CONFLICT
+# Reason: count >= 0 AND count < 0 is impossible
+# These constraints directly contradict each other
+
+ex:policy a odrl:Set ;
+  odrl:permission [
+    odrl:action odrl:use ;
+    odrl:constraint [
+      odrl:leftOperand odrl:count ;
+      odrl:operator odrl:gteq ;
+      odrl:rightOperand "0"^^xsd:integer
+    ] ;
+    odrl:constraint [
+      odrl:leftOperand odrl:count ;
+      odrl:operator odrl:lt ;
+      odrl:rightOperand "0"^^xsd:integer
+    ]
+  ] .

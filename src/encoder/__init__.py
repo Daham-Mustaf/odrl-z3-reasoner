@@ -11,11 +11,7 @@ Main Components:
     - Z3VariableManager: Manages Z3 variables
 
 Convenience Functions:
-    - judge_constraints(c1, c2): Judge two constraints
     - check_consistency(constraints): Check if constraints are consistent
-
-Domain Bounds:
-    - DOMAIN_BOUNDS: Maps LeftOperands to their valid ranges
 """
 
 from .z3_encoder import (
@@ -31,8 +27,7 @@ from .z3_encoder import (
     DomainBounds,
     DOMAIN_BOUNDS,
     
-    # Convenience functions
-    judge_constraints,
+    # Convenience function
     check_consistency,
 )
 
@@ -43,6 +38,5 @@ __all__ = [
     "Z3VariableManager",
     "DomainBounds",
     "DOMAIN_BOUNDS",
-    "judge_constraints",
     "check_consistency",
 ]

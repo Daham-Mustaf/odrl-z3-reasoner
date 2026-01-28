@@ -33,7 +33,7 @@ from registry import get_registry, ConstraintClass, OperandInfo
 # Import types (avoid circular import by using TYPE_CHECKING)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from core.types import AtomicConstraint
+    from core.constraint_types import AtomicConstraint
 
 
 # =============================================================================

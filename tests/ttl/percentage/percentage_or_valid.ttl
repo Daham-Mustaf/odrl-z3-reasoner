@@ -1,0 +1,27 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: POSSIBLY-COMPATIBLE
+# Reason: OR(percentage < 25, percentage > 75) is satisfiable
+#   Either percentage ∈ [0, 25) OR percentage ∈ (75, 100]
+# Model: percentage = 10 (or percentage = 80)
+
+ex:policy a odrl:Set ;
+  odrl:permission [
+    odrl:action odrl:use ;
+    odrl:constraint ex:or_constraint
+  ] .
+
+ex:or_constraint a odrl:LogicalConstraint ;
+  odrl:or ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:lt ;
+  odrl:rightOperand "25"^^xsd:decimal .
+
+ex:c2 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:gt ;
+  odrl:rightOperand "75"^^xsd:decimal .

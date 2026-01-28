@@ -44,7 +44,7 @@ from registry import get_registry
 
 # Type checking imports (not executed at runtime)
 if TYPE_CHECKING:
-    from core.types import AtomicConstraint
+    from core.constraint_types import AtomicConstraint
 
 logger = logging.getLogger(__name__)
 
@@ -364,7 +364,7 @@ def normalize_constraint(constraint: AtomicConstraint) -> AtomicConstraint:
         The same constraint with normalized value
     """
     # Import here to avoid circular imports at module level
-    from core.types import RightOperand
+    from core.constraint_types import RightOperand
     
     # Skip if already normalized or special value
     if constraint.right_operand.is_policy_usage:

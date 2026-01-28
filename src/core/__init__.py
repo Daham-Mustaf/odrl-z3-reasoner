@@ -27,7 +27,7 @@ NOTE: Classification uses the OperandRegistry.
 """
 
 # Types
-from .types import (
+from .constraint_types import (
     # Operators
     OperatorType,
     LogicalOperator,

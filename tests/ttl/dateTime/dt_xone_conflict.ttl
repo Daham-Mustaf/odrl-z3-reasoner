@@ -1,0 +1,23 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+ex:policy_dt_xone_conflict a odrl:Set ;
+  odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+  odrl:action odrl:use ;
+  odrl:constraint ex:xoneC .
+
+ex:xoneC a odrl:Constraint ;
+  odrl:xone ( ex:c1 ex:c2 ) .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:dateTime ;
+  odrl:operator odrl:eq ;
+  odrl:rightOperand "2025-05-01T00:00:00Z"^^xsd:dateTime .
+
+ex:c2 a odrl:Constraint ;
+  odrl:leftOperand odrl:dateTime ;
+  odrl:operator odrl:eq ;
+  odrl:rightOperand "2025-05-01T00:00:00Z"^^xsd:dateTime .

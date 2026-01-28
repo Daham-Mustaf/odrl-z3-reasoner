@@ -5,7 +5,7 @@ Tests for core module (types, classifier, judgment).
 
 import pytest
 
-from core.types import (
+from core.constraint_types import (
     AtomicConstraint,
     CompositeConstraint,
     OperatorType,

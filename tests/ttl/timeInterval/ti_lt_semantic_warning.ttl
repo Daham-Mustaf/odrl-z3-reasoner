@@ -1,0 +1,15 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+ex:policy_ti_lt a odrl:Set ;
+  odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+  odrl:action odrl:use ;
+  odrl:constraint ex:c1 .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:timeInterval ;
+  odrl:operator odrl:lt ;
+  odrl:rightOperand "P7D"^^xsd:duration .

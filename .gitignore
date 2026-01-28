@@ -50,4 +50,9 @@ cleanup.sh
 
 # UV lock can stay (it's like package-lock.json)
 
-# uv.lock  <- NICHT ignorieren!
+# uv.lock  <- NICHT ignorieren!check_composites.py
+debug_policy.py
+test_adversarial.py
+test_parser_fix.py
+test_percentage.py
+test_self_contained.py

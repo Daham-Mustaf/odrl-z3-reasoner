@@ -1,0 +1,34 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: INTERNAL-CONFLICT
+# 
+# Theory Reference: Section 7.3 - Rule-Level Consistency
+#
+# This policy has a permission rule that is internally inconsistent:
+#   percentage <= 30 AND percentage >= 50
+#   → [0, 30] ∩ [50, 100] = ∅
+#
+# The rule CANNOT be satisfied by any world.
+# This is detected BEFORE checking deontic conflicts.
+
+ex:policy a odrl:Set ;
+  odrl:permission ex:perm1 .
+
+# Permission with impossible constraints
+ex:perm1 a odrl:Permission ;
+  odrl:action odrl:use ;
+  odrl:target ex:asset1 ;
+  odrl:constraint ex:c1 ;
+  odrl:constraint ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:lteq ;
+  odrl:rightOperand "30"^^xsd:decimal .
+
+ex:c2 a odrl:Constraint ;
+  odrl:leftOperand odrl:percentage ;
+  odrl:operator odrl:gteq ;
+  odrl:rightOperand "50"^^xsd:decimal .

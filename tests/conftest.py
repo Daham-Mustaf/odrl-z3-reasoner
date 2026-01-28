@@ -31,7 +31,7 @@ def registry():
 @pytest.fixture
 def sample_atomic_constraint():
     """Create a sample atomic constraint."""
-    from core.types import AtomicConstraint, OperatorType, RightOperand
+    from core.constraint_types import AtomicConstraint, OperatorType, RightOperand
     
     return AtomicConstraint(
         uid="test_constraint_1",
@@ -44,7 +44,7 @@ def sample_atomic_constraint():
 @pytest.fixture
 def sample_constraints():
     """Create a set of sample constraints for testing."""
-    from core.types import AtomicConstraint, OperatorType, RightOperand
+    from core.constraint_types import AtomicConstraint, OperatorType, RightOperand
     
     return [
         AtomicConstraint(
@@ -65,7 +65,7 @@ def sample_constraints():
 @pytest.fixture
 def conflicting_constraints():
     """Create conflicting constraints for testing."""
-    from core.types import AtomicConstraint, OperatorType, RightOperand
+    from core.constraint_types import AtomicConstraint, OperatorType, RightOperand
     
     return [
         AtomicConstraint(

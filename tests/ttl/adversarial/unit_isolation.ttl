@@ -1,0 +1,23 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: POSSIBLY-COMPATIBLE
+# Reason: different currencies = different vars
+
+ex:policy a odrl:Set ;
+  odrl:permission [
+    odrl:action odrl:use ;
+    odrl:constraint [
+      odrl:leftOperand odrl:payAmount ;
+      odrl:operator odrl:gt ;
+      odrl:rightOperand "100"^^xsd:decimal ;
+      odrl:unit <http://dbpedia.org/resource/Euro\>
+    ] ;
+    odrl:constraint [
+      odrl:leftOperand odrl:payAmount ;
+      odrl:operator odrl:lt ;
+      odrl:rightOperand "50"^^xsd:decimal ;
+      odrl:unit <http://dbpedia.org/resource/US_Dollar\>
+    ]
+  ] .

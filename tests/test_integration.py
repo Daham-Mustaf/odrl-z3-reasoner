@@ -8,7 +8,7 @@ import pytest
 from parser import parse_ttl_string
 from encoder import check_consistency
 from reasoner import ConflictDetector, ConflictSeverity
-from core.types import Judgment
+from core.constraint_types import Judgment
 
 
 class TestEndToEndPipeline:

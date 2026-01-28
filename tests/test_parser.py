@@ -6,7 +6,7 @@ Tests for parser module (TTL/RDF parsing).
 import pytest
 
 from parser import parse_ttl_string, parse_ttl_file, ParseResult
-from core.types import AtomicConstraint, OperatorType
+from core.constraint_types import AtomicConstraint, OperatorType
 
 
 class TestParseTTLString:

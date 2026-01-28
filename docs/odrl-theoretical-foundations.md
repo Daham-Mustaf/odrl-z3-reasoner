@@ -464,3 +464,286 @@ For $c_1, c_2$ with $\text{class}(c_i) = \texttt{FULL}$, $\text{judge}(c_1, c_2)
 ---
 
 This is the **complete, final formalism** for ODRL-SA. It addresses all gaps, incorporates both critical refinements, and is ready for paper submission.
+
+
+
+## Final Corrected Classification for ODRL-SA
+
+Based on the corrections, here is the definitive version.
+
+---
+
+### 1. Total LeftOperand Count (Corrected)
+
+| Category | Count |
+|----------|:-----:|
+| Active LeftOperands | 29 |
+| Deprecated (`device`, `system`) | 2 |
+| **Total Defined** | **31** |
+| **+ Runtime-only** | **1** |
+| **Grand Total** | **32** |
+
+**Recommended phrasing:**
+> ODRL Core defines 31 LeftOperands (excluding 2 deprecated). Of these, 1 (`meteredTime`) is runtime-only, leaving 30 candidates for static analysis.
+
+---
+
+### 2. Corrected Classification
+
+#### 𝓛_xsd — Self-Contained XSD-Typed (14)
+
+**Subclass A: Bounded [0,100] — 5 LeftOperands**
+
+```
+𝓛_bounded = {percentage, relativePosition, relativeSize, 
+              relativeTemporalPosition, relativeSpatialPosition}
+```
+
+| Property | Value |
+|----------|-------|
+| Domain | [0, 100] |
+| SMT Theory | QF-LRA |
+| Operators | 9/12 |
+| Unit | ❌ |
+| Scope | ❌ |
+
+> *Note:* ODRL-SA conservatively bounds relative percentages to [0,100] for sound static analysis, although ODRL semantically permits values >100% for `relativeSize`.
+
+**Subclass B: Integer Unbounded — 2 LeftOperands**
+
+```
+𝓛_int = {count, timeInterval}
+```
+
+| LeftOperand | Domain | Operators | Scope |
+|-------------|--------|:---------:|:-----:|
+| `count` | ℤ≥0 | 9/12 | ✅ unitOfCount |
+| `timeInterval` | ℤ≥0 | 1/12 (eq only) | ❌ |
+
+**Subclass C: Temporal Instant — 1 LeftOperand**
+
+```
+𝓛_datetime = {dateTime}
+```
+
+| Property | Value |
+|----------|-------|
+| Domain | ℤ (normalized from xsd:dateTime) |
+| SMT Theory | QF-LIA |
+| Operators | 9/12 |
+
+> *Note:* DateTime values are normalized to Unix timestamps (integers) for SMT analysis.
+
+**Subclass D: Unit-Dependent — 4 LeftOperands** (Corrected)
+
+```
+𝓛_unit = {payAmount, resolution, absolutePosition, absoluteSize}
+```
+
+| LeftOperand | Domain | Unit Type |
+|-------------|--------|-----------|
+| `payAmount` | ℝ≥0 | Monetary (EUR, USD, ...) |
+| `resolution` | ℝ>0 | Physical (DPI, PPI) |
+| `absolutePosition` | ℝ≥0 | Physical (seconds, bytes) |
+| `absoluteSize` | ℝ>0 | Physical (bytes, pixels) |
+
+**Comparability Rule:** Same unit required; no automatic conversion.
+
+**Subclass E: Unbounded Real — 1 LeftOperand**
+
+```
+𝓛_real = {absoluteTemporalPosition}
+```
+
+| Property | Value |
+|----------|-------|
+| Domain | ℝ≥0 |
+| SMT Theory | QF-LRA |
+| Unit | Implicit (seconds) |
+
+**Subclass F: Spatial Coordinates — 1 LeftOperand**
+
+```
+𝓛_coords = {absoluteSpatialPosition}
+```
+
+| Property | Value |
+|----------|-------|
+| Domain | ℝ≥0 × ℝ≥0 (or ℝ≥0³ for 3D) |
+| SMT Theory | QF-LRA |
+| Operators | Equality-based only |
+
+> *Note:* Only equality-based operators (`eq`, `neq`) are statically meaningful for spatial coordinates; ordering operators require geometric semantics beyond ODRL-SA's scope.
+
+---
+
+#### 𝓛_vocab — Vocabulary-Based (1)
+
+```
+𝓛_vocab = {unitOfCount}
+```
+
+| Property | Value |
+|----------|-------|
+| Domain | 𝒰 = {perUser, perDevice, perOrganization, perSession} ∪ extensions |
+| SMT Theory | QF-UF |
+| Operators | eq, neq, isAnyOf, isNoneOf |
+| External KB | ❌ No |
+
+---
+
+#### 𝓛_ref — Reference-Point Dependent (2)
+
+```
+𝓛_ref = {elapsedTime, delayPeriod}
+```
+
+| LeftOperand | Reference Point | Static Analysis |
+|-------------|-----------------|:---------------:|
+| `elapsedTime` | Policy activation time | ⚠️ Partial |
+| `delayPeriod` | Triggering event | ⚠️ Partial |
+
+> *Note:* These can be partially analyzed by assuming policy activation as reference point, but full analysis requires runtime context.
+
+---
+
+#### 𝓛_sem — Requires External KB (13)
+
+| # | LeftOperand | External KB |
+|---|-------------|-------------|
+| 1 | `language` | ISO 639, LCC, Lexvo |
+| 2 | `spatial` | GeoNames, ISO 3166 |
+| 3 | `spatialCoordinates` | GeoSPARQL, WGS84 |
+| 4 | `event` | Schema.org, custom |
+| 5 | `media` | Custom vocabulary |
+| 6 | `industry` | NAICS, ISIC, NACE |
+| 7 | `purpose` | DPV |
+| 8 | `recipient` | FOAF, vCard |
+| 9 | `product` | UNSPSC, GPC |
+| 10 | `deliveryChannel` | Custom/Profile |
+| 11 | `systemDevice` | Custom/Profile |
+| 12 | `fileFormat` | PRONOM, IANA |
+| 13 | `virtualLocation` | DNS, IP ranges |
+| 14 | `version` | SemVer, custom |
+
+---
+
+#### 𝓛_run — Runtime Only (1)
+
+```
+𝓛_run = {meteredTime}
+```
+
+| Property | Value |
+|----------|-------|
+| Domain | ℤ≥0 (duration) |
+| Why Runtime | Requires cumulative usage tracking |
+| Static Analysis | ❌ Not possible |
+
+---
+
+### 3. Corrected Summary Statistics
+
+| Category | Count | Percentage |
+|----------|:-----:|:----------:|
+| 𝓛_xsd (self-contained) | 14 | 44% |
+| 𝓛_vocab (vocabulary) | 1 | 3% |
+| 𝓛_ref (reference-dependent) | 2 | 6% |
+| 𝓛_sem (external KB) | 14 | 44% |
+| 𝓛_run (runtime only) | 1 | 3% |
+| **Total** | **32** | **100%** |
+
+| Analyzability | Count | Percentage |
+|---------------|:-----:|:----------:|
+| ✅ Fully Analyzable | 15 | 47% |
+| ⚠️ Partially Analyzable | 2 | 6% |
+| ❌ Requires External/Runtime | 15 | 47% |
+
+---
+
+### 4. Corrected Equivalence Classes
+
+| Class | Members | Shared Properties |
+|-------|---------|-------------------|
+| 𝓛_bounded | percentage, relativePosition, relativeSize, relativeTemporalPosition, relativeSpatialPosition | [0,100], QF-LRA, 9/12 ops |
+| 𝓛_int | count, timeInterval | ℤ≥0, QF-LIA |
+| 𝓛_datetime | dateTime | ℤ (timestamp), QF-LIA |
+| 𝓛_unit | payAmount, resolution, absolutePosition, absoluteSize | ℝ≥0, QF-LRA, unit-dependent |
+| 𝓛_real | absoluteTemporalPosition | ℝ≥0, QF-LRA |
+| 𝓛_coords | absoluteSpatialPosition | ℝ², eq/neq only |
+| 𝓛_vocab | unitOfCount | Vocabulary, QF-UF |
+
+---
+
+### 5. Paper-Ready LaTeX Table
+
+```latex
+\begin{table}[t]
+\centering
+\caption{Complete LeftOperand Classification for ODRL-SA}
+\label{tab:leftoperand-classification}
+\small
+\begin{tabular}{llcccc}
+\toprule
+\textbf{LeftOperand} & \textbf{Category} & \textbf{Domain} & \textbf{SMT} & \textbf{Unit} & \textbf{Static} \\
+\midrule
+\multicolumn{6}{l}{\textit{Bounded Equivalence Class (5)}} \\
+percentage & $\mathcal{L}_{\text{bounded}}$ & $[0,100]$ & LRA & — & \fullmark \\
+relativePosition & $\mathcal{L}_{\text{bounded}}$ & $[0,100]$ & LRA & — & \fullmark \\
+relativeSize & $\mathcal{L}_{\text{bounded}}$ & $[0,100]$ & LRA & — & \fullmark \\
+relativeTemporalPosition & $\mathcal{L}_{\text{bounded}}$ & $[0,100]$ & LRA & — & \fullmark \\
+relativeSpatialPosition & $\mathcal{L}_{\text{bounded}}$ & $[0,100]$ & LRA & — & \fullmark \\
+\midrule
+\multicolumn{6}{l}{\textit{Integer LeftOperands (2)}} \\
+count & $\mathcal{L}_{\text{int}}$ & $\mathbb{Z}_{\geq 0}$ & LIA & — & \fullmark \\
+timeInterval & $\mathcal{L}_{\text{int}}$ & $\mathbb{Z}_{\geq 0}$ & LIA & — & \fullmark \\
+\midrule
+\multicolumn{6}{l}{\textit{Temporal (1)}} \\
+dateTime & $\mathcal{L}_{\text{datetime}}$ & $\mathbb{Z}$ & LIA & — & \fullmark \\
+\midrule
+\multicolumn{6}{l}{\textit{Unit-Dependent (4)}} \\
+payAmount & $\mathcal{L}_{\text{unit}}$ & $\mathbb{R}_{\geq 0}$ & LRA & \fullmark & \fullmark \\
+resolution & $\mathcal{L}_{\text{unit}}$ & $\mathbb{R}_{> 0}$ & LRA & \fullmark & \fullmark \\
+absolutePosition & $\mathcal{L}_{\text{unit}}$ & $\mathbb{R}_{\geq 0}$ & LRA & \fullmark & \fullmark \\
+absoluteSize & $\mathcal{L}_{\text{unit}}$ & $\mathbb{R}_{> 0}$ & LRA & \fullmark & \fullmark \\
+\midrule
+\multicolumn{6}{l}{\textit{Real Unbounded (1)}} \\
+absoluteTemporalPosition & $\mathcal{L}_{\text{real}}$ & $\mathbb{R}_{\geq 0}$ & LRA & — & \fullmark \\
+\midrule
+\multicolumn{6}{l}{\textit{Spatial (1)}} \\
+absoluteSpatialPosition & $\mathcal{L}_{\text{coords}}$ & $\mathbb{R}^2_{\geq 0}$ & LRA & — & \fullmark \\
+\midrule
+\multicolumn{6}{l}{\textit{Vocabulary (1)}} \\
+unitOfCount & $\mathcal{L}_{\text{vocab}}$ & $\mathcal{U}$ & UF & — & \fullmark \\
+\midrule
+\multicolumn{6}{l}{\textit{Reference-Dependent (2)}} \\
+elapsedTime & $\mathcal{L}_{\text{ref}}$ & $\mathbb{Z}_{\geq 0}$ & LIA & — & $\sim$ \\
+delayPeriod & $\mathcal{L}_{\text{ref}}$ & $\mathbb{Z}_{\geq 0}$ & LIA & — & $\sim$ \\
+\midrule
+\multicolumn{6}{l}{\textit{External KB Required (14)}} \\
+language, spatial, ... & $\mathcal{L}_{\text{sem}}$ & IRI & — & — & — \\
+\midrule
+\multicolumn{6}{l}{\textit{Runtime Only (1)}} \\
+meteredTime & $\mathcal{L}_{\text{run}}$ & $\mathbb{Z}_{\geq 0}$ & — & — & — \\
+\bottomrule
+\end{tabular}
+\end{table}
+```
+
+---
+
+### 6. Key Theorems (Final)
+
+**Theorem 1 (Bounded Equivalence):**
+> The five LeftOperands in 𝓛_bounded are formally equivalent and can be analyzed by a unified procedure parameterized only by operator and value.
+
+**Theorem 2 (Coverage):**
+> ODRL-SA provides complete static analysis for 15/32 (47%) of ODRL LeftOperands, partial analysis for 2/32 (6%), and explicit classification of 15/32 (47%) as requiring external grounding or runtime state.
+
+**Theorem 3 (Soundness):**
+> For all LeftOperands in 𝓛_xsd ∪ 𝓛_vocab, ODRL-SA conflict detection is sound.
+
+**Theorem 4 (Decidability):**
+> For all LeftOperands in 𝓛_xsd ∪ 𝓛_vocab, ODRL-SA conflict detection is decidable.
+
+---
