@@ -1,0 +1,31 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+@prefix ex: <http://example.org/> .
+
+# TEST: Valid resolution range (screen quality)
+# c1: resolution gteq 72 DPI (minimum for screen)
+# c2: resolution lteq 150 DPI (maximum for web)
+# Expected: POSSIBLY-COMPATIBLE
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:display ;
+    odrl:constraint ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:uid ex:c1 ;
+    odrl:leftOperand odrl:resolution ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "72"^^xsd:decimal ;
+    odrl:unit qudt:DPI .
+
+ex:c2 a odrl:Constraint ;
+    odrl:uid ex:c2 ;
+    odrl:leftOperand odrl:resolution ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "150"^^xsd:decimal ;
+    odrl:unit qudt:DPI .

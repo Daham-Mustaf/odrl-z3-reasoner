@@ -35,4 +35,23 @@ uv run python main.py tests/ttl/percentage/ -d
 # Entire directory (verbose + debug)
 uv run python main.py tests/ttl/percentage/ -vd
 
+uv run python main.py tests/ttl/dateTime/ --all
+
+
+echo ""
+echo "--- payAmount Tests ---"
+uv run python main.py tests/ttl/unit_dependent/payAmount/ --all
+
+echo ""
+echo "--- resolution Tests ---"
+uv run python main.py tests/ttl/unit_dependent/resolution/ --all
+
+echo ""
+echo "--- absoluteSize Tests ---"
+uv run python main.py tests/ttl/unit_dependent/absoluteSize/ --all
+
+echo ""
+echo "--- absolutePosition Tests ---"
+uv run python main.py tests/ttl/unit_dependent/absolutePosition/ --all
+
 

@@ -1,0 +1,29 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+# EXPECTED: CONSISTENT
+# 
+# dateTime >= 2024-01-01 AND dateTime <= 2024-12-31
+# Valid date range for year 2024
+
+ex:policy a odrl:Set ;
+  odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+  odrl:action odrl:use ;
+  odrl:target ex:asset1 ;
+  odrl:constraint ex:c1 ;
+  odrl:constraint ex:c2 .
+
+# Must be on or after 2024-01-01
+ex:c1 a odrl:Constraint ;
+  odrl:leftOperand odrl:dateTime ;
+  odrl:operator odrl:gteq ;
+  odrl:rightOperand "2024-01-01T00:00:00Z"^^xsd:dateTime .
+
+# Must be on or before 2024-12-31
+ex:c2 a odrl:Constraint ;
+  odrl:leftOperand odrl:dateTime ;
+  odrl:operator odrl:lteq ;
+  odrl:rightOperand "2024-12-31T23:59:59Z"^^xsd:dateTime .

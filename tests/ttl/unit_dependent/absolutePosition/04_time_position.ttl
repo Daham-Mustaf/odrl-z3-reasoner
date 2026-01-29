@@ -1,0 +1,31 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+@prefix ex: <http://example.org/> .
+
+# TEST: Video clip extraction (time-based position)
+# c1: absolutePosition gteq 60 SEC (start at 1 min)
+# c2: absolutePosition lteq 300 SEC (end at 5 min)
+# Expected: POSSIBLY-COMPATIBLE
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:extract ;
+    odrl:constraint ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:uid ex:c1 ;
+    odrl:leftOperand odrl:absolutePosition ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "60"^^xsd:decimal ;
+    odrl:unit qudt:SEC .
+
+ex:c2 a odrl:Constraint ;
+    odrl:uid ex:c2 ;
+    odrl:leftOperand odrl:absolutePosition ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "300"^^xsd:decimal ;
+    odrl:unit qudt:SEC .

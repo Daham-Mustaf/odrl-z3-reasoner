@@ -1,0 +1,31 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+@prefix ex: <http://example.org/> .
+
+# TEST: Different currencies → UNKNOWN
+# c1: payAmount lteq 50 EUR
+# c2: payAmount gteq 100 USD
+# Expected: UNKNOWN (cannot compare EUR and USD without conversion)
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:use ;
+    odrl:constraint ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:uid ex:c1 ;
+    odrl:leftOperand odrl:payAmount ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "50.00"^^xsd:decimal ;
+    odrl:unit qudt:EUR .
+
+ex:c2 a odrl:Constraint ;
+    odrl:uid ex:c2 ;
+    odrl:leftOperand odrl:payAmount ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "100.00"^^xsd:decimal ;
+    odrl:unit qudt:USD .

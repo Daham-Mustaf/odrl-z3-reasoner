@@ -1,28 +1,32 @@
 # =============================================================================
-# ODRL LeftOperand Registry - Final Classification
+# ODRL LeftOperand Registry - Complete Specification with Unit Grounding
 # =============================================================================
-# Based on formal classification:
+# 
+# Classification Summary:
 #   𝓛_xsd (14) + 𝓛_vocab (1) + 𝓛_ref (2) + 𝓛_sem (14) + 𝓛_run (1) = 32
 #
 # Static Analyzability:
-#   Fully Analyzable: 15 (47%)
-#   Partially Analyzable: 2 (6%)
-#   Requires External/Runtime: 15 (47%)
+#   FULL: 15 (47%)       - Fully analyzable with SMT
+#   PARTIAL: 2 (6%)      - Reference-point dependent
+#   GROUNDED: 14 (44%)   - Requires external KB/oracle
+#   RUNTIME: 1 (3%)      - Runtime only
+#
+# Unit Grounding:
+#   Standard: QUDT (Quantities, Units, Dimensions, and Types)
+#   Source: https://qudt.org/vocab/unit
+#   Local: src/grounding/unit/data/qudt-units-odrl.ttl
+#   Oracle: src/grounding/unit/oracle.py
 # =============================================================================
 
 # =============================================================================
 # 𝓛_bounded — Bounded [0,100] (5 LeftOperands)
-# SMT Theory: QF-LRA
-# Operators: 9/12 (eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf, isAllOf*)
 # =============================================================================
 
 percentage:
   class: FULL
   category: L_bounded
   z3_sort: Real
-  domain:
-    min: 0
-    max: 100
+  domain: { min: 0, max: 100 }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
@@ -32,9 +36,7 @@ relativePosition:
   class: FULL
   category: L_bounded
   z3_sort: Real
-  domain:
-    min: 0
-    max: 100
+  domain: { min: 0, max: 100 }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
@@ -44,9 +46,7 @@ relativeSize:
   class: FULL
   category: L_bounded
   z3_sort: Real
-  domain:
-    min: 0
-    max: 100
+  domain: { min: 0, max: 100 }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
@@ -57,9 +57,7 @@ relativeTemporalPosition:
   class: FULL
   category: L_bounded
   z3_sort: Real
-  domain:
-    min: 0
-    max: 100
+  domain: { min: 0, max: 100 }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
@@ -69,166 +67,268 @@ relativeSpatialPosition:
   class: FULL
   category: L_bounded
   z3_sort: Real
-  domain:
-    min: 0
-    max: 100
+  domain: { min: 0, max: 100 }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
   description: "Relative spatial position as percentage"
 
 # =============================================================================
-# 𝓛_int — Integer Unbounded (2 LeftOperands)
-# SMT Theory: QF-LIA
+# 𝓛_int — Integer Unbounded (1 LeftOperand)
 # =============================================================================
 
 count:
   class: FULL
   category: L_int
   z3_sort: Int
-  domain:
-    min: 0
-    max: null
+  domain: { min: 0, max: null }
   normalizer: to_integer
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
   scope_operand: unitOfCount
   description: "Number of times action can be performed"
 
+# =============================================================================
+# 𝓛_duration — Time Durations (3 LeftOperands)
+# =============================================================================
+
 timeInterval:
   class: FULL
-  category: L_int
+  category: L_duration
   z3_sort: Int
-  domain:
-    min: 0
-    max: null
-  normalizer: to_duration
+  domain: { min: 1, max: null }  # min=1, not 0
+  normalizer: duration_to_seconds
+  rejects: [P1M, P1Y]
   operators: [eq]
-  invalid_operators: [isA, hasPart, isPartOf, lt, lteq, gt, gteq]
+  invalid_operators: [neq, lt, lteq, gt, gteq, isA, hasPart, isPartOf, isAnyOf, isNoneOf, isAllOf]
+  unit:
+    required: false
+    implicit: seconds
   note: "Only equality operator is meaningful for recurring intervals"
-  description: "Recurring time interval"
+  description: "Recurring time interval between executions (seconds)"
+
+elapsedTime:
+  class: PARTIAL
+  category: L_duration
+  z3_sort: Int
+  domain: { min: 0, max: null }
+  normalizer: duration_to_seconds
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  invalid_operators: [isA, hasPart, isPartOf]
+  unit:
+    required: false
+    implicit: seconds
+  reference_point: policy_activation
+  note: "Full analysis requires runtime context"
+  description: "Elapsed time since policy activation"
+
+delayPeriod:
+  class: PARTIAL
+  category: L_duration
+  z3_sort: Int
+  domain: { min: 0, max: null }
+  normalizer: duration_to_seconds
+  operators: [eq, neq, lt, lteq, gt, gteq]
+  invalid_operators: [isA, hasPart, isPartOf]
+  unit:
+    required: false
+    implicit: seconds
+  reference_point: triggering_event
+  note: "Full analysis requires runtime context"
+  description: "Delay period after triggering event"
 
 # =============================================================================
 # 𝓛_datetime — Temporal Instant (1 LeftOperand)
-# SMT Theory: QF-LIA (normalized to Unix timestamp)
 # =============================================================================
 
 dateTime:
   class: FULL
   category: L_datetime
   z3_sort: Int
-  domain:
-    min: null
-    max: null
-  normalizer: datetime_to_timestamp  # <-- This must match the function name
+  domain: { min: null, max: null }
+  normalizer: datetime_to_timestamp
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
+  restricted_operators: [isAllOf]
   invalid_operators: [isA, hasPart, isPartOf]
-  description: "Date/time constraint (normalized to Unix timestamp)"
+  accepts: [xsd:dateTime, xsd:date]
+  timezone_default: UTC
+  note: "DateTime values normalized to Unix timestamp (seconds)"
+  description: "Absolute point in time for exercising action"
 
 # =============================================================================
-# 𝓛_unit — Unit-Dependent (4 LeftOperands)
-# SMT Theory: QF-LRA
-# Comparability: Same unit required
+# 𝓛_unit — Unit-Dependent (6 LeftOperands)
+# Comparability: Same unit required (different units → UNKNOWN)
 # =============================================================================
 
 payAmount:
   class: FULL
   category: L_unit
   z3_sort: Real
-  domain:
-    min: 0
-    max: null
+  domain: { min: 0, max: null }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
-  unit_operand: unit
-  unit_type: monetary
+  unit:
+    required: true
+    operand: unit
+    category: currency
+    standard: "ISO 4217 / QUDT"
+    grounding: "src/grounding/unit/oracle.py"
+    known_units:
+      EUR: "http://qudt.org/vocab/unit/EUR"
+      USD: "http://qudt.org/vocab/unit/USD"
+      GBP: "http://qudt.org/vocab/unit/GBP"
+      JPY: "http://qudt.org/vocab/unit/JPY"
+      CHF: "http://qudt.org/vocab/unit/CHF"
+      CAD: "http://qudt.org/vocab/unit/CAD"
+      AUD: "http://qudt.org/vocab/unit/AUD"
+      CNY: "http://qudt.org/vocab/unit/CNY"
+      INR: "http://qudt.org/vocab/unit/INR"
+      BRL: "http://qudt.org/vocab/unit/BRL"
+    aliases:
+      "http://dbpedia.org/resource/Euro": EUR
+      "http://iso.org/4217/EUR": EUR
+      "euro": EUR
+      "dollar": USD
+  comparability: { same_unit_required: true, different_units: UNKNOWN }
   description: "Payment amount (unit-dependent: EUR, USD, etc.)"
 
 resolution:
   class: FULL
   category: L_unit
   z3_sort: Real
-  domain:
-    min: 0
-    max: null
-    exclusive_min: true
+  domain: { min: 0, max: null, exclusive_min: true }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
-  unit_operand: unit
-  unit_type: physical
+  unit:
+    required: true
+    operand: unit
+    category: resolution
+    standard: "QUDT"
+    grounding: "src/grounding/unit/oracle.py"
+    known_units:
+      DPI: "http://qudt.org/vocab/unit/DPI"
+      PPI: "http://qudt.org/vocab/unit/PPI"
+      DPCM: "http://qudt.org/vocab/unit/DPCM"
+    aliases:
+      "dpi": DPI
+      "ppi": PPI
+      "dots per inch": DPI
+  comparability: { same_unit_required: true, different_units: UNKNOWN }
   description: "Resolution constraint (DPI, PPI)"
 
 absolutePosition:
   class: FULL
   category: L_unit
   z3_sort: Real
-  domain:
-    min: 0
-    max: null
+  domain: { min: 0, max: null }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
-  unit_operand: unit
-  unit_type: physical
-  description: "Absolute position (seconds, bytes, etc.)"
+  unit:
+    required: true
+    operand: unit
+    category: position
+    standard: "QUDT"
+    grounding: "src/grounding/unit/oracle.py"
+    known_units:
+      SEC: "http://qudt.org/vocab/unit/SEC"
+      MIN: "http://qudt.org/vocab/unit/MIN"
+      BYTE: "http://qudt.org/vocab/unit/BYTE"
+      PIXEL: "http://qudt.org/vocab/unit/PX"
+    aliases:
+      "seconds": SEC
+      "bytes": BYTE
+      "px": PIXEL
+  comparability: { same_unit_required: true, different_units: UNKNOWN }
+  description: "Absolute position (seconds, bytes, pixels)"
 
 absoluteSize:
   class: FULL
   category: L_unit
   z3_sort: Real
-  domain:
-    min: 0
-    max: null
-    exclusive_min: true
+  domain: { min: 0, max: null, exclusive_min: true }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
-  unit_operand: unit
-  unit_type: physical
-  description: "Absolute size (bytes, pixels)"
-
-# =============================================================================
-# 𝓛_real — Unbounded Real (1 LeftOperand)
-# SMT Theory: QF-LRA
-# =============================================================================
+  unit:
+    required: true
+    operand: unit
+    category: size
+    standard: "QUDT"
+    grounding: "src/grounding/unit/oracle.py"
+    known_units:
+      BYTE: "http://qudt.org/vocab/unit/BYTE"
+      KiloBYTE: "http://qudt.org/vocab/unit/KiloBYTE"
+      MegaBYTE: "http://qudt.org/vocab/unit/MegaBYTE"
+      GigaBYTE: "http://qudt.org/vocab/unit/GigaBYTE"
+      PIXEL: "http://qudt.org/vocab/unit/PX"
+      M: "http://qudt.org/vocab/unit/M"
+      CM: "http://qudt.org/vocab/unit/CentiM"
+      MM: "http://qudt.org/vocab/unit/MilliM"
+    aliases:
+      "bytes": BYTE
+      "kb": KiloBYTE
+      "mb": MegaBYTE
+      "gb": GigaBYTE
+      "px": PIXEL
+  comparability: { same_unit_required: true, different_units: UNKNOWN }
+  description: "Absolute size (bytes, pixels, physical units)"
 
 absoluteTemporalPosition:
   class: FULL
-  category: L_real
+  category: L_unit
   z3_sort: Real
-  domain:
-    min: 0
-    max: null
+  domain: { min: 0, max: null }
   normalizer: to_float
   operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
   invalid_operators: [isA, hasPart, isPartOf]
-  implicit_unit: seconds
-  description: "Absolute temporal position (implicit: seconds)"
-
-# =============================================================================
-# 𝓛_coords — Spatial Coordinates (1 LeftOperand)
-# SMT Theory: QF-LRA (multi-dimensional)
-# Operators: Only eq/neq meaningful statically
-# =============================================================================
+  unit:
+    required: true
+    operand: unit
+    category: time
+    standard: "QUDT"
+    grounding: "src/grounding/unit/oracle.py"
+    known_units:
+      SEC: "http://qudt.org/vocab/unit/SEC"
+      MIN: "http://qudt.org/vocab/unit/MIN"
+      HR: "http://qudt.org/vocab/unit/HR"
+    aliases:
+      "seconds": SEC
+      "s": SEC
+      "minutes": MIN
+    default: SEC
+  reference_point: media_start
+  description: "Absolute temporal position in media"
 
 absoluteSpatialPosition:
   class: FULL
-  category: L_coords
+  category: L_unit
   z3_sort: Real
-  domain:
-    min: 0
-    max: null
+  domain: { min: 0, max: null }
   normalizer: to_float
   operators: [eq, neq]
   invalid_operators: [isA, hasPart, isPartOf, lt, lteq, gt, gteq]
-  note: "Ordering operators require geometric semantics beyond ODRL-SA scope"
+  unit:
+    required: true
+    operand: unit
+    category: spatial
+    standard: "QUDT"
+    grounding: "src/grounding/unit/oracle.py"
+    known_units:
+      PIXEL: "http://qudt.org/vocab/unit/PX"
+      M: "http://qudt.org/vocab/unit/M"
+      CM: "http://qudt.org/vocab/unit/CentiM"
+      MM: "http://qudt.org/vocab/unit/MilliM"
+    aliases:
+      "px": PIXEL
+      "mm": MM
+  note: "Ordering operators require geometric semantics"
   description: "Absolute spatial position (2D/3D coordinates)"
 
 # =============================================================================
 # 𝓛_vocab — Vocabulary-Based (1 LeftOperand)
-# SMT Theory: QF-UF
 # =============================================================================
 
 unitOfCount:
@@ -244,48 +344,14 @@ unitOfCount:
   description: "Unit of count (closed vocabulary, extensible)"
 
 # =============================================================================
-# 𝓛_ref — Reference-Point Dependent (2 LeftOperands)
-# SMT Theory: QF-LIA
-# Static Analysis: ⚠️ Partial (assumes policy activation as reference)
-# =============================================================================
-
-elapsedTime:
-  class: PARTIAL
-  category: L_ref
-  z3_sort: Int
-  domain:
-    min: 0
-    max: null
-  normalizer: to_duration
-  operators: [eq, neq, lt, lteq, gt, gteq]
-  invalid_operators: [isA, hasPart, isPartOf]
-  reference_point: policy_activation
-  note: "Full analysis requires runtime context"
-  description: "Elapsed time since policy activation"
-
-delayPeriod:
-  class: PARTIAL
-  category: L_ref
-  z3_sort: Int
-  domain:
-    min: 0
-    max: null
-  normalizer: to_duration
-  operators: [eq, neq, lt, lteq, gt, gteq]
-  invalid_operators: [isA, hasPart, isPartOf]
-  reference_point: triggering_event
-  note: "Full analysis requires runtime context"
-  description: "Delay period after triggering event"
-
-# =============================================================================
 # 𝓛_sem — Requires External KB (14 LeftOperands)
-# Static Analysis: ❌ Requires oracle/grounding
 # =============================================================================
 
 language:
   class: GROUNDED
   category: L_sem
   oracle: bcp47
+  grounding: "src/grounding/language/oracle.py"
   external_kb: [ISO639, LCC, Lexvo]
   operators: [eq, neq, isA, isAnyOf, isNoneOf]
   description: "Language constraint (BCP47 hierarchy)"
@@ -334,6 +400,7 @@ purpose:
   class: GROUNDED
   category: L_sem
   oracle: dpv
+  grounding: "src/grounding/purpose/loader.py"
   external_kb: [DPV]
   operators: [eq, neq, isA, isAnyOf, isNoneOf]
   description: "Purpose constraint (DPV taxonomy)"
@@ -374,6 +441,7 @@ fileFormat:
   class: GROUNDED
   category: L_sem
   oracle: iana_media_types
+  grounding: "src/grounding/file_format/oracle.py"
   external_kb: [PRONOM, IANA]
   operators: [eq, neq, isA, isAnyOf, isNoneOf]
   description: "File format constraint (IANA media types)"
@@ -397,16 +465,13 @@ version:
 
 # =============================================================================
 # 𝓛_run — Runtime Only (1 LeftOperand)
-# Static Analysis: ❌ Not possible
 # =============================================================================
 
 meteredTime:
   class: RUNTIME
   category: L_run
   z3_sort: Int
-  domain:
-    min: 0
-    max: null
+  domain: { min: 0, max: null }
   operators: [eq, neq, lt, lteq, gt, gteq]
   note: "Requires cumulative usage tracking at runtime"
   description: "Metered time (cumulative usage)"

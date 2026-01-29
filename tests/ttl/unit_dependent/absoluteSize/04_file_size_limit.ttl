@@ -1,0 +1,31 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+@prefix ex: <http://example.org/> .
+
+# TEST: File size constraints for distribution
+# c1: absoluteSize gt 0 BYTE (non-empty)
+# c2: absoluteSize lteq 52428800 BYTE (max 50 MB)
+# Expected: POSSIBLY-COMPATIBLE
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:distribute ;
+    odrl:constraint ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:uid ex:c1 ;
+    odrl:leftOperand odrl:absoluteSize ;
+    odrl:operator odrl:gt ;
+    odrl:rightOperand "0"^^xsd:decimal ;
+    odrl:unit qudt:BYTE .
+
+ex:c2 a odrl:Constraint ;
+    odrl:uid ex:c2 ;
+    odrl:leftOperand odrl:absoluteSize ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "52428800"^^xsd:decimal ;
+    odrl:unit qudt:BYTE .

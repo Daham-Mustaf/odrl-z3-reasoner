@@ -1,0 +1,30 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# TEST: Image dimension constraints
+# c1: absoluteSize lteq 1920 pixels (max width)
+# c2: absoluteSize gteq 640 pixels (min width)
+# Expected: POSSIBLY-COMPATIBLE
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:display ;
+    odrl:constraint ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:uid ex:c1 ;
+    odrl:leftOperand odrl:absoluteSize ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "1920"^^xsd:decimal ;
+    odrl:unit <http://qudt.org/vocab/unit/PX> .
+
+ex:c2 a odrl:Constraint ;
+    odrl:uid ex:c2 ;
+    odrl:leftOperand odrl:absoluteSize ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "640"^^xsd:decimal ;
+    odrl:unit <http://qudt.org/vocab/unit/PX> .

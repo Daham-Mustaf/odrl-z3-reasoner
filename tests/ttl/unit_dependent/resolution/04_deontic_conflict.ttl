@@ -1,0 +1,36 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+@prefix ex: <http://example.org/> .
+
+# TEST: Deontic conflict with resolution
+# Permission: resolution lteq 300 DPI (can print up to 300)
+# Prohibition: resolution gteq 72 DPI (cannot print 72+)
+# Expected: DEONTIC-CONFLICT (overlap at [72, 300])
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 ;
+    odrl:prohibition ex:prohib1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:print ;
+    odrl:constraint ex:c_perm .
+
+ex:c_perm a odrl:Constraint ;
+    odrl:uid ex:c_perm ;
+    odrl:leftOperand odrl:resolution ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "300"^^xsd:decimal ;
+    odrl:unit qudt:DPI .
+
+ex:prohib1 a odrl:Prohibition ;
+    odrl:action odrl:print ;
+    odrl:constraint ex:c_prohib .
+
+ex:c_prohib a odrl:Constraint ;
+    odrl:uid ex:c_prohib ;
+    odrl:leftOperand odrl:resolution ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "72"^^xsd:decimal ;
+    odrl:unit qudt:DPI .

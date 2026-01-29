@@ -1,0 +1,31 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+@prefix ex: <http://example.org/> .
+
+# TEST: Same unit (BYTE), valid range → POSSIBLY-COMPATIBLE
+# c1: absoluteSize lteq 10000000 BYTE (10 MB max)
+# c2: absoluteSize gteq 1000000 BYTE (1 MB min)
+# Expected: POSSIBLY-COMPATIBLE (e.g., 5 MB)
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:distribute ;
+    odrl:constraint ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:uid ex:c1 ;
+    odrl:leftOperand odrl:absoluteSize ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "10000000"^^xsd:decimal ;
+    odrl:unit qudt:BYTE .
+
+ex:c2 a odrl:Constraint ;
+    odrl:uid ex:c2 ;
+    odrl:leftOperand odrl:absoluteSize ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "1000000"^^xsd:decimal ;
+    odrl:unit qudt:BYTE .

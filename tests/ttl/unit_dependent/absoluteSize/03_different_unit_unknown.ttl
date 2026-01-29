@@ -1,0 +1,31 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+@prefix ex: <http://example.org/> .
+
+# TEST: Different units (BYTE vs PIXEL) → UNKNOWN
+# c1: absoluteSize lteq 1000000 BYTE
+# c2: absoluteSize gteq 1920 PIXEL
+# Expected: UNKNOWN (incompatible units)
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:use ;
+    odrl:constraint ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:uid ex:c1 ;
+    odrl:leftOperand odrl:absoluteSize ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "1000000"^^xsd:decimal ;
+    odrl:unit qudt:BYTE .
+
+ex:c2 a odrl:Constraint ;
+    odrl:uid ex:c2 ;
+    odrl:leftOperand odrl:absoluteSize ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "1920"^^xsd:decimal ;
+    odrl:unit <http://qudt.org/vocab/unit/PX> .

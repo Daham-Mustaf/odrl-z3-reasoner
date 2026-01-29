@@ -34,6 +34,23 @@ from .constraint_types import (
 )
 from .classifier import classify_constraint, ClassificationResult
 
+# =============================================================================
+# UNIT ORACLE INTEGRATION
+# =============================================================================
+
+# Try to import unit oracle; fallback to simple string matching if unavailable
+try:
+    from grounding.unit import are_units_compatible
+    UNIT_ORACLE_AVAILABLE = True
+except ImportError:
+    UNIT_ORACLE_AVAILABLE = False
+    
+    def are_units_compatible(u1: str, u2: str) -> bool:
+        """Fallback: normalize and compare."""
+        u1_norm = u1.split('#')[-1].split('/')[-1] if u1 else None
+        u2_norm = u2.split('#')[-1].split('/')[-1] if u2 else None
+        return u1_norm == u2_norm
+
 
 # =============================================================================
 # COMPARABILITY RESULT
@@ -108,7 +125,11 @@ def check_analyzable_class(
 
 
 def check_unit_compatible(c1: AtomicConstraint, c2: AtomicConstraint) -> ComparabilityResult:
-    """Check: unit-compatible(c₁, c₂)."""
+    """
+    Check: unit-compatible(c₁, c₂).
+    
+    Uses unit oracle for alias resolution (e.g., "euro" → "EUR").
+    """
     u1 = c1.unit
     u2 = c2.unit
     
@@ -124,19 +145,17 @@ def check_unit_compatible(c1: AtomicConstraint, c2: AtomicConstraint) -> Compara
             details=f"Unit mismatch: {u1} vs {u2}"
         )
     
-    # Both specified - must match (no conversion)
-    # Normalize URIs
-    u1_norm = u1.split('#')[-1].split('/')[-1] if u1 else None
-    u2_norm = u2.split('#')[-1].split('/')[-1] if u2 else None
+    # Both specified - use oracle for compatibility check
+    # Handles aliases: are_units_compatible("euro", "EUR") → True
+    if are_units_compatible(u1, u2):
+        return ComparabilityResult(comparable=True)
     
-    if u1_norm != u2_norm:
-        return ComparabilityResult(
-            comparable=False,
-            reason=IncomparabilityReason.INCOMPATIBLE_UNITS,
-            details=f"Different units: {u1} vs {u2}"
-        )
-    
-    return ComparabilityResult(comparable=True)
+    # Different units (no conversion available)
+    return ComparabilityResult(
+        comparable=False,
+        reason=IncomparabilityReason.INCOMPATIBLE_UNITS,
+        details=f"Different units: {u1} vs {u2}"
+    )
 
 
 def check_scope_compatible(c1: AtomicConstraint, c2: AtomicConstraint) -> ComparabilityResult:
@@ -220,7 +239,7 @@ def is_comparable(c1: AtomicConstraint, c2: AtomicConstraint) -> ComparabilityRe
     if not result.comparable:
         return result
     
-    # 3. Unit compatible
+    # 3. Unit compatible (uses oracle for alias resolution)
     result = check_unit_compatible(c1, c2)
     if not result.comparable:
         return result

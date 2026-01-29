@@ -1,0 +1,28 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+# TEST: Missing unit → UNKNOWN
+# c1: payAmount lteq 50 (no unit)
+# c2: payAmount gteq 100 (no unit)
+# Expected: UNKNOWN (unit required for payAmount)
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:use ;
+    odrl:constraint ex:c1, ex:c2 .
+
+ex:c1 a odrl:Constraint ;
+    odrl:uid ex:c1 ;
+    odrl:leftOperand odrl:payAmount ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "50.00"^^xsd:decimal .
+
+ex:c2 a odrl:Constraint ;
+    odrl:uid ex:c2 ;
+    odrl:leftOperand odrl:payAmount ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "100.00"^^xsd:decimal .

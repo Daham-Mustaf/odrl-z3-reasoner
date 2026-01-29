@@ -9,6 +9,7 @@ Detects:
 - Unsatisfiable constraints
 - XONE overlaps
 - ANDSEQUENCE issues
+- Unit incompatibility (different units for same operand)
 """
 
 from z3 import Solver, And, Not, sat, unsat, is_int, is_real, is_string
@@ -37,6 +38,15 @@ def debug_print(category: str, message: str, data: Any = None):
     print(f"[{category}] {message}")
     if data:
         print(f"         {data}")
+
+
+# =============================================================================
+# UNIT-DEPENDENT OPERANDS (from operands.yaml)
+# =============================================================================
+
+# These operands require unit qualification for meaningful comparison
+L_UNIT = {"payAmount", "resolution", "absolutePosition", "absoluteSize", 
+          "absoluteTemporalPosition", "absoluteSpatialPosition"}
 
 
 # =============================================================================
@@ -71,10 +81,11 @@ class ConflictDetector:
     Detect conflicts in ODRL policies using Z3.
     
     Strategy:
-    1. Encode all constraints to Z3
-    2. Query Z3 for various conflict patterns
-    3. Extract counterexamples from models
-    4. Generate human-readable reports
+    1. Check unit comparability (pre-encoding)
+    2. Encode all constraints to Z3
+    3. Query Z3 for various conflict patterns
+    4. Extract counterexamples from models
+    5. Generate human-readable reports
     """
     
     def __init__(self, debug: bool = False):
@@ -83,6 +94,9 @@ class ConflictDetector:
         self.policy: Optional[Policy] = None
         self.constraints: Dict[str, Any] = {}
         self.conflicts: List[Conflict] = []
+        
+        # Track unit incompatibilities
+        self._unit_incompatibilities: Dict[str, List[Tuple[str, str, str]]] = {}
         
         # Statistics
         self._stats = {
@@ -111,14 +125,25 @@ class ConflictDetector:
         self.policy = policy
         self.constraints = constraints
         self.conflicts = []
+        self._unit_incompatibilities = {}
         
         self._debug(f"Detecting conflicts in policy: {policy.uid}")
         logger.info(f"Detecting conflicts in policy: {policy.uid}")
         
+        # =================================================================
+        # PRE-ENCODING CHECKS
+        # =================================================================
+        
+        # Check unit comparability BEFORE encoding
+        self._detect_unit_incompatibility()
+        
         # Encode all constraints
         self._encode_all_constraints()
         
-        # Run all conflict detection checks
+        # =================================================================
+        # POST-ENCODING CHECKS
+        # =================================================================
+        
         self._debug("Running conflict detection checks...")
         
         self._detect_permission_prohibition_conflicts()
@@ -140,6 +165,112 @@ class ConflictDetector:
         logger.info(f"Detected {len(self.conflicts)} conflicts")
         
         return self.conflicts
+    
+    # =========================================================================
+    # UNIT COMPARABILITY CHECK (NEW)
+    # =========================================================================
+    
+    def _detect_unit_incompatibility(self):
+        """
+        Detect constraints on unit-dependent operands with different units.
+        
+        When payAmount constraints have EUR and USD, they create separate
+        Z3 variables and are not directly comparable. This is semantically
+        correct but may surprise users expecting a conflict.
+        
+        This check flags such cases as INFO so users are aware.
+        """
+        # Group constraints by (operand, rule)
+        operand_units: Dict[str, Dict[str, List[Tuple[str, str]]]] = {}
+        # Structure: operand -> {unit -> [(constraint_id, rule_id), ...]}
+        
+        for constraint_id, constraint in self.constraints.items():
+            if not isinstance(constraint, AtomicConstraint):
+                continue
+            
+            # Extract operand name
+            op = constraint.left_operand.split('#')[-1].split('/')[-1]
+            
+            # Only check unit-dependent operands
+            if op not in L_UNIT:
+                continue
+            
+            # Get unit (normalized if possible)
+            unit = self._normalize_unit(constraint.unit) if constraint.unit else 'default'
+            
+            if op not in operand_units:
+                operand_units[op] = {}
+            
+            if unit not in operand_units[op]:
+                operand_units[op][unit] = []
+            
+            operand_units[op][unit].append(constraint_id)
+        
+        # Check for operands with multiple different units
+        for operand, units_dict in operand_units.items():
+            if len(units_dict) > 1:
+                # Multiple different units for same operand
+                unit_list = list(units_dict.keys())
+                constraint_ids = []
+                for unit, cids in units_dict.items():
+                    constraint_ids.extend(cids)
+                
+                self._unit_incompatibilities[operand] = [
+                    (u, cids) for u, cids in units_dict.items()
+                ]
+                
+                self.conflicts.append(Conflict(
+                    conflict_type='unit_incompatibility',
+                    severity=ConflictSeverity.INFO,
+                    action='none',
+                    description=(
+                        f"Operand '{operand}' has constraints with different units: {unit_list}. "
+                        f"These are treated as independent variables (no cross-unit comparison). "
+                        f"Result may be CONSISTENT even if values would conflict after conversion."
+                    ),
+                    constraint_ids=constraint_ids,
+                    metadata={
+                        'operand': operand,
+                        'units': unit_list,
+                        'constraints_per_unit': {u: len(cids) for u, cids in units_dict.items()}
+                    }
+                ))
+    
+    def _normalize_unit(self, unit: Optional[str]) -> Optional[str]:
+        """
+        Normalize unit URI to canonical form.
+        
+        Try to use the unit grounding oracle if available.
+        """
+        if unit is None:
+            return None
+        
+        # Try to import and use unit oracle
+        try:
+            from grounding.unit import normalize_unit
+            return normalize_unit(unit)
+        except ImportError:
+            pass
+        
+        # Fallback: extract last part of URI
+        if '/' in unit:
+            return unit.split('/')[-1]
+        if '#' in unit:
+            return unit.split('#')[-1]
+        
+        return unit
+    
+    def has_unit_incompatibility(self, operand: str) -> bool:
+        """Check if an operand has unit incompatibility."""
+        return operand in self._unit_incompatibilities
+    
+    def get_unit_incompatibilities(self) -> Dict[str, List[Tuple[str, List[str]]]]:
+        """Get all unit incompatibilities."""
+        return self._unit_incompatibilities
+    
+    # =========================================================================
+    # ENCODING
+    # =========================================================================
     
     def _encode_all_constraints(self):
         """Encode all constraints to Z3."""
@@ -728,6 +859,7 @@ class ConflictDetector:
         return {
             **self._stats,
             'total_conflicts': len(self.conflicts),
+            'unit_incompatibilities': len(self._unit_incompatibilities),
         }
     
     def print_conflict_report(self):
@@ -743,6 +875,17 @@ class ConflictDetector:
         
         print(f"Summary: {len(critical)} Critical | {len(warnings)} Warnings | {len(info)} Info")
         print()
+        
+        # Unit incompatibilities (special section)
+        unit_conflicts = self.get_conflicts_by_type('unit_incompatibility')
+        if unit_conflicts:
+            print("[UNIT] UNIT INCOMPATIBILITIES:")
+            print("-" * 70)
+            for i, conflict in enumerate(unit_conflicts, 1):
+                print(f"{i}. {conflict.description}")
+                if conflict.metadata:
+                    print(f"   Units: {conflict.metadata.get('units', [])}")
+            print()
         
         if critical:
             print("[CRITICAL] CONFLICTS:")
@@ -766,8 +909,9 @@ class ConflictDetector:
             print("[INFO] INFORMATIONAL:")
             print("-" * 70)
             for i, conflict in enumerate(info, 1):
-                print(f"{i}. [{conflict.conflict_type}] {conflict.action}")
-                print(f"   {conflict.description}")
+                if conflict.conflict_type != 'unit_incompatibility':  # Already printed
+                    print(f"{i}. [{conflict.conflict_type}] {conflict.action}")
+                    print(f"   {conflict.description}")
             print()
         
         if not self.conflicts:

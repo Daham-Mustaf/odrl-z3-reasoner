@@ -1,0 +1,36 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+@prefix ex: <http://example.org/> .
+
+# TEST: Deontic conflict (permission vs prohibition overlap)
+# Permission: payAmount lteq 100 EUR
+# Prohibition: payAmount lteq 50 EUR
+# Expected: DEONTIC-CONFLICT (overlap at [0, 50])
+
+ex:policy a odrl:Set ;
+    odrl:uid ex:policy ;
+    odrl:permission ex:perm1 ;
+    odrl:prohibition ex:prohib1 .
+
+ex:perm1 a odrl:Permission ;
+    odrl:action odrl:compensate ;
+    odrl:constraint ex:c_perm .
+
+ex:c_perm a odrl:Constraint ;
+    odrl:uid ex:c_perm ;
+    odrl:leftOperand odrl:payAmount ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "100.00"^^xsd:decimal ;
+    odrl:unit qudt:EUR .
+
+ex:prohib1 a odrl:Prohibition ;
+    odrl:action odrl:compensate ;
+    odrl:constraint ex:c_prohib .
+
+ex:c_prohib a odrl:Constraint ;
+    odrl:uid ex:c_prohib ;
+    odrl:leftOperand odrl:payAmount ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "50.00"^^xsd:decimal ;
+    odrl:unit qudt:EUR .

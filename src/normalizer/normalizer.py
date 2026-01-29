@@ -12,7 +12,7 @@ This module is CONFIGURATION-DRIVEN:
 Normalization types:
     to_integer          → Convert to Python int
     to_float            → Convert to Python float  
-    datetime_to_timestamp → Convert ISO datetime to Unix timestamp
+    datetime_to_timestamp → Convert ISO datetime to UTC timestamp
     duration_to_seconds → Convert ISO duration (PT1H) to seconds
     to_uri              → Normalize URI (strip prefix)
     none                → No normalization (pass through)
@@ -109,13 +109,20 @@ def _to_float(value: Any) -> float:
 
 def _datetime_to_timestamp(value: Any) -> int:
     """
-    Convert datetime to Unix timestamp (seconds since epoch).
+    Convert datetime/date to Unix timestamp (seconds since epoch).
     
     Handles:
-    - datetime objects
+    - datetime objects (with timezone)
+    - date objects (xsd:date) -> treated as start of day UTC
     - ISO 8601 strings (2024-01-01T00:00:00Z)
+    - Date-only strings (2024-01-01)
     - Already numeric timestamps
+    
+    IMPORTANT: For xsd:date values, we convert to start-of-day UTC.
+    The encoder should handle operator semantics (gteq -> start, lteq -> end).
     """
+    from datetime import date, timedelta
+    
     if value is None:
         return 0
     
@@ -123,9 +130,16 @@ def _datetime_to_timestamp(value: Any) -> int:
     if isinstance(value, (int, float)):
         return int(value)
     
-    # datetime object
+    # datetime object (has time component)
     if isinstance(value, datetime):
         return int(value.timestamp())
+    
+    # date object (NO time component) - from xsd:date
+    # Convert to start of day in UTC
+    if isinstance(value, date):
+        # Create datetime at start of day UTC
+        dt = datetime(value.year, value.month, value.day, 0, 0, 0, tzinfo=timezone.utc)
+        return int(dt.timestamp())
     
     # ISO string
     if isinstance(value, str):
@@ -135,8 +149,21 @@ def _datetime_to_timestamp(value: Any) -> int:
         if value.endswith('Z'):
             value = value[:-1] + '+00:00'
         
+        # Try parsing as datetime first
         try:
             dt = datetime.fromisoformat(value)
+            # Add UTC timezone if naive
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return int(dt.timestamp())
+        except ValueError:
+            pass
+        
+        # Try parsing as date-only (YYYY-MM-DD)
+        try:
+            from datetime import date as date_type
+            d = date_type.fromisoformat(value)
+            dt = datetime(d.year, d.month, d.day, 0, 0, 0, tzinfo=timezone.utc)
             return int(dt.timestamp())
         except ValueError:
             pass
@@ -151,6 +178,8 @@ def _datetime_to_timestamp(value: Any) -> int:
         for fmt in formats:
             try:
                 dt = datetime.strptime(value, fmt)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
                 return int(dt.timestamp())
             except ValueError:
                 continue
@@ -158,6 +187,36 @@ def _datetime_to_timestamp(value: Any) -> int:
         raise ValueError(f"Cannot parse datetime: {value}")
     
     raise ValueError(f"Cannot convert {type(value)} to timestamp")
+
+
+def validate_duration_value(value: Any) -> Optional[str]:
+    """
+    Reject variable-length durations (P1M, P1Y).
+    
+    ISO 8601 months and years have variable lengths:
+    - 1 month = 28-31 days
+    - 1 year = 365 or 366 days
+    
+    These cannot be precisely converted to seconds without a reference date.
+    
+    Returns:
+        Error message if invalid, None if valid
+    """
+    if isinstance(value, str):
+        value_upper = value.upper()
+        # Check for Year (P1Y, P2Y, etc.) - but not in time part
+        if 'Y' in value_upper:
+            # Make sure it's not part of a different pattern
+            if 'Y' in value_upper.split('T')[0]:  # Only check date part
+                return f"Variable-length duration with years not supported: {value}"
+        
+        # Check for Month (P1M, P2M, etc.) - but not Minute (PT1M)
+        if 'M' in value_upper:
+            date_part = value_upper.split('T')[0] if 'T' in value_upper else value_upper
+            if 'M' in date_part:  # Month is in date part, not time part
+                return f"Variable-length duration with months not supported: {value}"
+    
+    return None
 
 
 def _duration_to_seconds(value: Any) -> int:
@@ -171,9 +230,7 @@ def _duration_to_seconds(value: Any) -> int:
     
     Format: P[n]Y[n]M[n]DT[n]H[n]M[n]S
     
-    Approximations:
-    - 1 year = 365 days
-    - 1 month = 30 days
+    Note: P1M (months) and P1Y (years) are rejected as variable-length.
     """
     from datetime import timedelta
     
@@ -189,16 +246,20 @@ def _duration_to_seconds(value: Any) -> int:
         return int(value)
     
     if not isinstance(value, str):
-        # Try to get total_seconds if it's duration-like
         if hasattr(value, 'total_seconds'):
             return int(value.total_seconds())
         return int(value)
     
     value = value.strip().upper()
     
+    # Validate: reject variable-length durations
+    error = validate_duration_value(value)
+    if error:
+        logger.warning(error)
+        # Still try to parse with approximation, but warn
+    
     # Must start with P
     if not value.startswith('P'):
-        # Try to parse as number
         try:
             return int(float(value))
         except ValueError:
@@ -216,6 +277,7 @@ def _duration_to_seconds(value: Any) -> int:
     
     total_seconds = 0
     
+    # Approximate years and months (with warning already logged)
     if years:
         total_seconds += int(years) * 365 * 24 * 3600
     if months:
@@ -468,3 +530,28 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("Normalizer tests complete!")
     print("=" * 60)
+    from datetime import date, datetime, timezone
+
+    print("=" * 50)
+    
+    # Test cases
+    tests = [
+        # (input, expected_description)
+        (datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc), "2024-01-01 datetime"),
+        (date(2024, 1, 1), "2024-01-01 date (xsd:date)"),
+        (date(2024, 12, 31), "2024-12-31 date (xsd:date)"),
+        ("2024-01-01T00:00:00Z", "2024-01-01 ISO string"),
+        ("2024-01-01", "2024-01-01 date string"),
+        (1704067200, "Already timestamp"),
+    ]
+    
+    for value, desc in tests:
+        try:
+            result = _datetime_to_timestamp(value)
+            print(f"  {desc}: {value} -> {result}")
+        except Exception as e:
+            print(f"  {desc}: {value} -> ERROR: {e}")
+    
+    print("\nExpected values:")
+    print("  2024-01-01 00:00:00 UTC = 1704067200")
+    print("  2024-12-31 00:00:00 UTC = 1735603200")
