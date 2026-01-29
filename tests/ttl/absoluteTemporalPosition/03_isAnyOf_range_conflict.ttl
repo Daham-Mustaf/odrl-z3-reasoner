@@ -1,0 +1,33 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 03: isAnyOf range CONFLICT
+# Expected: CONFLICT
+# isAnyOf [30, 60, 90] AND >120 = {30,60,90} ∩ (120,∞) = ∅
+# Ad cue points vs late placement conflict
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:advertisement01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:isAnyOf ;
+                    odrl:rightOperand ( "30"^^xsd:decimal "60"^^xsd:decimal "90"^^xsd:decimal )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:gt ;
+                    odrl:rightOperand "120"^^xsd:decimal
+                ]
+            )
+        ]
+    ] .

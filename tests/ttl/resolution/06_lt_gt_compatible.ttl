@@ -1,0 +1,34 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 06: resolution lt/gt COMPATIBLE
+# Expected: CONSISTENT (<300 DPI AND >72 DPI = (72, 300))
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:print ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:resolution ;
+                    odrl:operator odrl:lt ;
+                    odrl:rightOperand "300"^^xsd:decimal ;
+                    odrl:unit qudt:DPI
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:resolution ;
+                    odrl:operator odrl:gt ;
+                    odrl:rightOperand "72"^^xsd:decimal ;
+                    odrl:unit qudt:DPI
+                ]
+            )
+        ]
+    ] .

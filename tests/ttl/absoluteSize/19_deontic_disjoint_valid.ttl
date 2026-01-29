@@ -1,0 +1,36 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 19: Deontic disjoint CONSISTENT
+# Expected: CONSISTENT
+# Permission: ≥1000 PX, Prohibition: ≤500 PX
+# Disjoint: [1000,∞) ∩ (0,500] = ∅
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:image01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:absoluteSize ;
+            odrl:operator odrl:gteq ;
+            odrl:rightOperand "1000"^^xsd:decimal ;
+            odrl:unit qudt:PX
+        ]
+    ] ;
+    odrl:prohibition [
+        a odrl:Prohibition ;
+        odrl:action odrl:display ;
+        odrl:target ex:image01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:absoluteSize ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "500"^^xsd:decimal ;
+            odrl:unit qudt:PX
+        ]
+    ] .

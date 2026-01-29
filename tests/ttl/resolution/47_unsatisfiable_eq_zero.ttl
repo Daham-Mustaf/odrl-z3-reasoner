@@ -1,0 +1,21 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+# Test 47: UNSATISFIABLE - eq 0
+# Expected: CONFLICT/UNSATISFIABLE (0 not in domain (0,∞))
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:print ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:resolution ;
+            odrl:operator odrl:eq ;
+            odrl:rightOperand "0"^^xsd:decimal ;
+            odrl:unit qudt:DPI
+        ]
+    ] .

@@ -1,0 +1,42 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 14: Byte isNoneOf CONSISTENT
+# Expected: CONSISTENT
+# isNoneOf [1024, 4096] AND ≥1024 AND ≤4096 = (1024,4096) \ {4096}
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:read ;
+        odrl:target ex:datastream01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absolutePosition ;
+                    odrl:operator odrl:isNoneOf ;
+                    odrl:rightOperand ( "1024"^^xsd:decimal "4096"^^xsd:decimal ) ;
+                    odrl:unit qudt:BYTE
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absolutePosition ;
+                    odrl:operator odrl:gt ;
+                    odrl:rightOperand "1024"^^xsd:decimal ;
+                    odrl:unit qudt:BYTE
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absolutePosition ;
+                    odrl:operator odrl:lt ;
+                    odrl:rightOperand "4096"^^xsd:decimal ;
+                    odrl:unit qudt:BYTE
+                ]
+            )
+        ]
+    ] .

@@ -1,0 +1,36 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 03: Pixel isAnyOf CONFLICT
+# Expected: CONFLICT
+# isAnyOf [100, 200, 300] AND >500 = {100,200,300} ∩ (500,∞) = ∅
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:image01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absolutePosition ;
+                    odrl:operator odrl:isAnyOf ;
+                    odrl:rightOperand ( "100"^^xsd:decimal "200"^^xsd:decimal "300"^^xsd:decimal ) ;
+                    odrl:unit qudt:PX
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absolutePosition ;
+                    odrl:operator odrl:gt ;
+                    odrl:rightOperand "500"^^xsd:decimal ;
+                    odrl:unit qudt:PX
+                ]
+            )
+        ]
+    ] .

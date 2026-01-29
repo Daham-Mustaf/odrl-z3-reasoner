@@ -1,0 +1,37 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 19: Deontic disjoint CONSISTENT
+# Expected: CONSISTENT
+# Permission: ≥60 SEC, Prohibition: ≤30 SEC
+# Disjoint: [60,∞) ∩ [0,30] = ∅
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:absolutePosition ;
+            odrl:operator odrl:gteq ;
+            odrl:rightOperand "60"^^xsd:decimal ;
+            odrl:unit qudt:SEC
+        ]
+    ] ;
+    odrl:prohibition [
+        a odrl:Prohibition ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:absolutePosition ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "30"^^xsd:decimal ;
+            odrl:unit qudt:SEC
+        ]
+    ] .

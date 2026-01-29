@@ -1,0 +1,60 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 20: Complex nested CONSISTENT
+# Expected: CONSISTENT
+# ((≤256 OR ≥768) AND ≥512) AND ≤1024 = [768,1024]
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:image01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:LogicalConstraint ;
+                            odrl:or (
+                                [
+                                    a odrl:Constraint ;
+                                    odrl:leftOperand odrl:absoluteSize ;
+                                    odrl:operator odrl:lteq ;
+                                    odrl:rightOperand "256"^^xsd:decimal ;
+                                    odrl:unit qudt:PX
+                                ]
+                                [
+                                    a odrl:Constraint ;
+                                    odrl:leftOperand odrl:absoluteSize ;
+                                    odrl:operator odrl:gteq ;
+                                    odrl:rightOperand "768"^^xsd:decimal ;
+                                    odrl:unit qudt:PX
+                                ]
+                            )
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteSize ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "512"^^xsd:decimal ;
+                            odrl:unit qudt:PX
+                        ]
+                    )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "1024"^^xsd:decimal ;
+                    odrl:unit qudt:PX
+                ]
+            )
+        ]
+    ] .

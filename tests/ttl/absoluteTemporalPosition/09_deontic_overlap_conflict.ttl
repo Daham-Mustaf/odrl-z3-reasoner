@@ -1,0 +1,33 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 09: Deontic CONFLICT
+# Expected: DEONTIC-CONFLICT
+# Permission: ≤300 sec, Prohibition: ≤100 sec
+# Overlap at [0,100] is both permitted and prohibited
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:absoluteTemporalPosition ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "300"^^xsd:decimal
+        ]
+    ] ;
+    odrl:prohibition [
+        a odrl:Prohibition ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:absoluteTemporalPosition ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "100"^^xsd:decimal
+        ]
+    ] .

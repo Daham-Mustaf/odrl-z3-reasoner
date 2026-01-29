@@ -1,0 +1,21 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+# Test 35: resolution TAUTOLOGY gt 0
+# Expected: TAUTOLOGY (resolution domain is (0,∞), so >0 is always true)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:print ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:resolution ;
+            odrl:operator odrl:gt ;
+            odrl:rightOperand "0"^^xsd:decimal ;
+            odrl:unit qudt:DPI
+        ]
+    ] .

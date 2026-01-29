@@ -1,0 +1,38 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 14: isNoneOf CONSISTENT
+# Expected: CONSISTENT
+# isNoneOf [0, 300] AND ≥0 AND ≤600 = (0,300) ∪ (300,600]
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:isNoneOf ;
+                    odrl:rightOperand ( "0"^^xsd:decimal "300"^^xsd:decimal )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:gt ;
+                    odrl:rightOperand "0"^^xsd:decimal
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "600"^^xsd:decimal
+                ]
+            )
+        ]
+    ] .

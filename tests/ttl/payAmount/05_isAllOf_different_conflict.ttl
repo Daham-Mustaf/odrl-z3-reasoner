@@ -1,0 +1,22 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 05: isAllOf different values CONFLICT
+# Expected: CONFLICT (cannot equal 10, 50, AND 100 simultaneously)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:payAmount ;
+            odrl:operator odrl:isAllOf ;
+            odrl:rightOperand ( "10"^^xsd:decimal "50"^^xsd:decimal "100"^^xsd:decimal ) ;
+            odrl:unit qudt:EUR
+        ]
+    ] .

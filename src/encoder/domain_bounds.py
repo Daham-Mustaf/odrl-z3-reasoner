@@ -22,15 +22,14 @@ from typing import Optional
 @dataclass
 class DomainBounds:
     """Domain bounds for a LeftOperand."""
-    min_val: Optional[float] = None  # None = -∞
-    max_val: Optional[float] = None  # None = +∞
+    min_val: Optional[float] = None  # None = -inf
+    max_val: Optional[float] = None  # None = +inf
     is_integer: bool = False
-    use_real: bool = True
-    exclusive_min: bool = False  # For ℝ>0 domains
-    category: str = "unknown"  # Equivalence class
+    use_real: bool = True  # Use Real sort instead of Int
+    exclusive_min: bool = False  # For (0, ∞) domains like absoluteSize, resolution
+    exclusive_max: bool = False  # For domains with exclusive upper bound
+    category: str = "unknown"  # Equivalence class - ADD THIS!
 
-
-# Complete domain bounds for all statically analyzable LeftOperands
 DOMAIN_BOUNDS = {
     # =========================================================================
     # 𝓛_bounded — [0, 100] (5 LeftOperands)

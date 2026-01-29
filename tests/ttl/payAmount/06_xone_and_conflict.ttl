@@ -1,0 +1,47 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 06: XONE with AND CONFLICT
+# Expected: CONFLICT
+# XONE(≤50, ≥200) AND =100 - value 100 satisfies neither branch
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:xone (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "50"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "200"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                    )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:eq ;
+                    odrl:rightOperand "100"^^xsd:decimal ;
+                    odrl:unit qudt:EUR
+                ]
+            )
+        ]
+    ] .

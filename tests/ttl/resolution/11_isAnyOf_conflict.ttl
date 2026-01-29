@@ -1,0 +1,35 @@
+
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 11: resolution isAnyOf CONFLICT
+# Expected: CONFLICT (isAnyOf [72, 150, 300] AND >600 = empty)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:print ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:resolution ;
+                    odrl:operator odrl:isAnyOf ;
+                    odrl:rightOperand ( "72"^^xsd:decimal "150"^^xsd:decimal "300"^^xsd:decimal ) ;
+                    odrl:unit qudt:DPI
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:resolution ;
+                    odrl:operator odrl:gt ;
+                    odrl:rightOperand "600"^^xsd:decimal ;
+                    odrl:unit qudt:DPI
+                ]
+            )
+        ]
+    ] .

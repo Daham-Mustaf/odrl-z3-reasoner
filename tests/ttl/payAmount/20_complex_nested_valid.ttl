@@ -1,0 +1,59 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 20: Complex nested CONSISTENT
+# Expected: CONSISTENT
+# ((≤25 OR ≥75) AND ≥50) AND ≤100 = [75,100]
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:LogicalConstraint ;
+                            odrl:or (
+                                [
+                                    a odrl:Constraint ;
+                                    odrl:leftOperand odrl:payAmount ;
+                                    odrl:operator odrl:lteq ;
+                                    odrl:rightOperand "25"^^xsd:decimal ;
+                                    odrl:unit qudt:EUR
+                                ]
+                                [
+                                    a odrl:Constraint ;
+                                    odrl:leftOperand odrl:payAmount ;
+                                    odrl:operator odrl:gteq ;
+                                    odrl:rightOperand "75"^^xsd:decimal ;
+                                    odrl:unit qudt:EUR
+                                ]
+                            )
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "50"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                    )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "100"^^xsd:decimal ;
+                    odrl:unit qudt:EUR
+                ]
+            )
+        ]
+    ] .

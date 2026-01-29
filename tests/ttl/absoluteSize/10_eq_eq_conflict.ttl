@@ -1,0 +1,36 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 10: eq/eq different values CONFLICT
+# Expected: CONFLICT
+# =1920 AND =1080 = ∅ (width vs height conflict)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:image01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:eq ;
+                    odrl:rightOperand "1920"^^xsd:decimal ;
+                    odrl:unit qudt:PX
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:eq ;
+                    odrl:rightOperand "1080"^^xsd:decimal ;
+                    odrl:unit qudt:PX
+                ]
+            )
+        ]
+    ] .

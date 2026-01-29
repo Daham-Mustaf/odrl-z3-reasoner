@@ -1,0 +1,32 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 11: ODRL example CONSISTENT
+# Expected: CONSISTENT
+# ≥192 AND ≤250 = [192,250] (from ODRL spec example)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:mp3_music01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:gteq ;
+                    odrl:rightOperand "192"^^xsd:decimal
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "250"^^xsd:decimal
+                ]
+            )
+        ]
+    ] .

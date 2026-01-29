@@ -1,0 +1,23 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 05: isAllOf different values CONFLICT
+# Expected: CONFLICT (cannot be at 30, 60, AND 90 seconds simultaneously)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:absolutePosition ;
+            odrl:operator odrl:isAllOf ;
+            odrl:rightOperand ( "30"^^xsd:decimal "60"^^xsd:decimal "90"^^xsd:decimal ) ;
+            odrl:unit qudt:SEC
+        ]
+    ] .

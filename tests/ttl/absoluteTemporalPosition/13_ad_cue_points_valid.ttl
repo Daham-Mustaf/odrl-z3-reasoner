@@ -1,0 +1,38 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 13: Ad cue points CONSISTENT
+# Expected: CONSISTENT
+# isAnyOf [0, 300, 600, 900] AND ≥300 AND ≤900 = {300, 600, 900}
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:advertisement01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:isAnyOf ;
+                    odrl:rightOperand ( "0"^^xsd:decimal "300"^^xsd:decimal "600"^^xsd:decimal "900"^^xsd:decimal )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:gteq ;
+                    odrl:rightOperand "300"^^xsd:decimal
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "900"^^xsd:decimal
+                ]
+            )
+        ]
+    ] .

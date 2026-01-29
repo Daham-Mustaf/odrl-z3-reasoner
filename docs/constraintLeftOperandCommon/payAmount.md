@@ -1,14 +1,14 @@
-## `payAmount` — Complete Formal Specification
+## payAmount - Formal Specification
 
-### 1. ODRL Definition (Source)
+### ODRL Vocabulary Definition
 
 ```turtle
 :payAmount
     a :LeftOperand, owl:NamedIndividual, skos:Concept ;
     rdfs:isDefinedBy odrl: ;
     rdfs:label "Payment Amount"@en ;
-    skos:definition "The amount of a financial payment. Right operand value 
-                     MUST be an xsd:decimal."@en ;
+    skos:definition "The amount of a financial payment. Right operand 
+                     value MUST be an xsd:decimal."@en ;
     skos:note "Can be used for compensation duties with the unit property 
                indicating the currency of the payment."@en ;
     skos:scopeNote "Non-Normative"@en .
@@ -16,355 +16,417 @@
 
 ---
 
-### 2. Formal Definition
+### 1. Intuitive Semantics
 
-```
-LeftOperand:   odrl:payAmount
-Category:      𝓛_unit (unit-dependent)
-XSD Type:      xsd:decimal
-Domain:        ℝ≥0 = {x ∈ ℚ | x ≥ 0}
-Semantics:     Amount of financial payment
-Unit:          ✅ REQUIRED (currency)
-Scope:         ❌ None
-Reference:     ❌ None
-ODRL Status:   Non-Normative
-```
+**What it measures:** The monetary value of a payment associated with asset usage.
+
+| Value | Meaning |
+|-------|---------|
+| 0 | Free (no payment required) |
+| 9.99 | Typical digital content price |
+| 100.00 | Standard licensing fee |
+| 10000.00 | Enterprise licensing |
+
+**Use cases:**
+- Licensing fees ("pay at least €50 for commercial use")
+- Compensation duties ("royalty payment of $0.01 per use")
+- Tiered pricing ("free if payment < €10, premium otherwise")
 
 ---
 
-### 3. Domain Specification
+### 2. Formal Domain Specification
 
-$$\mathcal{D}_{\text{payAmount}} = \{x \in \mathbb{Q} \mid x \geq 0\}$$
+$$\text{dom}(\texttt{payAmount}) = \mathbb{R}_{\geq 0} = [0, +\infty)$$
 
-| Property | Value | Rationale |
+| Property | Value | Justification |
+|----------|-------|---------------|
+| **Lower bound** | 0 (inclusive) | Zero payment = free access |
+| **Upper bound** | ∞ | No theoretical maximum |
+| **XSD Type** | `xsd:decimal` | **Explicitly required** by ODRL definition |
+
+> Zero is semantically valid for `payAmount` (represents free/no-cost access), unlike `resolution` where zero is degenerate.
+
+---
+
+### 3. Unit Specification
+
+**Unit Required:** Yes (currency)
+
+| Property | Value |
+|----------|-------|
+| **Unit category** | Currency |
+| **Common units** | EUR, USD, GBP, JPY, CHF |
+| **Standard** | ISO 4217 currency codes |
+| **QUDT URIs** | `http://qudt.org/vocab/unit/EUR`, `http://qudt.org/vocab/unit/USD`, etc. |
+
+**Unit Comparability Rule:**
+- Same currency → Comparable
+- Different currencies → **UNKNOWN** (no automatic conversion)
+- Missing unit → **UNKNOWN**
+
+**Rationale for no currency conversion:**
+1. Exchange rates are temporal (change continuously)
+2. Would require external data source
+3. Violates static analysis assumptions
+4. Conservative approach preserves soundness
+
+---
+
+### 4. Operator Specification
+
+**Valid operators:** 9 of 12
+
+| Operator | Valid | Semantics |
 |----------|-------|-----------|
-| Lower bound | 0 (inclusive) | Payment cannot be negative |
-| Upper bound | +∞ | No maximum payment |
-| Type | Rational (xsd:decimal) | Currency amounts have decimals |
+| `eq` | ✅ | Exact amount required |
+| `neq` | ✅ | Any amount except specified |
+| `lt` | ✅ | Less than this amount |
+| `lteq` | ✅ | At most this amount |
+| `gt` | ✅ | More than this amount |
+| `gteq` | ✅ | At least this amount |
+| `isAnyOf` | ✅ | Amount in enumerated set |
+| `isNoneOf` | ✅ | Amount not in enumerated set |
+| `isAllOf` | ✅ | Satisfiable iff all values identical |
+| `isA` | ❌ | Semantic, not applicable to numeric |
+| `hasPart` | ❌ | Semantic, not applicable to numeric |
+| `isPartOf` | ❌ | Semantic, not applicable to numeric |
+
+**isAllOf formal semantics:**
+
+$$\texttt{isAllOf}(\{v_1, \ldots, v_n\}) \equiv \begin{cases} x = v_1 & \text{if } v_1 = v_2 = \cdots = v_n \\ \bot & \text{otherwise} \end{cases}$$
 
 ---
 
-### 4. Unit Handling (Critical)
+### 5. SMT Encoding
 
-#### 4.1 Unit is Required
+**Theory:** QF_LRA (Quantifier-Free Linear Real Arithmetic)
 
-ODRL states: "the unit property indicating the currency of the payment"
+**Z3 Sort:** Real
 
-```
-unit ∈ {EUR, USD, GBP, JPY, CHF, ...} (currency IRIs)
-```
+```python
+from z3 import *
 
-Common currency IRIs:
-| Currency | IRI Example |
-|----------|-------------|
-| Euro | `http://dbpedia.org/resource/Euro` |
-| US Dollar | `http://dbpedia.org/resource/United_States_dollar` |
-| British Pound | `http://dbpedia.org/resource/Pound_sterling` |
-| Japanese Yen | `http://dbpedia.org/resource/Japanese_yen` |
-| ISO 4217 codes | `http://iso.org/4217/EUR` |
+def encode_payAmount(operator: str, value, unit: str = None) -> BoolRef:
+    """
+    Encode payAmount constraint.
+    Returns BoolVal(True) with UNKNOWN flag if unit missing/incompatible.
+    """
+    if unit is None:
+        # Cannot analyze without currency
+        return BoolVal(True)  # Over-approximate, mark UNKNOWN
+    
+    # Variable name includes currency for isolation
+    x = Real(f'payAmount_{normalize_currency(unit)}')
+    domain = x >= 0  # [0, ∞)
+    
+    if operator == "eq":
+        return And(domain, x == value)
+    elif operator == "neq":
+        return And(domain, x != value)
+    elif operator == "lt":
+        return And(domain, x < value)
+    elif operator == "lteq":
+        return And(domain, x <= value)
+    elif operator == "gt":
+        return And(domain, x > value)
+    elif operator == "gteq":
+        return And(domain, x >= value)
+    elif operator == "isAnyOf":
+        return And(domain, Or([x == v for v in value]))
+    elif operator == "isNoneOf":
+        return And(domain, And([x != v for v in value]))
+    elif operator == "isAllOf":
+        if len(set(value)) == 1:
+            return And(domain, x == value[0])
+        else:
+            return BoolVal(False)
 
-#### 4.2 Comparability Rule
+def normalize_currency(unit: str) -> str:
+    """Normalize currency to canonical ISO 4217 form."""
+    CURRENCY_MAP = {
+        # ISO 4217 codes
+        "EUR": "EUR", "USD": "USD", "GBP": "GBP", 
+        "JPY": "JPY", "CHF": "CHF", "CAD": "CAD",
+        # Lowercase variants
+        "eur": "EUR", "usd": "USD", "gbp": "GBP",
+        # QUDT URIs
+        "http://qudt.org/vocab/unit/EUR": "EUR",
+        "http://qudt.org/vocab/unit/USD": "USD",
+        "http://qudt.org/vocab/unit/GBP": "GBP",
+        "http://qudt.org/vocab/unit/JPY": "JPY",
+        # Common symbols (optional support)
+        "€": "EUR", "$": "USD", "£": "GBP", "¥": "JPY",
+    }
+    return CURRENCY_MAP.get(unit, unit)  # Unknown currencies stay as-is
 
-**Critical:** Constraints with different currencies are **NOT comparable**.
-
-$$\text{comparable}(c_1, c_2) \iff \text{unit}(c_1) = \text{unit}(c_2)$$
-
-| c₁.unit | c₂.unit | Comparable? | Result if not |
-|---------|---------|:-----------:|---------------|
-| EUR | EUR | ✅ Yes | — |
-| EUR | USD | ❌ No | `UNKNOWN` |
-| EUR | ⊥ (missing) | ❌ No | `UNKNOWN` |
-| ⊥ | ⊥ | ⚠️ Risky | `UNKNOWN` (conservative) |
-
-**Design Decision:** No automatic currency conversion.
-- Conversion requires external exchange rates
-- Rates change over time
-- Would introduce unsoundness
-
-#### 4.3 Variable Identity
-
-Each (payAmount, unit) pair gets a **separate Z3 variable**:
-
-```
-payAmount[EUR] → payAmount_EUR
-payAmount[USD] → payAmount_USD
-payAmount[GBP] → payAmount_GBP
-```
-
----
-
-### 5. Valid Operators (9/12)
-
-| Operator | Valid | SMT Encoding | Example |
-|----------|:-----:|--------------|---------|
-| `eq` | ✅ | `(= payAmount v)` | `payAmount eq 100` |
-| `neq` | ✅ | `(not (= payAmount v))` | `payAmount neq 0` |
-| `lt` | ✅ | `(< payAmount v)` | `payAmount lt 50` |
-| `lteq` | ✅ | `(<= payAmount v)` | `payAmount lteq 100` |
-| `gt` | ✅ | `(> payAmount v)` | `payAmount gt 0` |
-| `gteq` | ✅ | `(>= payAmount v)` | `payAmount gteq 10` |
-| `isAnyOf` | ✅ | `(or (= payAmount v₁) ...)` | `payAmount isAnyOf [10,20,50]` |
-| `isNoneOf` | ✅ | `(and (not (= payAmount v₁)) ...)` | `payAmount isNoneOf [0]` |
-| `isAllOf` | ⚠️ | Degenerates to `eq` | — |
-| `isA` | ❌ | — | No taxonomy for decimals |
-| `hasPart` | ❌ | — | No mereology |
-| `isPartOf` | ❌ | — | No mereology |
-
----
-
-### 6. Abstract Domain
-
-$$\mathcal{A}_{\text{payAmount}} = \mathbb{I}_{\mathbb{R}\geq 0} = \{[a,b] \mid 0 \leq a \leq b \leq +\infty\} \cup \{\bot\}$$
-
-| Operator | α(constraint) |
-|----------|---------------|
-| `eq v` | `[v, v]` |
-| `neq v` | `⊤` (over-approximation) |
-| `lt v` | `[0, v)` |
-| `lteq v` | `[0, v]` |
-| `gt v` | `(v, +∞)` |
-| `gteq v` | `[v, +∞)` |
-
----
-
-### 7. SMT Encoding
-
-```smt
-; Separate variable per currency
-(declare-const payAmount_EUR Real)
-(declare-const payAmount_USD Real)
-(declare-const payAmount_GBP Real)
-
-; Domain constraints: non-negative
-(assert (>= payAmount_EUR 0))
-(assert (>= payAmount_USD 0))
-(assert (>= payAmount_GBP 0))
-
-; Example 1: payAmount lteq 100 [EUR]
-(assert (<= payAmount_EUR 100))
-
-; Example 2: payAmount gteq 50 [EUR]
-(assert (>= payAmount_EUR 50))
-
-; Conflict check (same currency)
-(push)
-(assert (<= payAmount_EUR 30))   ; P1: lteq 30 EUR
-(assert (>= payAmount_EUR 50))   ; P2: gteq 50 EUR
-(check-sat)  ; UNSAT → CONFLICT
-(pop)
-
-; Incomparable (different currencies)
-; payAmount_EUR and payAmount_USD are DIFFERENT variables
-; No conflict can be detected → UNKNOWN
+def are_currencies_compatible(unit1: str, unit2: str) -> bool:
+    """Check if two currencies are comparable."""
+    if unit1 is None or unit2 is None:
+        return False
+    return normalize_currency(unit1) == normalize_currency(unit2)
 ```
 
 ---
 
-### 8. Conflict Patterns
+### 6. Abstract Interpretation
 
-| Pattern | c₁ | c₂ | Result |
-|---------|----|----|--------|
-| Same currency, conflict | `lteq 50 [EUR]` | `gteq 100 [EUR]` | `CONFLICT` |
-| Same currency, compatible | `lteq 100 [EUR]` | `gteq 50 [EUR]` | `POSSIBLY-COMPATIBLE` |
-| Different currency | `lteq 50 [EUR]` | `gteq 100 [USD]` | `UNKNOWN` |
-| Missing unit | `lteq 50` | `gteq 100` | `UNKNOWN` |
-| One missing unit | `lteq 50 [EUR]` | `gteq 100` | `UNKNOWN` |
+**Abstract Domain:** 𝕀_ℚ ∩ [0, ∞) (rational intervals over non-negative reals)
+
+**Abstraction function:**
+
+$$\alpha(\texttt{payAmount op } v) = \begin{cases}
+[v, v] & \text{if op} = \texttt{eq} \\
+[0, v) & \text{if op} = \texttt{lt} \\
+[0, v] & \text{if op} = \texttt{lteq} \\
+(v, +\infty) & \text{if op} = \texttt{gt} \\
+[v, +\infty) & \text{if op} = \texttt{gteq} \\
+[0, +\infty) \setminus \{v\} & \text{if op} = \texttt{neq}
+\end{cases}$$
+
+**Concretization:**
+
+$$\gamma([a, b]) = \{ r \in \mathbb{R}_{\geq 0} \mid a \leq r \leq b \}$$
 
 ---
 
-### 9. ODRL Turtle Examples
+### 7. Conflict Detection
+
+**Judgment rules:**
+
+$$\frac{\text{currency-compatible}(c_1, c_2) \land \llbracket c_1 \rrbracket \cap \llbracket c_2 \rrbracket = \emptyset}{\texttt{CONFLICT}(c_1, c_2)}$$
+
+$$\frac{\text{currency-compatible}(c_1, c_2) \land \llbracket c_1 \rrbracket \cap \llbracket c_2 \rrbracket \neq \emptyset}{\texttt{POSSIBLY-COMPATIBLE}(c_1, c_2)}$$
+
+$$\frac{\neg\text{currency-compatible}(c_1, c_2)}{\texttt{UNKNOWN}(c_1, c_2)}$$
+
+**Examples (same currency - EUR):**
+
+| Constraint 1 | Constraint 2 | Interval 1 | Interval 2 | Judgment |
+|--------------|--------------|------------|------------|----------|
+| `lteq 50` | `gteq 100` | [0, 50] | [100, ∞) | **CONFLICT** |
+| `lteq 100` | `gteq 50` | [0, 100] | [50, ∞) | POSSIBLY-COMPATIBLE |
+| `eq 0` | `gt 0` | {0} | (0, ∞) | **CONFLICT** |
+| `gteq 0` | `lteq 1000` | [0, ∞) | [0, 1000] | POSSIBLY-COMPATIBLE |
+| `neq 100` | `eq 100` | [0,∞) \ {100} | {100} | **CONFLICT** |
+
+**Examples (different currencies):**
+
+| Constraint 1 | Constraint 2 | Judgment |
+|--------------|--------------|----------|
+| `lteq 50 EUR` | `gteq 100 USD` | **UNKNOWN** |
+| `eq 100 EUR` | `eq 100 GBP` | **UNKNOWN** |
+| `gteq 0 EUR` | `lteq 1000` (no unit) | **UNKNOWN** |
+
+---
+
+### 8. Special Case: Zero Payment (Free Access)
+
+Unlike `resolution` where zero is degenerate, `payAmount eq 0` is semantically meaningful:
+
+```turtle
+# Valid: Free access constraint
+ex:freeAccess a odrl:Constraint ;
+    odrl:leftOperand odrl:payAmount ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "0"^^xsd:decimal ;
+    odrl:unit <http://qudt.org/vocab/unit/EUR> .
+```
+
+**Interpretation:** No payment required (free/gratis access).
+
+**Conflict example:**
+- `payAmount eq 0 EUR` ∧ `payAmount gt 0 EUR` → **CONFLICT**
+- (Cannot be both free and require payment)
+
+---
+
+### 9. Comparison with Related LeftOperands
+
+| LeftOperand | Domain | Zero Valid | Unit Required | Category |
+|-------------|--------|------------|---------------|----------|
+| **payAmount** | [0, ∞) | ✅ Yes (free) | ✅ Currency | L_unit |
+| **resolution** | (0, ∞) | ❌ No | ✅ DPI/PPI | L_unit |
+| **absoluteSize** | (0, ∞) | ❌ No | ✅ bytes/px | L_unit |
+| **absolutePosition** | [0, ∞) | ✅ Yes (origin) | ✅ sec/bytes | L_unit |
+
+**Key distinction:** `payAmount` includes zero (free access is valid), has currency units, and the ODRL definition **explicitly mandates** `xsd:decimal` datatype.
+
+---
+
+### 10. Classification
+
+| Property | Value |
+|----------|-------|
+| **Analyzability Class** | FULL (when unit present) |
+| **Category** | L_unit |
+| **Equivalence Class** | None (unique currency-dependent semantics) |
+| **External KB Required** | No |
+| **Decidable** | Yes |
+
+---
+
+### 11. Configuration Entry
+
+```python
+"payAmount": {
+    "class": "FULL",
+    "category": "L_unit",
+    "z3_sort": "Real",
+    "domain": {
+        "min": 0,
+        "max": None,
+        "inclusive_min": True,  # Zero is valid (free access)
+        "inclusive_max": None
+    },
+    "operators": [
+        "eq", "neq", "lt", "lteq", "gt", "gteq",
+        "isAnyOf", "isNoneOf", "isAllOf"
+    ],
+    "unit": {
+        "required": True,
+        "category": "currency",
+        "standard": "ISO 4217",
+        "common": ["EUR", "USD", "GBP", "JPY", "CHF", "CAD"],
+        "qudt": [
+            "http://qudt.org/vocab/unit/EUR",
+            "http://qudt.org/vocab/unit/USD",
+            "http://qudt.org/vocab/unit/GBP",
+            "http://qudt.org/vocab/unit/JPY"
+        ]
+    },
+    "datatype": "xsd:decimal",  # Explicitly required by ODRL
+    "dimensions": 1,
+    "external_kb": False,
+    "decidable": True,
+    "smt_theory": "QF_LRA"
+}
+```
+
+---
+
+### 12. LaTeX Table Entry
+
+```latex
+\multicolumn{6}{l}{\textit{Unit-Dependent (4)}} \\
+payAmount & $\mathcal{L}_{\text{unit}}$ & $\mathbb{R}_{\geq 0}$ & LRA & \fullmark & \fullmark \\
+resolution & $\mathcal{L}_{\text{unit}}$ & $\mathbb{R}_{> 0}$ & LRA & \fullmark & \fullmark \\
+absolutePosition & $\mathcal{L}_{\text{unit}}$ & $\mathbb{R}_{\geq 0}$ & LRA & \fullmark & \fullmark \\
+absoluteSize & $\mathcal{L}_{\text{unit}}$ & $\mathbb{R}_{> 0}$ & LRA & \fullmark & \fullmark \\
+```
+
+---
+
+### 13. Publication Statement
+
+> **payAmount** measures the monetary value of payments associated with asset usage, with domain ℝ≥0 explicitly including zero to represent free/gratis access. The ODRL definition mandates `xsd:decimal` datatype and notes that "the unit property indicat[es] the currency." ODRL-SA requires explicit ISO 4217 currency codes for constraint comparison; constraints with different or missing currencies yield UNKNOWN. Currency conversion is intentionally excluded—exchange rates are temporal and would require external data, violating static analysis assumptions. Each (payAmount, currency) pair maps to a separate Z3 Real variable (e.g., `payAmount_EUR`, `payAmount_USD`), ensuring currency-mismatched constraints cannot produce false conflicts. Conflict detection reduces to interval intersection over non-negative reals within QF_LRA.
+
+---
+
+### 14. Summary Table
+
+| Aspect | Specification |
+|--------|---------------|
+| **Semantics** | Financial payment amount |
+| **Domain** | [0, ∞) ⊂ ℝ, zero included (free access) |
+| **Datatype** | `xsd:decimal` (ODRL-mandated) |
+| **Operators** | 9/12 (numeric + set, excluding semantic) |
+| **isAllOf** | SAT iff all values identical |
+| **Unit** | Required (ISO 4217 currency) |
+| **Unit mismatch** | → UNKNOWN |
+| **Dimensions** | 1D scalar |
+| **SMT Theory** | QF_LRA |
+| **Z3 Sort** | Real |
+| **External KB** | Not required |
+| **Decidable** | Yes |
+| **Category** | L_unit |
+
+---
+
+### 15. Test Cases
 
 ```turtle
 @prefix odrl: <http://www.w3.org/ns/odrl/2/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix ex: <http://example.org/> .
-@prefix dbr: <http://dbpedia.org/resource/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
 
-# Example 1: Payment at most 100 EUR
-ex:c1 a odrl:Constraint ;
-    odrl:leftOperand odrl:payAmount ;
-    odrl:operator odrl:lteq ;
-    odrl:rightOperand "100.00"^^xsd:decimal ;
-    odrl:unit dbr:Euro .
+# Test 1: Same currency - CONFLICT
+ex:policy_payAmount_conflict
+    a odrl:Set ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:and (
+                [ odrl:leftOperand odrl:payAmount ;
+                  odrl:operator odrl:lteq ;
+                  odrl:rightOperand "50"^^xsd:decimal ;
+                  odrl:unit qudt:EUR ]
+                [ odrl:leftOperand odrl:payAmount ;
+                  odrl:operator odrl:gteq ;
+                  odrl:rightOperand "100"^^xsd:decimal ;
+                  odrl:unit qudt:EUR ]
+            )
+        ]
+    ] .
+# Expected: CONFLICT ([0,50] ∩ [100,∞) = ∅)
 
-# Example 2: Payment at least 50 EUR
-ex:c2 a odrl:Constraint ;
-    odrl:leftOperand odrl:payAmount ;
-    odrl:operator odrl:gteq ;
-    odrl:rightOperand "50.00"^^xsd:decimal ;
-    odrl:unit dbr:Euro .
+# Test 2: Same currency - COMPATIBLE
+ex:policy_payAmount_compatible
+    a odrl:Set ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:and (
+                [ odrl:leftOperand odrl:payAmount ;
+                  odrl:operator odrl:gteq ;
+                  odrl:rightOperand "50"^^xsd:decimal ;
+                  odrl:unit qudt:EUR ]
+                [ odrl:leftOperand odrl:payAmount ;
+                  odrl:operator odrl:lteq ;
+                  odrl:rightOperand "100"^^xsd:decimal ;
+                  odrl:unit qudt:EUR ]
+            )
+        ]
+    ] .
+# Expected: POSSIBLY-COMPATIBLE ([50,100] ≠ ∅)
 
-# Example 3: Exact payment
-ex:c3 a odrl:Constraint ;
-    odrl:leftOperand odrl:payAmount ;
-    odrl:operator odrl:eq ;
-    odrl:rightOperand "75.00"^^xsd:decimal ;
-    odrl:unit dbr:Euro .
+# Test 3: Different currencies - UNKNOWN
+ex:policy_payAmount_different_currency
+    a odrl:Set ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:and (
+                [ odrl:leftOperand odrl:payAmount ;
+                  odrl:operator odrl:lteq ;
+                  odrl:rightOperand "50"^^xsd:decimal ;
+                  odrl:unit qudt:EUR ]
+                [ odrl:leftOperand odrl:payAmount ;
+                  odrl:operator odrl:gteq ;
+                  odrl:rightOperand "100"^^xsd:decimal ;
+                  odrl:unit qudt:USD ]
+            )
+        ]
+    ] .
+# Expected: UNKNOWN (EUR ≠ USD)
 
-# Example 4: Payment in USD (different currency)
-ex:c4 a odrl:Constraint ;
-    odrl:leftOperand odrl:payAmount ;
-    odrl:operator odrl:lteq ;
-    odrl:rightOperand "100.00"^^xsd:decimal ;
-    odrl:unit dbr:United_States_dollar .
-
-# Example 5: Duty with payment
-ex:duty1 a odrl:Duty ;
-    odrl:action odrl:compensate ;
-    odrl:constraint ex:c1 .
-
-# Example 6: Logical composition (payment range)
-ex:c5 a odrl:LogicalConstraint ;
-    odrl:and (ex:c1 ex:c2) .  # Between 50 and 100 EUR
+# Test 4: Free access vs paid - CONFLICT
+ex:policy_payAmount_free_vs_paid
+    a odrl:Set ;
+    odrl:permission [
+        odrl:action odrl:use ;
+        odrl:constraint [
+            odrl:and (
+                [ odrl:leftOperand odrl:payAmount ;
+                  odrl:operator odrl:eq ;
+                  odrl:rightOperand "0"^^xsd:decimal ;
+                  odrl:unit qudt:EUR ]
+                [ odrl:leftOperand odrl:payAmount ;
+                  odrl:operator odrl:gt ;
+                  odrl:rightOperand "0"^^xsd:decimal ;
+                  odrl:unit qudt:EUR ]
+            )
+        ]
+    ] .
+# Expected: CONFLICT ({0} ∩ (0,∞) = ∅)
 ```
-
----
-
-### 10. Implementation
-
-#### 10.1 Configuration
-
-```yaml
-payAmount:
-  class: FULL
-  category: L_unit
-  z3_sort: Real
-  domain:
-    min: 0
-    max: null
-  requires_unit: true
-  unit_type: currency
-  valid_units:
-    - http://dbpedia.org/resource/Euro
-    - http://dbpedia.org/resource/United_States_dollar
-    - http://dbpedia.org/resource/Pound_sterling
-    - http://dbpedia.org/resource/Japanese_yen
-    # ... extensible
-  operators: [eq, neq, lt, lteq, gt, gteq, isAnyOf, isNoneOf]
-  restricted_operators: [isAllOf]
-  invalid_operators: [isA, hasPart, isPartOf]
-  note: "Currency unit REQUIRED for comparability"
-  description: "Financial payment amount"
-```
-
-#### 10.2 Comparability Check
-
-```python
-def is_comparable_payAmount(c1: AtomicConstraint, c2: AtomicConstraint) -> ComparabilityResult:
-    """Check if two payAmount constraints are comparable."""
-    
-    # Must be same LeftOperand
-    if normalize_operand(c1.left_operand) != "payAmount":
-        return ComparabilityResult(False, "Not payAmount")
-    if normalize_operand(c2.left_operand) != "payAmount":
-        return ComparabilityResult(False, "Not payAmount")
-    
-    # Must have units
-    if c1.unit is None or c2.unit is None:
-        return ComparabilityResult(
-            comparable=False,
-            reason="MISSING_UNIT",
-            details="payAmount requires currency unit for comparison"
-        )
-    
-    # Must have SAME unit
-    unit1 = normalize_unit(c1.unit)
-    unit2 = normalize_unit(c2.unit)
-    
-    if unit1 != unit2:
-        return ComparabilityResult(
-            comparable=False,
-            reason="UNIT_MISMATCH",
-            details=f"Cannot compare {unit1} with {unit2} (no currency conversion)"
-        )
-    
-    return ComparabilityResult(comparable=True)
-```
-
-#### 10.3 Variable Manager Update
-
-```python
-def get_variable(self, left_operand: str, unit: Optional[str] = None, ...):
-    """Get or create Z3 variable."""
-    op = normalize_operand(left_operand)
-    
-    # For unit-dependent operands, unit is part of variable identity
-    if op in L_UNIT:
-        if unit is None:
-            # No unit → use placeholder, will be marked incomparable
-            unit = "UNKNOWN"
-        key = f"{op}_{normalize_unit(unit)}"
-    else:
-        key = f"{op}_default"
-    
-    if key not in self._variables:
-        bounds = DOMAIN_BOUNDS.get(op)
-        var = Real(key) if bounds and bounds.use_real else Int(key)
-        self._variables[key] = var
-        self._var_info[key] = {'operand': op, 'unit': unit, 'bounds': bounds}
-    
-    return self._variables[key]
-```
-
----
-
-### 11. Summary Table
-
-| Dimension | Value |
-|-----------|-------|
-| **LeftOperand** | `odrl:payAmount` |
-| **Category** | 𝓛_unit |
-| **XSD Type** | xsd:decimal |
-| **Domain** | ℝ≥0 |
-| **Valid Operators** | 9/12 (75%) |
-| **Abstract Domain** | 𝕀_ℝ≥0 |
-| **SMT Theory** | QF-LRA |
-| **Z3 Sort** | Real |
-| **Decidable** | ✅ Yes (same unit) |
-| **Unit** | ✅ **REQUIRED** (currency) |
-| **Scope** | ❌ None |
-| **Currency Conversion** | ❌ Not supported |
-| **Cross-Currency Comparison** | `UNKNOWN` |
-
----
-
-### 12. Comparison with Other Unit-Dependent LeftOperands
-
-| LeftOperand | Domain | Unit Type | Examples |
-|-------------|--------|-----------|----------|
-| `payAmount` | ℝ≥0 | Currency | EUR, USD, GBP |
-| `resolution` | ℝ>0 | Density | DPI, PPI |
-| `absolutePosition` | ℝ≥0 | Length/Time | seconds, bytes, pixels |
-| `absoluteSize` | ℝ>0 | Size | bytes, pixels, mm |
-
-**Shared properties:**
-- All require unit for comparability
-- All use QF-LRA
-- All yield `UNKNOWN` on unit mismatch
-- No automatic unit conversion
-
----
-
-### 13. Paper Statement
-
-> The `odrl:payAmount` LeftOperand represents a financial payment amount with mandatory currency unit. ODRL-SA treats each (payAmount, currency) pair as a distinct variable, ensuring constraints with different currencies are classified as `UNKNOWN` rather than falsely compared. Currency conversion is intentionally excluded—it would require external exchange rate data and introduce temporal dependence, violating static analysis assumptions. This design preserves soundness: detected conflicts involve the same currency and are genuine.
-
----
-
-### 14. Test Cases
-
-| # | c₁ | c₂ | Expected | Reason |
-|---|----|----|----------|--------|
-| 1 | `lteq 50 [EUR]` | `gteq 100 [EUR]` | `CONFLICT` | [0,50] ∩ [100,∞) = ∅ |
-| 2 | `lteq 100 [EUR]` | `gteq 50 [EUR]` | `POSSIBLY-COMPATIBLE` | [0,100] ∩ [50,∞) = [50,100] |
-| 3 | `eq 75 [EUR]` | `gteq 50 [EUR]` | `POSSIBLY-COMPATIBLE` | 75 ∈ [50,∞) |
-| 4 | `eq 75 [EUR]` | `eq 100 [EUR]` | `CONFLICT` | 75 ≠ 100 |
-| 5 | `lteq 50 [EUR]` | `gteq 100 [USD]` | `UNKNOWN` | Different currency |
-| 6 | `lteq 50 [EUR]` | `gteq 100` | `UNKNOWN` | Missing unit |
-| 7 | `lteq 50` | `gteq 100` | `UNKNOWN` | Both missing unit |
-
----
-
-**This is the complete formal specification for `payAmount`.**
-
-**Next:** `resolution`, `absolutePosition`, `absoluteSize` follow the same pattern with different unit types.

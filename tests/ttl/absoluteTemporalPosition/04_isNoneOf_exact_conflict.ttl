@@ -1,0 +1,32 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 04: isNoneOf exact position CONFLICT
+# Expected: CONFLICT
+# isNoneOf [192, 250, 600] AND =250 = ∅
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:clip01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:isNoneOf ;
+                    odrl:rightOperand ( "192"^^xsd:decimal "250"^^xsd:decimal "600"^^xsd:decimal )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:eq ;
+                    odrl:rightOperand "250"^^xsd:decimal
+                ]
+            )
+        ]
+    ] .

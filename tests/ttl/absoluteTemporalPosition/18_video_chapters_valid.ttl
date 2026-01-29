@@ -1,0 +1,71 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 18: Video chapters CONSISTENT
+# Expected: CONSISTENT
+# XONE(intro [0,30], main [60,540], credits [570,600])
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:xone (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteTemporalPosition ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "0"^^xsd:decimal
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteTemporalPosition ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "30"^^xsd:decimal
+                        ]
+                    )
+                ]
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteTemporalPosition ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "60"^^xsd:decimal
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteTemporalPosition ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "540"^^xsd:decimal
+                        ]
+                    )
+                ]
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteTemporalPosition ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "570"^^xsd:decimal
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteTemporalPosition ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "600"^^xsd:decimal
+                        ]
+                    )
+                ]
+            )
+        ]
+    ] .

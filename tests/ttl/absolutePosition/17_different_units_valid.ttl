@@ -1,0 +1,35 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 17: Different units CONSISTENT
+# Expected: CONSISTENT (different Z3 variables)
+# ≤30 SEC AND ≥500 PX - independent (temporal vs spatial)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absolutePosition ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "30"^^xsd:decimal ;
+                    odrl:unit qudt:SEC
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absolutePosition ;
+                    odrl:operator odrl:gteq ;
+                    odrl:rightOperand "500"^^xsd:decimal ;
+                    odrl:unit qudt:PX
+                ]
+            )
+        ]
+    ] .

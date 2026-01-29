@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 08: Multiple neq eliminating isAnyOf CONFLICT
+# Expected: CONFLICT
+# isAnyOf [0, 600, 1200] AND ≠0 AND ≠600 AND ≠1200 = ∅
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:advertisement01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:isAnyOf ;
+                    odrl:rightOperand ( "0"^^xsd:decimal "600"^^xsd:decimal "1200"^^xsd:decimal )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:neq ;
+                    odrl:rightOperand "0"^^xsd:decimal
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:neq ;
+                    odrl:rightOperand "600"^^xsd:decimal
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:neq ;
+                    odrl:rightOperand "1200"^^xsd:decimal
+                ]
+            )
+        ]
+    ] .

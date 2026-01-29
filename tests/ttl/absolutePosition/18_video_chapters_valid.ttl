@@ -1,0 +1,79 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 18: Video chapters CONSISTENT
+# Expected: CONSISTENT
+# XONE(intro [0,30], main [60,300], credits [330,360])
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:xone (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "0"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "30"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                    )
+                ]
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "60"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "300"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                    )
+                ]
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "330"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "360"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                    )
+                ]
+            )
+        ]
+    ] .

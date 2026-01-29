@@ -1,0 +1,27 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 22: Realistic use case - Web distribution limit
+# Expected: CONSISTENT
+
+ex:webLicense a odrl:Set ;
+    odrl:uid ex:webLicense ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:photograph01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:resolution ;
+            odrl:operator odrl:lteq ;
+            odrl:rightOperand "72"^^xsd:decimal ;
+            odrl:unit qudt:DPI
+        ]
+    ] ;
+    odrl:prohibition [
+        a odrl:Prohibition ;
+        odrl:action odrl:print ;
+        odrl:target ex:photograph01
+    ] .

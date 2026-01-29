@@ -1,0 +1,43 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 07: OR both branches impossible CONFLICT
+# Expected: CONFLICT
+# (≤100 OR =200) AND >200 = ∅
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:or (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteTemporalPosition ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "100"^^xsd:decimal
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteTemporalPosition ;
+                            odrl:operator odrl:eq ;
+                            odrl:rightOperand "200"^^xsd:decimal
+                        ]
+                    )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteTemporalPosition ;
+                    odrl:operator odrl:gt ;
+                    odrl:rightOperand "200"^^xsd:decimal
+                ]
+            )
+        ]
+    ] .

@@ -1,0 +1,36 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 17: Different units CONSISTENT
+# Expected: CONSISTENT (different Z3 variables)
+# ≤1000 PX AND ≤10 MB - independent (spatial vs data)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:reproduce ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "1000"^^xsd:decimal ;
+                    odrl:unit qudt:PX
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "10"^^xsd:decimal ;
+                    odrl:unit qudt:MegaBYTE
+                ]
+            )
+        ]
+    ] .

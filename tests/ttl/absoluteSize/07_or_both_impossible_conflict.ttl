@@ -1,0 +1,48 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 07: OR both branches impossible CONFLICT
+# Expected: CONFLICT
+# (≤100 OR =500) AND >500 = ∅
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:image01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:or (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteSize ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "100"^^xsd:decimal ;
+                            odrl:unit qudt:PX
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteSize ;
+                            odrl:operator odrl:eq ;
+                            odrl:rightOperand "500"^^xsd:decimal ;
+                            odrl:unit qudt:PX
+                        ]
+                    )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:gt ;
+                    odrl:rightOperand "500"^^xsd:decimal ;
+                    odrl:unit qudt:PX
+                ]
+            )
+        ]
+    ] .

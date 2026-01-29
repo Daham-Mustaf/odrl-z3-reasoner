@@ -1,0 +1,34 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+# Test 39: Different units DPI vs PPI INDEPENDENT
+# Expected: CONSISTENT (different units = different Z3 variables)
+# Without unit conversion, these don't conflict
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:print ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:resolution ;
+                    odrl:operator odrl:eq ;
+                    odrl:rightOperand "72"^^xsd:decimal ;
+                    odrl:unit qudt:DPI
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:resolution ;
+                    odrl:operator odrl:eq ;
+                    odrl:rightOperand "300"^^xsd:decimal ;
+                    odrl:unit qudt:PPI
+                ]
+            )
+        ]
+    ] .

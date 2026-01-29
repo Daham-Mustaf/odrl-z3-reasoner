@@ -1,0 +1,43 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 13: File size isAnyOf CONSISTENT
+# Expected: CONSISTENT
+# isAnyOf [1, 5, 10, 20] MB AND ≥5 AND ≤20 = {5, 10, 20}
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:file01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:isAnyOf ;
+                    odrl:rightOperand ( "1"^^xsd:decimal "5"^^xsd:decimal "10"^^xsd:decimal "20"^^xsd:decimal ) ;
+                    odrl:unit qudt:MegaBYTE
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:gteq ;
+                    odrl:rightOperand "5"^^xsd:decimal ;
+                    odrl:unit qudt:MegaBYTE
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "20"^^xsd:decimal ;
+                    odrl:unit qudt:MegaBYTE
+                ]
+            )
+        ]
+    ] .

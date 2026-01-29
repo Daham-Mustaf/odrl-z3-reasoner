@@ -1,0 +1,23 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 05: isAllOf different values CONFLICT
+# Expected: CONFLICT (cannot be 1920, 1080, AND 4096 simultaneously)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:image01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:absoluteSize ;
+            odrl:operator odrl:isAllOf ;
+            odrl:rightOperand ( "1920"^^xsd:decimal "1080"^^xsd:decimal "4096"^^xsd:decimal ) ;
+            odrl:unit qudt:PX
+        ]
+    ] .

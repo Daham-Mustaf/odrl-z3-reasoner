@@ -1,0 +1,66 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 18: Tiered pricing CONSISTENT
+# Expected: CONSISTENT
+# XONE(=0 free, [10,50] basic, [100,500] premium)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:xone (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:eq ;
+                    odrl:rightOperand "0"^^xsd:decimal ;
+                    odrl:unit qudt:EUR
+                ]
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "10"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "50"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                    )
+                ]
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "100"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "500"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                    )
+                ]
+            )
+        ]
+    ] .

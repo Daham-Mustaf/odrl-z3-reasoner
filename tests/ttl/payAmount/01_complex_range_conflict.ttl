@@ -1,0 +1,59 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 01: Complex range CONFLICT
+# Expected: CONFLICT
+# (≥100 AND ≤200) AND (≥300 AND ≤400) = [100,200] ∩ [300,400] = ∅
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "100"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "200"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                    )
+                ]
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "300"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:payAmount ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "400"^^xsd:decimal ;
+                            odrl:unit qudt:EUR
+                        ]
+                    )
+                ]
+            )
+        ]
+    ] .

@@ -1,0 +1,42 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 13: isAnyOf with range CONSISTENT
+# Expected: CONSISTENT
+# isAnyOf [25, 50, 75, 100] AND ≥50 AND ≤100 = {50, 75, 100}
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:isAnyOf ;
+                    odrl:rightOperand ( "25"^^xsd:decimal "50"^^xsd:decimal "75"^^xsd:decimal "100"^^xsd:decimal ) ;
+                    odrl:unit qudt:EUR
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:gteq ;
+                    odrl:rightOperand "50"^^xsd:decimal ;
+                    odrl:unit qudt:EUR
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:lteq ;
+                    odrl:rightOperand "100"^^xsd:decimal ;
+                    odrl:unit qudt:EUR
+                ]
+            )
+        ]
+    ] .

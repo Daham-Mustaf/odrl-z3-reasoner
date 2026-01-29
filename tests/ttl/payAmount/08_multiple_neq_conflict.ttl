@@ -1,0 +1,49 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 08: Multiple neq with isAnyOf CONFLICT
+# Expected: CONFLICT
+# isAnyOf [10,20,30] AND ≠10 AND ≠20 AND ≠30 = ∅
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:isAnyOf ;
+                    odrl:rightOperand ( "10"^^xsd:decimal "20"^^xsd:decimal "30"^^xsd:decimal ) ;
+                    odrl:unit qudt:EUR
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:neq ;
+                    odrl:rightOperand "10"^^xsd:decimal ;
+                    odrl:unit qudt:EUR
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:neq ;
+                    odrl:rightOperand "20"^^xsd:decimal ;
+                    odrl:unit qudt:EUR
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:payAmount ;
+                    odrl:operator odrl:neq ;
+                    odrl:rightOperand "30"^^xsd:decimal ;
+                    odrl:unit qudt:EUR
+                ]
+            )
+        ]
+    ] .

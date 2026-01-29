@@ -1,0 +1,48 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+
+# Test 06: XONE with AND CONFLICT
+# Expected: CONFLICT
+# XONE(≤256, ≥1024) AND =512 - value 512 satisfies neither branch
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:image01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:xone (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteSize ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "256"^^xsd:decimal ;
+                            odrl:unit qudt:PX
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absoluteSize ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "1024"^^xsd:decimal ;
+                            odrl:unit qudt:PX
+                        ]
+                    )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:absoluteSize ;
+                    odrl:operator odrl:eq ;
+                    odrl:rightOperand "512"^^xsd:decimal ;
+                    odrl:unit qudt:PX
+                ]
+            )
+        ]
+    ] .

@@ -122,37 +122,39 @@ def _normalize_with_oracle(operand: str, value: str) -> str:
 @dataclass
 class DomainBounds:
     """Domain bounds for a LeftOperand."""
-    min_val: Optional[float]  # None = -inf
-    max_val: Optional[float]  # None = +inf
-    is_integer: bool
-    use_real: bool  # Use Real sort instead of Int
+    min_val: Optional[float] = None  # None = -inf
+    max_val: Optional[float] = None  # None = +inf
+    is_integer: bool = False
+    use_real: bool = True  # Use Real sort instead of Int
+    exclusive_min: bool = False  # True for (0, ∞) domains
+    exclusive_max: bool = False  # True for exclusive upper bound
 
 
 # Domain bounds per LeftOperand (from formal spec)
 DOMAIN_BOUNDS: Dict[str, DomainBounds] = {
     # Numeric
-    "count": DomainBounds(0, None, True, False),
+    "count": DomainBounds(min_val=0, max_val=None, is_integer=True, use_real=False),
     "percentage": DomainBounds(min_val=0, max_val=100, is_integer=False, use_real=True),
-    "payAmount": DomainBounds(0, None, False, True),
-    "resolution": DomainBounds(0, None, False, True),
+    "payAmount": DomainBounds(min_val=0, max_val=None, is_integer=False, use_real=True),
+    "resolution": DomainBounds(min_val=0, max_val=None, is_integer=False, use_real=True, exclusive_min=True),
     
     # Temporal
-    "dateTime": DomainBounds(None, None, True, False),  # Unix timestamp
-    "timeInterval": DomainBounds(1, None, True, False),  # Seconds (min=1)
-    "elapsedTime": DomainBounds(0, None, True, False),  # Seconds
-    "delayPeriod": DomainBounds(0, None, True, False),  # Seconds
+    "dateTime": DomainBounds(min_val=None, max_val=None, is_integer=True, use_real=False),
+    "timeInterval": DomainBounds(min_val=1, max_val=None, is_integer=True, use_real=False),
+    "elapsedTime": DomainBounds(min_val=0, max_val=None, is_integer=True, use_real=False),
+    "delayPeriod": DomainBounds(min_val=0, max_val=None, is_integer=True, use_real=False),
     
     # Positional - Absolute
-    "absolutePosition": DomainBounds(0, None, False, True),
-    "absoluteSize": DomainBounds(0, None, False, True),
-    "absoluteTemporalPosition": DomainBounds(0, None, False, True),
-    "absoluteSpatialPosition": DomainBounds(0, None, False, True),
+    "absolutePosition": DomainBounds(min_val=0, max_val=None, is_integer=False, use_real=True),
+    "absoluteSize": DomainBounds(min_val=0, max_val=None, is_integer=False, use_real=True, exclusive_min=True),
+    "absoluteTemporalPosition": DomainBounds(min_val=0, max_val=None, is_integer=False, use_real=True),
+    "absoluteSpatialPosition": DomainBounds(min_val=0, max_val=None, is_integer=False, use_real=True),
     
     # Positional - Relative (0-100%)
-    "relativePosition": DomainBounds(0, 100, False, True),
-    "relativeSize": DomainBounds(0, None, False, True),
-    "relativeTemporalPosition": DomainBounds(0, 100, False, True),
-    "relativeSpatialPosition": DomainBounds(0, 100, False, True),
+    "relativePosition": DomainBounds(min_val=0, max_val=100, is_integer=False, use_real=True),
+    "relativeSize": DomainBounds(min_val=0, max_val=None, is_integer=False, use_real=True),
+    "relativeTemporalPosition": DomainBounds(min_val=0, max_val=100, is_integer=False, use_real=True),
+    "relativeSpatialPosition": DomainBounds(min_val=0, max_val=100, is_integer=False, use_real=True),
 }
 
 # Category sets for convenience
@@ -252,9 +254,15 @@ class Z3VariableManager:
             
             if bounds:
                 if bounds.min_val is not None:
-                    constraints.append(var >= bounds.min_val)
+                    if bounds.exclusive_min:
+                        constraints.append(var > bounds.min_val)  # Strict >
+                    else:
+                        constraints.append(var >= bounds.min_val)  # Inclusive >=
                 if bounds.max_val is not None:
-                    constraints.append(var <= bounds.max_val)
+                    if bounds.exclusive_max:
+                        constraints.append(var < bounds.max_val)  # Strict 
+                    else:
+                        constraints.append(var <= bounds.max_val)  # Inclusive <=
         
         return constraints
     

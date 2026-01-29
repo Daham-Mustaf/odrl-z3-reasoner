@@ -1,0 +1,47 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 27: resolution OR with AND constraint
+# Expected: CONSISTENT
+# (≤150 OR ≥600) AND ≥72 = (72,150] ∪ [600,∞)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:print ;
+        odrl:target ex:asset01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:or (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:resolution ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "150"^^xsd:decimal ;
+                            odrl:unit qudt:DPI
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:resolution ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "600"^^xsd:decimal ;
+                            odrl:unit qudt:DPI
+                        ]
+                    )
+                ]
+                [
+                    a odrl:Constraint ;
+                    odrl:leftOperand odrl:resolution ;
+                    odrl:operator odrl:gteq ;
+                    odrl:rightOperand "72"^^xsd:decimal ;
+                    odrl:unit qudt:DPI
+                ]
+            )
+        ]
+    ] .

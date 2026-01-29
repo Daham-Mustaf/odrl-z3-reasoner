@@ -1,0 +1,60 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qudt: <http://qudt.org/vocab/unit/> .
+
+# Test 01: Temporal range CONFLICT
+# Expected: CONFLICT
+# (≥0 AND ≤30) AND (≥60 AND ≤120) = [0,30] ∩ [60,120] = ∅
+# Video segment conflict: first 30 sec vs 60-120 sec
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:video01 ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:and (
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "0"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "30"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                    )
+                ]
+                [
+                    a odrl:LogicalConstraint ;
+                    odrl:and (
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:gteq ;
+                            odrl:rightOperand "60"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                        [
+                            a odrl:Constraint ;
+                            odrl:leftOperand odrl:absolutePosition ;
+                            odrl:operator odrl:lteq ;
+                            odrl:rightOperand "120"^^xsd:decimal ;
+                            odrl:unit qudt:SEC
+                        ]
+                    )
+                ]
+            )
+        ]
+    ] .

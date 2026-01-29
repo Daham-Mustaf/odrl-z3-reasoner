@@ -1,0 +1,20 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Test 05: isAllOf different values CONFLICT
+# Expected: CONFLICT (cannot be at 192, 250, AND 600 simultaneously)
+
+ex:policy01 a odrl:Set ;
+    odrl:uid ex:policy01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:clip01 ;
+        odrl:constraint [
+            a odrl:Constraint ;
+            odrl:leftOperand odrl:absoluteTemporalPosition ;
+            odrl:operator odrl:isAllOf ;
+            odrl:rightOperand ( "192"^^xsd:decimal "250"^^xsd:decimal "600"^^xsd:decimal )
+        ]
+    ] .
