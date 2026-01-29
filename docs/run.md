@@ -46,12 +46,13 @@ echo ""
 echo "--- resolution Tests ---"
 uv run python main.py tests/ttl/unit_dependent/resolution/ --all
 
-echo ""
-echo "--- absoluteSize Tests ---"
-uv run python main.py tests/ttl/unit_dependent/absoluteSize/ --all
 
-echo ""
-echo "--- absolutePosition Tests ---"
+uv run python main.py tests/ttl/unit_dependent/absoluteSize/ --all
 uv run python main.py tests/ttl/unit_dependent/absolutePosition/ --all
+uv run python main.py tests/ttl/relativePosition --all
+uv run python main.py tests/ttl/relativeSize --all
+uv run python main.py tests/ttl/relativeTemporalPosition/ --all
+uv run python main.py tests/ttl/relativeSpatialPosition/ --all
+
 
 

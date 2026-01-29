@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# =============================================================================
+# Test 4: New Action (Child permits action not in parent)
+# Parent: permits "use"
+# Child:  permits "use" AND "distribute"  (VIOLATION - new action!)
+# =============================================================================
+
+ex:parentPolicy a odrl:Set ;
+    odrl:uid ex:parentPolicy ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:uid ex:parentPerm ;
+        odrl:action odrl:use ;
+        odrl:constraint ex:parentConstraint
+    ] .
+
+ex:parentConstraint a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "100"^^xsd:integer .
+
+ex:childPolicy a odrl:Set ;
+    odrl:uid ex:childPolicy ;
+    odrl:inheritFrom ex:parentPolicy ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:uid ex:childPerm1 ;
+        odrl:action odrl:use ;
+        odrl:constraint ex:childConstraint
+    ] ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:uid ex:childPerm2 ;
+        odrl:action odrl:distribute ;
+        odrl:constraint ex:childConstraint
+    ] .
+
+ex:childConstraint a odrl:Constraint ;
+    odrl:leftOperand odrl:count ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "50"^^xsd:integer .

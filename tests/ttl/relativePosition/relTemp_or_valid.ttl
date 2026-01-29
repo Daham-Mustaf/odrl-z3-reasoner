@@ -1,0 +1,26 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+
+ex:policy_relTemp_or
+    a odrl:Set ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:constraint [
+            a odrl:LogicalConstraint ;
+            odrl:operator odrl:or ;
+            odrl:constraint (
+                [
+                    odrl:leftOperand odrl:relativeTemporalPosition ;
+                    odrl:operator odrl:lt ;
+                    odrl:rightOperand "10"^^xsd:decimal
+                ]
+                [
+                    odrl:leftOperand odrl:relativeTemporalPosition ;
+                    odrl:operator odrl:gt ;
+                    odrl:rightOperand "90"^^xsd:decimal
+                ]
+            )
+        ]
+    ] .

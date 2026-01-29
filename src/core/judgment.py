@@ -34,6 +34,68 @@ from .constraint_types import (
 )
 from .classifier import classify_constraint, ClassificationResult
 
+
+# =============================================================================
+# LEFTOPERAND CATEGORIES (from formal specification)
+# =============================================================================
+
+# LeftOperands that REQUIRE unit for comparability
+# These yield UNKNOWN if unit is missing or mismatched
+L_UNIT_REQUIRED = {
+    "payAmount",
+    "resolution",
+    "absolutePosition",
+    "absoluteSize",
+}
+
+# LeftOperands that use unitOfCount as optional scope
+# Missing scope -> default (comparable)
+# Different scopes -> UNKNOWN
+L_SCOPE_DEPENDENT = {
+    "count",
+}
+
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+def normalize_operand(operand: str) -> str:
+    """
+    Normalize operand IRI to local name.
+    
+    Examples:
+        "http://www.w3.org/ns/odrl/2/payAmount" -> "payAmount"
+        "odrl:payAmount" -> "payAmount"
+        "payAmount" -> "payAmount"
+    """
+    if '/' in operand:
+        return operand.split('/')[-1]
+    if '#' in operand:
+        return operand.split('#')[-1]
+    if ':' in operand:
+        return operand.split(':')[-1]
+    return operand
+
+
+def normalize_unit(unit: Optional[str]) -> Optional[str]:
+    """
+    Normalize unit IRI to canonical form.
+    
+    Examples:
+        "http://qudt.org/vocab/unit/EUR" -> "EUR"
+        "http://dbpedia.org/resource/Euro" -> "Euro"
+        "EUR" -> "EUR"
+    """
+    if unit is None:
+        return None
+    if '/' in unit:
+        return unit.split('/')[-1]
+    if '#' in unit:
+        return unit.split('#')[-1]
+    return unit
+
+
 # =============================================================================
 # UNIT ORACLE INTEGRATION
 # =============================================================================
@@ -47,8 +109,8 @@ except ImportError:
     
     def are_units_compatible(u1: str, u2: str) -> bool:
         """Fallback: normalize and compare."""
-        u1_norm = u1.split('#')[-1].split('/')[-1] if u1 else None
-        u2_norm = u2.split('#')[-1].split('/')[-1] if u2 else None
+        u1_norm = normalize_unit(u1)
+        u2_norm = normalize_unit(u2)
         return u1_norm == u2_norm
 
 
@@ -61,6 +123,7 @@ class IncomparabilityReason(Enum):
     DIFFERENT_OPERANDS = auto()
     NON_ANALYZABLE_CLASS = auto()
     INCOMPATIBLE_UNITS = auto()
+    MISSING_REQUIRED_UNIT = auto()  # NEW: For L_UNIT_REQUIRED operands
     INCOMPATIBLE_SCOPE = auto()
     INCOMPATIBLE_TEMPORAL_REF = auto()
     MISSING_ORACLE = auto()
@@ -80,9 +143,8 @@ class ComparabilityResult:
 
 def check_same_operand(c1: AtomicConstraint, c2: AtomicConstraint) -> ComparabilityResult:
     """Check: ℓ₁ = ℓ₂ (same LeftOperand)."""
-    # Normalize operand names
-    l1 = c1.left_operand.split('#')[-1].split('/')[-1]
-    l2 = c2.left_operand.split('#')[-1].split('/')[-1]
+    l1 = normalize_operand(c1.left_operand)
+    l2 = normalize_operand(c2.left_operand)
     
     if l1 != l2:
         return ComparabilityResult(
@@ -128,10 +190,65 @@ def check_unit_compatible(c1: AtomicConstraint, c2: AtomicConstraint) -> Compara
     """
     Check: unit-compatible(c₁, c₂).
     
-    Uses unit oracle for alias resolution (e.g., "euro" → "EUR").
+    CRITICAL FIX: Different behavior for L_UNIT_REQUIRED vs other operands.
+    
+    For L_UNIT_REQUIRED (payAmount, resolution, absolutePosition, absoluteSize):
+        - Unit is REQUIRED
+        - Missing unit -> UNKNOWN (NOT comparable)
+        - Different units -> UNKNOWN (NOT comparable)
+        - Same unit -> comparable
+        
+    For other operands:
+        - Both None -> comparable
+        - One None, one specified -> incompatible (ambiguous)
+        - Both specified -> use oracle for alias resolution
     """
     u1 = c1.unit
     u2 = c2.unit
+    
+    # Get normalized operand name
+    operand = normalize_operand(c1.left_operand)
+    
+    # =========================================================================
+    # CRITICAL FIX: Handle L_UNIT_REQUIRED operands differently
+    # =========================================================================
+    if operand in L_UNIT_REQUIRED:
+        # Both must have units
+        if u1 is None and u2 is None:
+            return ComparabilityResult(
+                comparable=False,
+                reason=IncomparabilityReason.MISSING_REQUIRED_UNIT,
+                details=f"{operand} requires unit for comparison but both constraints lack units"
+            )
+        
+        if u1 is None:
+            return ComparabilityResult(
+                comparable=False,
+                reason=IncomparabilityReason.MISSING_REQUIRED_UNIT,
+                details=f"{operand} requires unit but first constraint has no unit"
+            )
+        
+        if u2 is None:
+            return ComparabilityResult(
+                comparable=False,
+                reason=IncomparabilityReason.MISSING_REQUIRED_UNIT,
+                details=f"{operand} requires unit but second constraint has no unit"
+            )
+        
+        # Both have units - check if compatible
+        if are_units_compatible(u1, u2):
+            return ComparabilityResult(comparable=True)
+        
+        # Different units - not comparable
+        return ComparabilityResult(
+            comparable=False,
+            reason=IncomparabilityReason.INCOMPATIBLE_UNITS,
+            details=f"Cannot compare {operand} with different units: {normalize_unit(u1)} vs {normalize_unit(u2)}"
+        )
+    
+    # =========================================================================
+    # Original logic for non-unit-required operands
+    # =========================================================================
     
     # Both None - compatible
     if u1 is None and u2 is None:
@@ -159,31 +276,44 @@ def check_unit_compatible(c1: AtomicConstraint, c2: AtomicConstraint) -> Compara
 
 
 def check_scope_compatible(c1: AtomicConstraint, c2: AtomicConstraint) -> ComparabilityResult:
-    """Check: scope-compatible(c₁, c₂) for unitOfCount."""
+    """
+    Check: scope-compatible(c₁, c₂) for unitOfCount.
+    
+    For L_SCOPE_DEPENDENT (count):
+        - Both None -> comparable (default scope)
+        - One None, one specified -> comparable (default matches any)
+        - Both specified, same -> comparable
+        - Both specified, different -> UNKNOWN
+    """
     s1 = c1.unit_of_count
     s2 = c2.unit_of_count
+    
+    # Get normalized operand name
+    operand = normalize_operand(c1.left_operand)
+    
+    # Only applies to scope-dependent operands
+    if operand not in L_SCOPE_DEPENDENT:
+        # For non-scope-dependent operands, scope is irrelevant
+        return ComparabilityResult(comparable=True)
     
     # Both None - compatible (default scope)
     if s1 is None and s2 is None:
         return ComparabilityResult(comparable=True)
     
-    # One None, one specified
-    if (s1 is None) != (s2 is None):
-        return ComparabilityResult(
-            comparable=False,
-            reason=IncomparabilityReason.INCOMPATIBLE_SCOPE,
-            details=f"Scope mismatch: {s1} vs {s2}"
-        )
+    # One None, one specified - compatible (default matches any)
+    # This is different from units because scope has a meaningful default
+    if s1 is None or s2 is None:
+        return ComparabilityResult(comparable=True)
     
     # Both specified - must match
-    s1_norm = s1.split('#')[-1].split('/')[-1] if s1 else None
-    s2_norm = s2.split('#')[-1].split('/')[-1] if s2 else None
+    s1_norm = normalize_unit(s1)
+    s2_norm = normalize_unit(s2)
     
     if s1_norm != s2_norm:
         return ComparabilityResult(
             comparable=False,
             reason=IncomparabilityReason.INCOMPATIBLE_SCOPE,
-            details=f"Different scopes: {s1} vs {s2}"
+            details=f"Different scopes: {s1_norm} vs {s2_norm}"
         )
     
     return ComparabilityResult(comparable=True)
@@ -191,9 +321,8 @@ def check_scope_compatible(c1: AtomicConstraint, c2: AtomicConstraint) -> Compar
 
 def check_temporal_compatible(c1: AtomicConstraint, c2: AtomicConstraint) -> ComparabilityResult:
     """Check: temporal-compatible(c₁, c₂) for reference point alignment."""
-    # Get normalized operand
-    l1 = c1.left_operand.split('#')[-1].split('/')[-1]
-    l2 = c2.left_operand.split('#')[-1].split('/')[-1]
+    l1 = normalize_operand(c1.left_operand)
+    l2 = normalize_operand(c2.left_operand)
     
     # Reference-point operands
     ref_point_ops = {"elapsedTime", "delayPeriod"}
@@ -202,7 +331,7 @@ def check_temporal_compatible(c1: AtomicConstraint, c2: AtomicConstraint) -> Com
     if l1 not in ref_point_ops and l2 not in ref_point_ops:
         return ComparabilityResult(comparable=True)
     
-    # If both use same reference-point operand - compatible
+    # If both use same reference-point operand - comparable
     # (They share the same reference point)
     if l1 == l2 and l1 in ref_point_ops:
         return ComparabilityResult(comparable=True)
@@ -227,7 +356,7 @@ def is_comparable(c1: AtomicConstraint, c2: AtomicConstraint) -> ComparabilityRe
         scope-compatible(c₁, c₂) ∧
         temporal-compatible(c₁, c₂)
     """
-    # 1. Same LeftOperand
+    # 1. Same operand check
     result = check_same_operand(c1, c2)
     if not result.comparable:
         return result
@@ -239,7 +368,7 @@ def is_comparable(c1: AtomicConstraint, c2: AtomicConstraint) -> ComparabilityRe
     if not result.comparable:
         return result
     
-    # 3. Unit compatible (uses oracle for alias resolution)
+    # 3. Unit compatible (CRITICAL FIX: handles L_UNIT_REQUIRED correctly)
     result = check_unit_compatible(c1, c2)
     if not result.comparable:
         return result
@@ -355,3 +484,99 @@ def judgment_join(j1: Judgment, j2: Judgment) -> Judgment:
     if j1 == Judgment.UNKNOWN or j2 == Judgment.UNKNOWN:
         return Judgment.UNKNOWN
     return Judgment.CONFLICT
+
+
+# =============================================================================
+# RULE-LEVEL UNIT VALIDATION (NEW)
+# =============================================================================
+
+@dataclass
+class RuleUnitValidationResult:
+    """Result of unit validation for a set of constraints in a rule."""
+    is_valid: bool
+    reason: Optional[IncomparabilityReason] = None
+    details: str = ""
+    incomparable_constraints: Optional[list] = None
+
+
+def validate_rule_units(constraints: list) -> RuleUnitValidationResult:
+    """
+    Validate that all constraints in a rule are mutually comparable.
+    
+    This function checks unit comparability for all constraints on the same
+    LeftOperand within a rule. If any pair is incomparable, returns failure.
+    
+    Args:
+        constraints: List of AtomicConstraint objects
+        
+    Returns:
+        RuleUnitValidationResult indicating if all constraints are comparable
+    """
+    from collections import defaultdict
+    
+    # Group constraints by normalized operand
+    by_operand = defaultdict(list)
+    
+    for c in constraints:
+        if hasattr(c, 'left_operand'):
+            op = normalize_operand(c.left_operand)
+            by_operand[op].append(c)
+    
+    # Check each operand group
+    for operand, cs in by_operand.items():
+        if len(cs) < 2:
+            continue  # Single constraint, no comparison needed
+        
+        # Check unit-required operands
+        if operand in L_UNIT_REQUIRED:
+            units = []
+            missing_unit_constraints = []
+            
+            for c in cs:
+                unit = getattr(c, 'unit', None)
+                if unit is None:
+                    uid = getattr(c, 'uid', str(c))
+                    missing_unit_constraints.append(uid)
+                else:
+                    units.append(normalize_unit(unit))
+            
+            # Check for missing units
+            if missing_unit_constraints:
+                return RuleUnitValidationResult(
+                    is_valid=False,
+                    reason=IncomparabilityReason.MISSING_REQUIRED_UNIT,
+                    details=f"{operand} requires unit but constraint(s) have none",
+                    incomparable_constraints=missing_unit_constraints
+                )
+            
+            # Check all units are the same
+            unique_units = set(units)
+            if len(unique_units) > 1:
+                return RuleUnitValidationResult(
+                    is_valid=False,
+                    reason=IncomparabilityReason.INCOMPATIBLE_UNITS,
+                    details=f"{operand} has mixed units: {unique_units}",
+                    incomparable_constraints=[getattr(c, 'uid', str(c)) for c in cs]
+                )
+        
+        # Check scope-dependent operands
+        elif operand in L_SCOPE_DEPENDENT:
+            scopes = []
+            for c in cs:
+                scope = getattr(c, 'unit_of_count', None)
+                if scope is not None:
+                    scopes.append(normalize_unit(scope))
+            
+            # If any scopes specified, all specified ones must match
+            if scopes:
+                unique_scopes = set(scopes)
+                if len(unique_scopes) > 1:
+                    return RuleUnitValidationResult(
+                        is_valid=False,
+                        reason=IncomparabilityReason.INCOMPATIBLE_SCOPE,
+                        details=f"{operand} has mixed scopes: {unique_scopes}",
+                        incomparable_constraints=[getattr(c, 'uid', str(c)) for c in cs]
+                    )
+    
+    # All checks passed
+    return RuleUnitValidationResult(is_valid=True)

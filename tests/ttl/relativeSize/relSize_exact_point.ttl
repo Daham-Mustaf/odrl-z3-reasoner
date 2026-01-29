@@ -1,0 +1,24 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix ex:   <http://example.org/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+ex:policy_exact
+    a odrl:Set ;
+    odrl:permission ex:perm1 .
+
+ex:perm1
+    a odrl:Permission ;
+    odrl:action odrl:display ;
+    odrl:constraint ex:c1, ex:c2 .
+
+ex:c1
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:relativeSize ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "100"^^xsd:decimal .
+
+ex:c2
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:relativeSize ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "100"^^xsd:decimal .

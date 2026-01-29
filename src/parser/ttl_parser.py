@@ -292,16 +292,11 @@ class ODRLParser:
         return rule
     
     def _extract_constraint(self, node: Any, result: ParseResult) -> Optional[str]:
-        """
-        Extract a constraint (atomic or composite).
-        
-        FIXED: Now properly handles anonymous blank nodes inside RDF lists.
-        """
-        # Check if already processed
+        """Extract a constraint (atomic or composite)."""
         if node in self._node_to_uid:
             return self._node_to_uid[node]
         
-        # Check for logical operators (composite)
+        # FORM 1: Direct predicate syntax (odrl:or, odrl:and, etc.)
         logical_ops = [
             (ODRL['and'], LogicalOperator.AND),
             (ODRL['or'], LogicalOperator.OR),
@@ -310,15 +305,30 @@ class ODRLParser:
         ]
         
         for pred, op in logical_ops:
-            # Get all objects for this predicate
             children = list(self.graph.objects(node, pred))
             if children:
-                self._debug(f"Found {op.value} with {len(children)} direct children")
                 return self._extract_composite(node, op, children, result)
+        
+        # FORM 2: odrl:operator + odrl:constraint syntax (NEW!)
+        operator_value = self.graph.value(node, ODRL.operator)
+        if operator_value:
+            op_name = self._local_name(operator_value)
+            
+            logical_op_map = {
+                'and': LogicalOperator.AND,
+                'or': LogicalOperator.OR,
+                'xone': LogicalOperator.XONE,
+                'andSequence': LogicalOperator.AND_SEQUENCE,
+            }
+            
+            if op_name in logical_op_map:
+                children = list(self.graph.objects(node, ODRL.constraint))
+                if children:
+                    return self._extract_composite(node, logical_op_map[op_name], children, result)
         
         # Atomic constraint
         return self._extract_atomic(node, result)
-    
+        
     def _extract_composite(
         self, 
         node: Any, 

@@ -142,7 +142,8 @@ DOMAIN_BOUNDS = {
 # CATEGORY SETS (for quick lookup)
 # =========================================================================
 
-L_BOUNDED = {"percentage", "relativePosition", "relativeSize", 
+L_BOUNDED = {"percentage", "relativePosition",
+            #  "relativeSize", 
              "relativeTemporalPosition", "relativeSpatialPosition"}
 
 L_INT = {"count", "timeInterval"}
@@ -156,9 +157,12 @@ L_REAL = {"absoluteTemporalPosition"}
 L_COORDS = {"absoluteSpatialPosition"}
 
 L_REF = {"elapsedTime", "delayPeriod"}
+L_UNBOUNDED_PERCENTAGE = {
+    "relativeSize",  # [0, ∞)
+}
 
 # All fully analyzable (15)
-FULLY_ANALYZABLE = L_BOUNDED | L_INT | L_DATETIME | L_UNIT | L_REAL | L_COORDS | {"unitOfCount"}
+FULLY_ANALYZABLE = L_BOUNDED | L_UNBOUNDED_PERCENTAGE | L_INT | L_DATETIME | L_UNIT | L_REAL | L_COORDS | {"unitOfCount"}
 
 # Partially analyzable (2)
 PARTIALLY_ANALYZABLE = L_REF
@@ -182,6 +186,8 @@ def get_category(operand: str) -> str:
     """Get the equivalence class for a LeftOperand."""
     if operand in L_BOUNDED:
         return "L_bounded"
+    if operand in L_UNBOUNDED_PERCENTAGE:
+        return "L_unbounded_percentage"
     elif operand in L_INT:
         return "L_int"
     elif operand in L_DATETIME:

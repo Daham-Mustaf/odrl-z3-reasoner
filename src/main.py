@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """
-ODRL-SA Policy Analyzer - Main Entry Point
+ODRL-SA Policy Analyzer - Comprehensive Main Entry Point
 
 Usage:
-    uv run python main.py policy.ttl              # Basic analysis
-    uv run python main.py policy.ttl -v           # Verbose output
-    uv run python main.py policy.ttl -d           # Debug mode (shows Z3 formulas)
-    uv run python main.py policy.ttl -vd          # Verbose + Debug
-    uv run python main.py policy.ttl --json       # JSON output
-    uv run python main.py tests/ttl/percentage/   # Analyze directory
+    uv run python main.py policy.ttl                    # Basic analysis
+    uv run python main.py policy.ttl -v                 # Verbose (show constraints)
+    uv run python main.py policy.ttl -d                 # Debug (show Z3 formulas)
+    uv run python main.py policy.ttl --show-policy      # Show policy structure
+    uv run python main.py policy.ttl --show-normalize   # Show normalization
+    uv run python main.py policy.ttl --all              # Show everything
+    uv run python main.py tests/ttl/percentage/         # Analyze directory
+    uv run python main.py parent.ttl child.ttl          # Inheritance check
+    uv run python main.py policy.ttl --json             # JSON output
 
 Output Modes:
-    default  - Clean summary
-    -v       - Verbose (shows constraints, model)
-    -d       - Debug (shows Z3 encoding, formulas)
-    --json   - Machine-readable JSON
+    default         - Clean summary
+    -v, --verbose   - Show constraints and model
+    -d, --debug     - Show Z3 encoding and formulas
+    --show-policy   - Show full policy structure
+    --show-normalize - Show value normalization
+    --all           - Enable all debug output
 """
 
 import sys
@@ -22,11 +27,15 @@ import json
 import argparse
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
+from datetime import datetime
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+from z3 import Solver, And, Or, Not, sat, unsat
+
+# Core imports
 from parser import parse_ttl_file
 from encoder import Z3JudgmentEngine
 from core.constraint_types import (
@@ -35,9 +44,12 @@ from core.constraint_types import (
     LogicalOperator,
     Judgment,
     Constraint,
+    OperatorType,
 )
+from normalizer import normalize_value, get_normalized_value
 
-from z3 import Solver, And, Or, Not, sat, unsat
+# Reasoner imports
+from reasoner import InheritanceChecker, InheritanceViolation
 
 
 # =============================================================================
@@ -45,130 +57,241 @@ from z3 import Solver, And, Or, Not, sat, unsat
 # =============================================================================
 
 @dataclass
-class AnalysisResult:
-    """Result of policy analysis."""
-    file: str
+class RuleAnalysis:
+    """Analysis result for a single rule."""
+    rule_id: str
+    rule_type: str  # permission, prohibition, duty
+    action: Optional[str]
+    constraint_ids: List[str]
     judgment: str
     model: Optional[Dict[str, Any]]
-    constraints_count: int
-    atomic_count: int
-    composite_count: int
-    policies_count: int
-    parse_errors: List[str]
-    parse_warnings: List[str]
+
+
+@dataclass 
+class PolicyAnalysis:
+    """
+    Full policy analysis result.
+    
+    Theory Reference: Section 7.6 - Policy Conflict Classification
+    
+    judge_policy(P) in {CONSISTENT, INTERNAL-CONFLICT, DEONTIC-CONFLICT, UNKNOWN}
+    """
+    file: str
+    policy_id: str
+    policy_type: Optional[str]
+    
+    # Counts
+    total_constraints: int
+    atomic_constraints: int
+    composite_constraints: int
+    
+    # Rules
+    permissions: List[RuleAnalysis]
+    prohibitions: List[RuleAnalysis]
+    duties: List[RuleAnalysis]
+    
+    # Deontic conflicts (Section 7.4)
+    deontic_conflicts: List[Dict] = field(default_factory=list)
+    
+    # Overall judgment (Section 7.6)
+    overall_judgment: str = "CONSISTENT"
+    has_internal_conflicts: bool = False
+    has_deontic_conflicts: bool = False
+    
+    # Errors/warnings
+    parse_errors: List[str] = field(default_factory=list)
+    parse_warnings: List[str] = field(default_factory=list)
+    
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class InheritanceResult:
+    """Result of inheritance check."""
+    parent_file: str
+    child_file: str
+    parent_id: str
+    child_id: str
+    is_valid: bool
+    violations: List[Dict[str, Any]]
     
     def to_dict(self) -> dict:
         return asdict(self)
 
 
 # =============================================================================
-# CORE ANALYSIS ENGINE
+# POLICY ANALYZER
 # =============================================================================
 
 class PolicyAnalyzer:
     """
-    ODRL Policy Analyzer with composite constraint support.
+    Comprehensive ODRL Policy Analyzer.
+    
+    Features:
+    - Parses all ODRL structures (policies, rules, constraints)
+    - Analyzes permissions, prohibitions, and duties
+    - Detects internal conflicts within rules
+    - Detects cross-rule conflicts (permission vs prohibition)
+    - Supports composite constraints (AND, OR, XONE)
+    - Shows normalization process
+    - Shows Z3 encoding
     """
     
-    def __init__(self, debug: bool = False, verbose: bool = False):
-        self.debug = debug
+    def __init__(
+        self, 
+        verbose: bool = False,
+        debug: bool = False,
+        show_policy: bool = False,
+        show_normalize: bool = False
+    ):
         self.verbose = verbose
+        self.debug = debug
+        self.show_policy = show_policy
+        self.show_normalize = show_normalize
         self.engine = Z3JudgmentEngine()
     
-    def analyze_file(self, filepath: str) -> AnalysisResult:
-        """Analyze a single TTL file."""
+    def analyze_file(self, filepath: str) -> PolicyAnalysis:
+        """Analyze a single policy file."""
         filepath = Path(filepath)
         
-        if self.verbose:
-            print(f"\n{'='*60}")
-            print(f"ANALYZING: {filepath.name}")
-            print(f"{'='*60}")
+        self._print_header(f"ANALYZING: {filepath.name}")
         
         # Parse
-        result = parse_ttl_file(str(filepath))
+        parse_result = parse_ttl_file(str(filepath))
         
-        if result.errors:
-            if self.verbose:
-                print(f"\n⚠️  Parse errors:")
-                for e in result.errors:
-                    print(f"    {e}")
+        if parse_result.errors:
+            self._print_section("Parse Errors")
+            for e in parse_result.errors:
+                print(f"  [ERROR] {e}")
         
-        if not result.policies:
-            return AnalysisResult(
+        if not parse_result.policies:
+            return PolicyAnalysis(
                 file=str(filepath),
-                judgment="ERROR",
-                model=None,
-                constraints_count=0,
-                atomic_count=0,
-                composite_count=0,
-                policies_count=0,
-                parse_errors=result.errors or ["No policies found"],
-                parse_warnings=result.warnings or []
+                policy_id="",
+                policy_type=None,
+                total_constraints=0,
+                atomic_constraints=0,
+                composite_constraints=0,
+                permissions=[],
+                prohibitions=[],
+                duties=[],
+                overall_judgment="ERROR",
+                has_internal_conflicts=False,
+                has_deontic_conflicts=False,
+                parse_errors=parse_result.errors or ["No policies found"],
+                parse_warnings=parse_result.warnings or []
             )
         
-        # Get constraint counts
-        atomics = [c for c in result.constraints.values() if isinstance(c, AtomicConstraint)]
-        composites = [c for c in result.constraints.values() if isinstance(c, CompositeConstraint)]
+        policy = parse_result.policies[0]
+        constraints = parse_result.constraints
         
-        if self.verbose:
-            print(f"\n📋 Parsed:")
-            print(f"    Policies: {len(result.policies)}")
-            print(f"    Constraints: {len(result.constraints)} ({len(atomics)} atomic, {len(composites)} composite)")
+        # Count constraints
+        atomics = [c for c in constraints.values() if isinstance(c, AtomicConstraint)]
+        composites = [c for c in constraints.values() if isinstance(c, CompositeConstraint)]
         
-        # Get top-level constraint IDs
-        top_level_ids = []
-        for policy in result.policies:
-            for rule in policy.rules:
-                top_level_ids.extend(rule.constraint_ids)
+        # Show policy structure
+        if self.show_policy:
+            self._show_policy_structure(policy, constraints)
         
-        if self.verbose:
-            print(f"    Top-level: {top_level_ids}")
-            print(f"\n📊 Constraints:")
-            for uid, c in result.constraints.items():
-                if isinstance(c, AtomicConstraint):
-                    print(f"    [A] {uid}: {c.left_operand} {c.operator.value} {c.right_operand.value}")
-                elif isinstance(c, CompositeConstraint):
-                    print(f"    [C] {uid}: {c.operator.value}({list(c.operands)})")
+        # Show normalization
+        if self.show_normalize:
+            self._show_normalization(atomics)
         
-        # Analyze
-        judgment, model = self._check_consistency(result.constraints, top_level_ids)
+        # Analyze each rule type
+        permissions = self._analyze_rules(policy.permissions, constraints, "permission")
+        prohibitions = self._analyze_rules(policy.prohibitions, constraints, "prohibition")
+        duties = self._analyze_rules(policy.duties, constraints, "duty")
         
-        return AnalysisResult(
+        # Section 7.3: Check for internal conflicts (rule-level consistency)
+        all_rules = permissions + prohibitions + duties
+        has_internal = any(r.judgment == "CONFLICT" for r in all_rules)
+        
+        # Section 7.4: Check deontic conflicts (permission vs prohibition on same action)
+        deontic_conflicts = self._check_cross_rule_conflicts(permissions, prohibitions, constraints)
+        has_deontic = len(deontic_conflicts) > 0
+        
+        # Section 7.6: Policy-Level Judgment Classification
+        has_unknown = any(r.judgment == "UNKNOWN" for r in all_rules)
+        
+        if has_internal:
+            overall = "INTERNAL-CONFLICT"
+        elif has_deontic:
+            overall = "DEONTIC-CONFLICT"
+        elif has_unknown:
+            overall = "UNKNOWN"
+        else:
+            overall = "CONSISTENT"
+        
+        return PolicyAnalysis(
             file=str(filepath),
-            judgment=judgment.value,
-            model=model,
-            constraints_count=len(result.constraints),
-            atomic_count=len(atomics),
-            composite_count=len(composites),
-            policies_count=len(result.policies),
-            parse_errors=result.errors or [],
-            parse_warnings=result.warnings or []
+            policy_id=policy.uid,
+            policy_type=policy.policy_type,
+            total_constraints=len(constraints),
+            atomic_constraints=len(atomics),
+            composite_constraints=len(composites),
+            permissions=permissions,
+            prohibitions=prohibitions,
+            duties=duties,
+            deontic_conflicts=deontic_conflicts,
+            overall_judgment=overall,
+            has_internal_conflicts=has_internal,
+            has_deontic_conflicts=has_deontic,
+            parse_errors=parse_result.errors or [],
+            parse_warnings=parse_result.warnings or []
         )
     
-    def _check_consistency(
+    def _analyze_rules(
         self, 
+        rules: List, 
         constraints: Dict[str, Constraint],
-        top_level_ids: List[str]
-    ) -> Tuple[Judgment, Optional[Dict]]:
-        """Check consistency with proper composite handling."""
+        rule_type: str
+    ) -> List[RuleAnalysis]:
+        """Analyze a list of rules."""
+        results = []
         
-        if not constraints:
+        for rule in rules:
+            if self.verbose:
+                self._print_section(f"{rule_type.upper()}: {rule.uid}")
+                print(f"  Action: {rule.action}")
+                print(f"  Constraints: {rule.constraint_ids}")
+            
+            judgment, model = self._check_rule_consistency(
+                rule.constraint_ids, 
+                constraints
+            )
+            
+            results.append(RuleAnalysis(
+                rule_id=rule.uid,
+                rule_type=rule_type,
+                action=rule.action,
+                constraint_ids=rule.constraint_ids,
+                judgment=judgment.value,
+                model=model
+            ))
+            
+            if self.verbose:
+                status = "[CONFLICT]" if judgment == Judgment.CONFLICT else "[OK]"
+                print(f"  Result: {status} {judgment.value}")
+                if model:
+                    print(f"  Model: {model}")
+        
+        return results
+    
+    def _check_rule_consistency(
+        self,
+        constraint_ids: List[str],
+        constraints: Dict[str, Constraint]
+    ) -> Tuple[Judgment, Optional[Dict]]:
+        """Check consistency of constraints in a rule."""
+        
+        if not constraint_ids:
             return Judgment.POSSIBLY_COMPATIBLE, {}
         
-        if not top_level_ids:
-            # No top-level - check all atomics
-            atomics = [c for c in constraints.values() if isinstance(c, AtomicConstraint)]
-            from encoder import check_consistency
-            return check_consistency(atomics)
-        
-        # Reset variable manager
         self.engine.var_manager.clear()
         
-        def encode_constraint(uid: str) -> Any:
-            """Recursively encode a constraint."""
+        def encode(uid: str) -> Any:
             if uid not in constraints:
-                if self.debug:
-                    print(f"    ⚠️  Unknown UID: {uid}")
                 return None
             
             c = constraints[uid]
@@ -177,87 +300,65 @@ class PolicyAnalyzer:
                 formula = self.engine.constraint_encoder.encode(c)
                 if self.debug:
                     print(f"    [A] {uid}: {c.left_operand} {c.operator.value} {c.right_operand.value}")
-                    print(f"        → {formula}")
+                    print(f"        -> {formula}")
                 return formula
-                
+            
             elif isinstance(c, CompositeConstraint):
-                child_formulas = []
-                for child_uid in c.operands:
-                    child_formula = encode_constraint(child_uid)
-                    if child_formula is not None:
-                        child_formulas.append(child_formula)
+                children = [encode(cid) for cid in c.operands]
+                children = [f for f in children if f is not None]
                 
-                if not child_formulas:
+                if not children:
                     return None
                 
-                # Apply logical operator
                 if c.operator == LogicalOperator.AND:
-                    formula = And(*child_formulas)
+                    formula = And(*children)
                 elif c.operator == LogicalOperator.OR:
-                    formula = Or(*child_formulas)
+                    formula = Or(*children)
                 elif c.operator == LogicalOperator.XONE:
-                    n = len(child_formulas)
-                    if n == 1:
-                        formula = child_formulas[0]
+                    if len(children) == 1:
+                        formula = children[0]
                     else:
-                        at_least_one = Or(*child_formulas)
-                        at_most_one = []
-                        for i in range(n):
-                            for j in range(i + 1, n):
-                                at_most_one.append(Not(And(child_formulas[i], child_formulas[j])))
-                        formula = And(at_least_one, And(*at_most_one))
-                elif c.operator == LogicalOperator.AND_SEQUENCE:
-                    formula = And(*child_formulas)
+                        at_least = Or(*children)
+                        at_most = And([Not(And(children[i], children[j])) 
+                                      for i in range(len(children)) 
+                                      for j in range(i+1, len(children))])
+                        formula = And(at_least, at_most)
                 else:
-                    formula = And(*child_formulas)
+                    formula = And(*children)
                 
                 if self.debug:
                     print(f"    [C] {uid}: {c.operator.value}({list(c.operands)})")
-                    print(f"        → {formula}")
+                    print(f"        -> {formula}")
                 
                 return formula
             
             return None
         
-        # Encode top-level constraints
         if self.debug:
-            print(f"\n🔧 Encoding constraints:")
+            print(f"\n  Encoding:")
         
-        top_formulas = []
-        for uid in top_level_ids:
-            formula = encode_constraint(uid)
-            if formula is not None:
-                top_formulas.append(formula)
+        formulas = [encode(cid) for cid in constraint_ids]
+        formulas = [f for f in formulas if f is not None]
         
-        if not top_formulas:
+        if not formulas:
             return Judgment.UNKNOWN, None
         
-        # Combine (AND all top-level)
-        full_formula = And(*top_formulas) if len(top_formulas) > 1 else top_formulas[0]
-        
-        # Get domain constraints
-        domain_constraints = self.engine.var_manager.get_domain_constraints()
+        full = And(*formulas) if len(formulas) > 1 else formulas[0]
+        domains = self.engine.var_manager.get_domain_constraints()
         
         if self.debug:
-            print(f"\n📐 Final formula: {full_formula}")
-            print(f"📐 Domain constraints: {domain_constraints}")
+            print(f"\n  Formula: {full}")
+            print(f"  Domains: {domains}")
         
-        # Solve
         solver = Solver()
-        solver.add(full_formula)
-        for dc in domain_constraints:
-            solver.add(dc)
-        
-        if self.debug:
-            print(f"\n🧮 Solving...")
+        solver.add(full)
+        for d in domains:
+            solver.add(d)
         
         result = solver.check()
         
         if result == unsat:
-            if self.debug or self.verbose:
-                print(f"\n❌ Result: UNSAT → CONFLICT")
             return Judgment.CONFLICT, None
-        
         elif result == sat:
             model = {}
             for decl in solver.model().decls():
@@ -271,56 +372,505 @@ class PolicyAnalyzer:
                         model[decl.name()] = str(val)
                 except:
                     model[decl.name()] = str(val)
-            
-            if self.debug or self.verbose:
-                print(f"\n✅ Result: SAT → POSSIBLY-COMPATIBLE")
-                print(f"   Model: {model}")
-            
             return Judgment.POSSIBLY_COMPATIBLE, model
+        else:
+            return Judgment.UNKNOWN, None
+    
+    def _check_cross_rule_conflicts(
+        self,
+        permissions: List[RuleAnalysis],
+        prohibitions: List[RuleAnalysis],
+        constraints: Dict[str, Constraint]
+    ) -> List[Dict]:
+        """Check for deontic conflicts between permissions and prohibitions."""
+        conflicts = []
+        
+        perm_by_action = {}
+        for p in permissions:
+            action = p.action or '_default_'
+            perm_by_action.setdefault(action, []).append(p)
+        
+        prohib_by_action = {}
+        for p in prohibitions:
+            action = p.action or '_default_'
+            prohib_by_action.setdefault(action, []).append(p)
+        
+        common_actions = set(perm_by_action.keys()) & set(prohib_by_action.keys())
+        
+        for action in common_actions:
+            perms = perm_by_action[action]
+            prohibs = prohib_by_action[action]
+            
+            if self.verbose:
+                self._print_section(f"Deontic Check: action={action}")
+                print(f"  Permissions: {[p.rule_id for p in perms]}")
+                print(f"  Prohibitions: {[p.rule_id for p in prohibs]}")
+            
+            conflict_result = self._check_deontic_conflict(perms, prohibs, constraints)
+            
+            if conflict_result['has_conflict']:
+                conflicts.append({
+                    'action': action,
+                    'type': 'DEONTIC-CONFLICT',
+                    'permissions': [p.rule_id for p in perms],
+                    'prohibitions': [p.rule_id for p in prohibs],
+                    'witness': conflict_result.get('witness'),
+                    'explanation': f"Action '{action}' can be simultaneously permitted and forbidden"
+                })
+                
+                if self.verbose:
+                    print(f"  [DEONTIC CONFLICT DETECTED]")
+                    if conflict_result.get('witness'):
+                        print(f"     Witness: {conflict_result['witness']}")
+            else:
+                if self.verbose:
+                    print(f"  [OK] No deontic conflict for action '{action}'")
+        
+        return conflicts
+    
+    def _check_deontic_conflict(
+        self,
+        permissions: List[RuleAnalysis],
+        prohibitions: List[RuleAnalysis],
+        constraints: Dict[str, Constraint]
+    ) -> Dict:
+        """Check for deontic conflict using SMT."""
+        self.engine.var_manager.clear()
+        
+        def encode_rule_set(rules: List[RuleAnalysis]) -> Any:
+            rule_formulas = []
+            
+            for rule in rules:
+                rule_constraints = []
+                for cid in rule.constraint_ids:
+                    formula = self._encode_constraint_recursive(cid, constraints)
+                    if formula is not None:
+                        rule_constraints.append(formula)
+                
+                if rule_constraints:
+                    rule_formula = And(*rule_constraints) if len(rule_constraints) > 1 else rule_constraints[0]
+                    rule_formulas.append(rule_formula)
+            
+            if not rule_formulas:
+                return None
+            
+            return Or(*rule_formulas) if len(rule_formulas) > 1 else rule_formulas[0]
+        
+        phi_perm = encode_rule_set(permissions)
+        phi_prohib = encode_rule_set(prohibitions)
+        
+        if phi_perm is None or phi_prohib is None:
+            return {'has_conflict': False, 'reason': 'empty_formula'}
+        
+        if self.debug:
+            print(f"\n  Phi_perm (permission): {phi_perm}")
+            print(f"  Phi_prohib (prohibition): {phi_prohib}")
+        
+        deontic_formula = And(phi_perm, phi_prohib)
+        domains = self.engine.var_manager.get_domain_constraints()
+        
+        if self.debug:
+            print(f"  Deontic check: {deontic_formula}")
+            print(f"  Domains: {domains}")
+        
+        solver = Solver()
+        solver.add(deontic_formula)
+        for d in domains:
+            solver.add(d)
+        
+        result = solver.check()
+        
+        if result == sat:
+            witness = {}
+            for decl in solver.model().decls():
+                val = solver.model()[decl]
+                try:
+                    if hasattr(val, 'as_long'):
+                        witness[decl.name()] = val.as_long()
+                    elif hasattr(val, 'as_decimal'):
+                        witness[decl.name()] = float(val.as_decimal(10).rstrip('?'))
+                    else:
+                        witness[decl.name()] = str(val)
+                except:
+                    witness[decl.name()] = str(val)
+            
+            return {'has_conflict': True, 'witness': witness}
+        
+        elif result == unsat:
+            return {'has_conflict': False, 'reason': 'disjoint'}
         
         else:
-            if self.debug or self.verbose:
-                print(f"\n⚠️  Result: UNKNOWN")
-            return Judgment.UNKNOWN, None
+            return {'has_conflict': False, 'reason': 'unknown'}
+    
+    def _encode_constraint_recursive(self, uid: str, constraints: Dict[str, Constraint]) -> Any:
+        """Recursively encode a constraint (atomic or composite)."""
+        if uid not in constraints:
+            return None
+        
+        c = constraints[uid]
+        
+        if isinstance(c, AtomicConstraint):
+            return self.engine.constraint_encoder.encode(c)
+        
+        elif isinstance(c, CompositeConstraint):
+            children = [self._encode_constraint_recursive(cid, constraints) for cid in c.operands]
+            children = [f for f in children if f is not None]
+            
+            if not children:
+                return None
+            
+            if c.operator == LogicalOperator.AND:
+                return And(*children)
+            elif c.operator == LogicalOperator.OR:
+                return Or(*children)
+            elif c.operator == LogicalOperator.XONE:
+                if len(children) == 1:
+                    return children[0]
+                at_least = Or(*children)
+                at_most = And([Not(And(children[i], children[j])) 
+                              for i in range(len(children)) 
+                              for j in range(i+1, len(children))])
+                return And(at_least, at_most)
+            else:
+                return And(*children)
+        
+        return None
+    
+    def _show_policy_structure(self, policy, constraints: Dict):
+        """Display full policy structure."""
+        self._print_section("POLICY STRUCTURE")
+        
+        print(f"  Policy ID: {policy.uid}")
+        print(f"  Type: {policy.policy_type}")
+        if policy.inherits_from:
+            print(f"  Inherits from: {policy.inherits_from}")
+        
+        print(f"\n  Rules:")
+        for rule in policy.rules:
+            print(f"    [{rule.rule_type.value}] {rule.uid}")
+            print(f"      Action: {rule.action}")
+            print(f"      Target: {rule.target}")
+            print(f"      Constraints: {rule.constraint_ids}")
+        
+        print(f"\n  Constraints:")
+        for uid, c in constraints.items():
+            if isinstance(c, AtomicConstraint):
+                meta = []
+                if c.metadata and c.metadata.unit:
+                    meta.append(f"unit={c.metadata.unit}")
+                meta_str = f" [{', '.join(meta)}]" if meta else ""
+                print(f"    [A] {uid}: {c.left_operand} {c.operator.value} {c.right_operand.value}{meta_str}")
+            elif isinstance(c, CompositeConstraint):
+                print(f"    [C] {uid}: {c.operator.value}({list(c.operands)})")
+    
+    def _show_normalization(self, atomics: List[AtomicConstraint]):
+        """Show normalization process for all constraints."""
+        self._print_section("NORMALIZATION")
+        
+        for c in atomics:
+            original = c.right_operand.value
+            normalized = get_normalized_value(c)
+            
+            print(f"  {c.uid}:")
+            print(f"    Operand: {c.left_operand}")
+            print(f"    Original: {original} ({type(original).__name__})")
+            print(f"    Normalized: {normalized} ({type(normalized).__name__ if normalized else 'None'})")
+    
+    def _print_header(self, text: str):
+        """Print section header."""
+        if self.verbose or self.debug or self.show_policy:
+            print(f"\n{'='*60}")
+            print(f"{text}")
+            print(f"{'='*60}")
+    
+    def _print_section(self, text: str):
+        """Print subsection."""
+        if self.verbose or self.debug:
+            print(f"\n[{text}]")
+            print(f"{'-'*40}")
+
+
+# =============================================================================
+# INHERITANCE CHECKER (Using real InheritanceChecker)
+# =============================================================================
+
+class InheritanceEncoderAdapter:
+    """
+    Adapter to make Z3JudgmentEngine compatible with InheritanceChecker.
+    
+    InheritanceChecker expects:
+    - encoder.reset()
+    - encoder.encode_policy(constraints) -> result with .formulas
+    - encoder.get_domain_constraints()
+    """
+    
+    def __init__(self, engine: Z3JudgmentEngine):
+        self.engine = engine
+        self._formulas = {}
+    
+    def reset(self):
+        """Reset the encoder state."""
+        self.engine.var_manager.clear()
+        self._formulas = {}
+    
+    def encode_policy(self, constraints: Dict[str, Any]) -> 'EncodingResult':
+        """Encode all constraints and return result with formulas dict."""
+        self._formulas = {}
+        
+        for cid, constraint in constraints.items():
+            if isinstance(constraint, AtomicConstraint):
+                self._formulas[cid] = self.engine.constraint_encoder.encode(constraint)
+            elif isinstance(constraint, CompositeConstraint):
+                self._formulas[cid] = self._encode_composite(constraint, constraints)
+        
+        return EncodingResult(self._formulas)
+    
+    def _encode_composite(self, constraint: CompositeConstraint, all_constraints: Dict) -> Any:
+        """Encode a composite constraint."""
+        from z3 import And, Or, BoolVal
+        
+        child_formulas = []
+        for child_id in constraint.operands:
+            if child_id in self._formulas:
+                child_formulas.append(self._formulas[child_id])
+            elif child_id in all_constraints:
+                child = all_constraints[child_id]
+                if isinstance(child, AtomicConstraint):
+                    formula = self.engine.constraint_encoder.encode(child)
+                    self._formulas[child_id] = formula
+                    child_formulas.append(formula)
+                elif isinstance(child, CompositeConstraint):
+                    formula = self._encode_composite(child, all_constraints)
+                    self._formulas[child_id] = formula
+                    child_formulas.append(formula)
+        
+        if not child_formulas:
+            return BoolVal(True)
+        
+        if constraint.operator == LogicalOperator.AND:
+            return And(*child_formulas)
+        elif constraint.operator == LogicalOperator.OR:
+            return Or(*child_formulas)
+        else:
+            return And(*child_formulas)
+    
+    def get_domain_constraints(self) -> List:
+        """Get domain constraints from the engine."""
+        return self.engine.var_manager.get_domain_constraints()
+
+
+@dataclass
+class EncodingResult:
+    """Result of encoding with formulas dict."""
+    formulas: Dict[str, Any]
+
+
+@dataclass
+class PolicyWithConstraints:
+    """Policy object with constraints attached for inheritance checker."""
+    uid: str
+    rules: List
+    constraints: Dict[str, Any]
+
+
+def check_inheritance(
+    parent_file: str, 
+    child_file: str, 
+    verbose: bool = False, 
+    debug: bool = False
+) -> InheritanceResult:
+    """
+    Check if child policy validly inherits from parent.
+    
+    Uses the InheritanceChecker from src/reasoner/inheritance_checker.py
+    """
+    
+    if verbose:
+        print(f"\n{'='*60}")
+        print(f"INHERITANCE CHECK")
+        print(f"{'='*60}")
+        print(f"Parent: {parent_file}")
+        print(f"Child: {child_file}")
+        print(f"{'='*60}")
+    
+    # Parse both policies
+    parent_result = parse_ttl_file(parent_file)
+    child_result = parse_ttl_file(child_file)
+    
+    if not parent_result.policies:
+        return InheritanceResult(
+            parent_file=parent_file,
+            child_file=child_file,
+            parent_id="",
+            child_id="",
+            is_valid=False,
+            violations=[{"error": f"Could not parse parent policy: {parent_file}"}]
+        )
+    
+    if not child_result.policies:
+        return InheritanceResult(
+            parent_file=parent_file,
+            child_file=child_file,
+            parent_id=parent_result.policies[0].uid if parent_result.policies else "",
+            child_id="",
+            is_valid=False,
+            violations=[{"error": f"Could not parse child policy: {child_file}"}]
+        )
+    
+    parent_policy = parent_result.policies[0]
+    child_policy = child_result.policies[0]
+    
+    # Create policy objects with constraints attached
+    parent_with_constraints = PolicyWithConstraints(
+        uid=parent_policy.uid,
+        rules=parent_policy.rules,
+        constraints=parent_result.constraints
+    )
+    
+    child_with_constraints = PolicyWithConstraints(
+        uid=child_policy.uid,
+        rules=child_policy.rules,
+        constraints=child_result.constraints
+    )
+    
+    # Create encoder adapter
+    engine = Z3JudgmentEngine(debug=debug)
+    encoder_adapter = InheritanceEncoderAdapter(engine)
+    
+    # Create and run inheritance checker
+    checker = InheritanceChecker(encoder_adapter, debug=debug)
+    
+    # Run per-action inheritance check
+    violations = checker.check_inheritance_per_action(
+        parent_with_constraints, 
+        child_with_constraints
+    )
+    
+    # Also run global check
+    global_violations = checker.check_inheritance(
+        parent_with_constraints,
+        child_with_constraints
+    )
+    
+    # Combine violations (avoid duplicates)
+    all_violations = violations + [v for v in global_violations 
+                                   if v.violation_type not in [x.violation_type for x in violations]]
+    
+    # Convert to dicts for output
+    violation_dicts = []
+    for v in all_violations:
+        violation_dicts.append({
+            'type': v.violation_type,
+            'action': v.action,
+            'description': v.description,
+            'counterexample': v.counterexample
+        })
+    
+    is_valid = len(all_violations) == 0 or all(
+        v.violation_type == 'redundant' for v in all_violations
+    )
+    
+    if verbose:
+        checker.print_summary()
+        
+        if all_violations:
+            print(f"\n[VIOLATIONS]")
+            print(f"{'-'*40}")
+            for v in all_violations:
+                severity = "ERROR" if v.violation_type == 'inconsistent' else "WARNING"
+                print(f"  [{severity}] {v.violation_type}: {v.description}")
+                if v.counterexample:
+                    print(f"    Counterexample: {v.counterexample}")
+        else:
+            print(f"\n[OK] Child policy validly inherits from parent")
+    
+    return InheritanceResult(
+        parent_file=parent_file,
+        child_file=child_file,
+        parent_id=parent_policy.uid,
+        child_id=child_policy.uid,
+        is_valid=is_valid,
+        violations=violation_dicts
+    )
 
 
 # =============================================================================
 # OUTPUT FORMATTING
 # =============================================================================
 
-def format_result(result: AnalysisResult, verbose: bool = False) -> str:
-    """Format analysis result for CLI output."""
-    lines = []
-    
-    # Header
+def format_summary(result: PolicyAnalysis) -> str:
+    """Format single-line summary."""
     filename = Path(result.file).name
     
-    # Judgment with emoji
-    if result.judgment == "CONFLICT":
-        emoji = "❌"
-    elif result.judgment == "POSSIBLY-COMPATIBLE":
-        emoji = "✅"
+    if result.overall_judgment == "INTERNAL-CONFLICT":
+        status = "[CONFLICT]"
+    elif result.overall_judgment == "DEONTIC-CONFLICT":
+        status = "[DEONTIC]"
+    elif result.overall_judgment == "CONSISTENT":
+        status = "[OK]"
+    elif result.overall_judgment == "UNKNOWN":
+        status = "[UNKNOWN]"
+    elif result.overall_judgment == "ERROR":
+        status = "[ERROR]"
     else:
-        emoji = "⚠️"
+        status = "[???]"
     
-    lines.append(f"{emoji} {filename}: {result.judgment}")
+    return f"{status} {filename}: {result.overall_judgment}"
+
+
+def format_detailed(result: PolicyAnalysis) -> str:
+    """Format detailed output."""
+    lines = [format_summary(result)]
     
-    if verbose:
-        lines.append(f"   Constraints: {result.constraints_count} ({result.atomic_count} atomic, {result.composite_count} composite)")
-        if result.model:
-            lines.append(f"   Model: {result.model}")
-        if result.parse_warnings:
-            for w in result.parse_warnings:
-                lines.append(f"   ⚠️  {w}")
+    lines.append(f"   Policy: {result.policy_id} ({result.policy_type})")
+    lines.append(f"   Constraints: {result.total_constraints} ({result.atomic_constraints} atomic, {result.composite_constraints} composite)")
+    
+    if result.permissions:
+        lines.append(f"   Permissions: {len(result.permissions)}")
+        for p in result.permissions:
+            status = "[CONFLICT]" if p.judgment == "CONFLICT" else "[OK]"
+            lines.append(f"     {status} {p.rule_id} ({p.action}): {p.judgment}")
+    
+    if result.prohibitions:
+        lines.append(f"   Prohibitions: {len(result.prohibitions)}")
+        for p in result.prohibitions:
+            status = "[CONFLICT]" if p.judgment == "CONFLICT" else "[OK]"
+            lines.append(f"     {status} {p.rule_id} ({p.action}): {p.judgment}")
+    
+    if result.duties:
+        lines.append(f"   Duties: {len(result.duties)}")
+        for d in result.duties:
+            status = "[CONFLICT]" if d.judgment == "CONFLICT" else "[OK]"
+            lines.append(f"     {status} {d.rule_id} ({d.action}): {d.judgment}")
+    
+    if result.deontic_conflicts:
+        lines.append(f"   Deontic Conflicts: {len(result.deontic_conflicts)}")
+        for dc in result.deontic_conflicts:
+            lines.append(f"     Action '{dc['action']}': Permission <-> Prohibition overlap")
+            if dc.get('witness'):
+                lines.append(f"       Witness: {dc['witness']}")
     
     return "\n".join(lines)
 
 
-def format_json(results: List[AnalysisResult]) -> str:
-    """Format results as JSON."""
-    if len(results) == 1:
-        return json.dumps(results[0].to_dict(), indent=2)
-    return json.dumps([r.to_dict() for r in results], indent=2)
+def format_inheritance_result(result: InheritanceResult) -> str:
+    """Format inheritance check result."""
+    lines = []
+    
+    status = "[VALID]" if result.is_valid else "[INVALID]"
+    lines.append(f"{status} Inheritance Check")
+    lines.append(f"   Parent: {result.parent_id} ({Path(result.parent_file).name})")
+    lines.append(f"   Child: {result.child_id} ({Path(result.child_file).name})")
+    
+    if result.violations:
+        lines.append(f"   Violations: {len(result.violations)}")
+        for v in result.violations:
+            severity = "ERROR" if v.get('type') == 'inconsistent' else "WARNING"
+            lines.append(f"     [{severity}] {v.get('type', 'unknown')}: {v.get('description', '')}")
+    else:
+        lines.append(f"   [OK] Child validly restricts parent")
+    
+    return "\n".join(lines)
 
 
 # =============================================================================
@@ -329,27 +879,58 @@ def format_json(results: List[AnalysisResult]) -> str:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="ODRL-SA Policy Analyzer",
+        description="ODRL-SA Policy Analyzer - Comprehensive Analysis Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s policy.ttl                 Analyze single file
-  %(prog)s policy.ttl -v              Verbose output
-  %(prog)s policy.ttl -d              Debug mode (Z3 formulas)
-  %(prog)s tests/ttl/percentage/      Analyze directory
-  %(prog)s policy.ttl --json          JSON output
+  %(prog)s policy.ttl                    Basic analysis
+  %(prog)s policy.ttl -v                 Verbose output
+  %(prog)s policy.ttl -d                 Debug mode (Z3 formulas)
+  %(prog)s policy.ttl --show-policy      Show policy structure
+  %(prog)s policy.ttl --show-normalize   Show normalization
+  %(prog)s policy.ttl --all              All debug output
+  %(prog)s tests/ttl/percentage/         Analyze directory
+  %(prog)s parent.ttl child.ttl          Inheritance check
+  %(prog)s policy.ttl --json             JSON output
         """
     )
     
     parser.add_argument('path', help='TTL file or directory')
+    parser.add_argument('child', nargs='?', help='Child policy for inheritance check')
+    
+    # Output modes
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-    parser.add_argument('-d', '--debug', action='store_true', help='Debug mode (show Z3 encoding)')
+    parser.add_argument('-d', '--debug', action='store_true', help='Debug mode (Z3 formulas)')
+    parser.add_argument('--show-policy', action='store_true', help='Show policy structure')
+    parser.add_argument('--show-normalize', action='store_true', help='Show normalization')
+    parser.add_argument('--all', action='store_true', help='Enable all output')
     parser.add_argument('--json', action='store_true', help='JSON output')
-    parser.add_argument('--summary', action='store_true', help='Show summary only')
+    parser.add_argument('--summary', action='store_true', help='Summary only (for directories)')
     
     args = parser.parse_args()
     
+    # --all enables everything
+    if args.all:
+        args.verbose = True
+        args.debug = True
+        args.show_policy = True
+        args.show_normalize = True
+    
     path = Path(args.path)
+    
+    # Inheritance check mode
+    if args.child:
+        result = check_inheritance(
+            str(path), 
+            args.child,
+            verbose=args.verbose,
+            debug=args.debug
+        )
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2))
+        else:
+            print(format_inheritance_result(result))
+        return 0 if result.is_valid else 1
     
     # Collect files
     if path.is_dir():
@@ -364,34 +945,55 @@ Examples:
         return 1
     
     # Analyze
-    analyzer = PolicyAnalyzer(debug=args.debug, verbose=args.verbose)
-    results = []
+    analyzer = PolicyAnalyzer(
+        verbose=args.verbose,
+        debug=args.debug,
+        show_policy=args.show_policy,
+        show_normalize=args.show_normalize
+    )
     
+    results = []
     for f in files:
         result = analyzer.analyze_file(str(f))
         results.append(result)
     
     # Output
     if args.json:
-        print(format_json(results))
+        if len(results) == 1:
+            print(json.dumps(results[0].to_dict(), indent=2))
+        else:
+            print(json.dumps([r.to_dict() for r in results], indent=2))
     else:
         for result in results:
-            print(format_result(result, verbose=args.verbose))
+            if args.verbose or len(files) == 1:
+                print(format_detailed(result))
+            else:
+                print(format_summary(result))
         
         # Summary for multiple files
-        if len(results) > 1 or args.summary:
-            print(f"\n{'─'*40}")
-            conflicts = sum(1 for r in results if r.judgment == "CONFLICT")
-            compatible = sum(1 for r in results if r.judgment == "POSSIBLY-COMPATIBLE")
-            unknown = sum(1 for r in results if r.judgment not in ("CONFLICT", "POSSIBLY-COMPATIBLE"))
-            print(f"Summary: {len(results)} files")
-            print(f"  ❌ CONFLICT: {conflicts}")
-            print(f"  ✅ COMPATIBLE: {compatible}")
+        if len(results) > 1:
+            print(f"\n{'='*60}")
+            print("SUMMARY")
+            print(f"{'='*60}")
+            
+            internal_conflicts = sum(1 for r in results if r.overall_judgment == "INTERNAL-CONFLICT")
+            deontic_conflicts = sum(1 for r in results if r.overall_judgment == "DEONTIC-CONFLICT")
+            consistent = sum(1 for r in results if r.overall_judgment == "CONSISTENT")
+            unknown = sum(1 for r in results if r.overall_judgment == "UNKNOWN")
+            errors = sum(1 for r in results if r.overall_judgment == "ERROR")
+            
+            print(f"  Total files: {len(results)}")
+            print(f"  [OK] CONSISTENT: {consistent}")
+            print(f"  [CONFLICT] INTERNAL-CONFLICT: {internal_conflicts}")
+            print(f"  [DEONTIC] DEONTIC-CONFLICT: {deontic_conflicts}")
             if unknown:
-                print(f"  ⚠️  UNKNOWN: {unknown}")
+                print(f"  [UNKNOWN] UNKNOWN: {unknown}")
+            if errors:
+                print(f"  [ERROR] ERROR: {errors}")
     
     # Return code
-    has_errors = any(r.parse_errors for r in results)
+    has_conflicts = any(r.overall_judgment in ("INTERNAL-CONFLICT", "DEONTIC-CONFLICT") for r in results)
+    has_errors = any(r.overall_judgment == "ERROR" for r in results)
     
     return 1 if has_errors else 0
 

@@ -48,6 +48,9 @@ from core.constraint_types import (
 )
 from normalizer import normalize_value, get_normalized_value
 
+# Reasoner imports
+from reasoner import InheritanceChecker, InheritanceViolation
+
 
 # =============================================================================
 # DATA CLASSES
@@ -108,8 +111,13 @@ class InheritanceResult:
     """Result of inheritance check."""
     parent_file: str
     child_file: str
+    parent_id: str
+    child_id: str
     is_valid: bool
     violations: List[Dict[str, Any]]
+    
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 # =============================================================================
@@ -204,11 +212,6 @@ class PolicyAnalyzer:
         has_deontic = len(deontic_conflicts) > 0
         
         # Section 7.6: Policy-Level Judgment Classification
-        # 1. INTERNAL-CONFLICT: exists r in R_P union R_F : not SAT(Phi_r)
-        # 2. DEONTIC-CONFLICT: SAT(Phi_perm and Phi_prohib)
-        # 3. UNKNOWN: Any rule yields UNKNOWN
-        # 4. CONSISTENT: Otherwise
-        
         has_unknown = any(r.judgment == "UNKNOWN" for r in all_rules)
         
         if has_internal:
@@ -253,7 +256,6 @@ class PolicyAnalyzer:
                 print(f"  Action: {rule.action}")
                 print(f"  Constraints: {rule.constraint_ids}")
             
-            # Get constraints for this rule
             judgment, model = self._check_rule_consistency(
                 rule.constraint_ids, 
                 constraints
@@ -380,20 +382,9 @@ class PolicyAnalyzer:
         prohibitions: List[RuleAnalysis],
         constraints: Dict[str, Constraint]
     ) -> List[Dict]:
-        """
-        Check for deontic conflicts between permissions and prohibitions.
-        
-        Theory Reference: Section 7.4 - Policy-Level Deontic Conflict
-        
-        Definition (Deontic Conflict):
-            P has deontic conflict iff exists w : Phi_perm(w) and Phi_prohib(w)
-        
-        For same-action rules, we check if:
-            SAT(Phi_perm and Phi_prohib) = sat -> DEONTIC-CONFLICT
-        """
+        """Check for deontic conflicts between permissions and prohibitions."""
         conflicts = []
         
-        # Group rules by action
         perm_by_action = {}
         for p in permissions:
             action = p.action or '_default_'
@@ -404,7 +395,6 @@ class PolicyAnalyzer:
             action = p.action or '_default_'
             prohib_by_action.setdefault(action, []).append(p)
         
-        # Check each action that has both permission and prohibition
         common_actions = set(perm_by_action.keys()) & set(prohib_by_action.keys())
         
         for action in common_actions:
@@ -416,13 +406,7 @@ class PolicyAnalyzer:
                 print(f"  Permissions: {[p.rule_id for p in perms]}")
                 print(f"  Prohibitions: {[p.rule_id for p in prohibs]}")
             
-            # Build Phi_perm = OR(permission rules) - any permission applies
-            # Build Phi_prohib = OR(prohibition rules) - any prohibition applies
-            # Check SAT(Phi_perm AND Phi_prohib)
-            
-            conflict_result = self._check_deontic_conflict(
-                perms, prohibs, constraints
-            )
+            conflict_result = self._check_deontic_conflict(perms, prohibs, constraints)
             
             if conflict_result['has_conflict']:
                 conflicts.append({
@@ -450,27 +434,13 @@ class PolicyAnalyzer:
         prohibitions: List[RuleAnalysis],
         constraints: Dict[str, Constraint]
     ) -> Dict:
-        """
-        Check for deontic conflict using SMT.
-        
-        Theory Reference: Section 7.5 - SMT Characterization
-        
-        ; Check for deontic conflict
-        (assert (and Phi_perm Phi_prohib))
-        (check-sat)
-        
-        Where:
-            Phi_perm = OR{Phi_r | r in R_P}  (disjunction of permission rules)
-            Phi_prohib = OR{Phi_r | r in R_F}  (disjunction of prohibition rules)
-        """
+        """Check for deontic conflict using SMT."""
         self.engine.var_manager.clear()
         
         def encode_rule_set(rules: List[RuleAnalysis]) -> Any:
-            """Encode a set of rules as disjunction (any rule can apply)."""
             rule_formulas = []
             
             for rule in rules:
-                # Encode rule's constraints as conjunction
                 rule_constraints = []
                 for cid in rule.constraint_ids:
                     formula = self._encode_constraint_recursive(cid, constraints)
@@ -484,10 +454,8 @@ class PolicyAnalyzer:
             if not rule_formulas:
                 return None
             
-            # Disjunction: any rule can apply
             return Or(*rule_formulas) if len(rule_formulas) > 1 else rule_formulas[0]
         
-        # Build Phi_perm and Phi_prohib
         phi_perm = encode_rule_set(permissions)
         phi_prohib = encode_rule_set(prohibitions)
         
@@ -498,7 +466,6 @@ class PolicyAnalyzer:
             print(f"\n  Phi_perm (permission): {phi_perm}")
             print(f"  Phi_prohib (prohibition): {phi_prohib}")
         
-        # Check SAT(Phi_perm AND Phi_prohib)
         deontic_formula = And(phi_perm, phi_prohib)
         domains = self.engine.var_manager.get_domain_constraints()
         
@@ -514,7 +481,6 @@ class PolicyAnalyzer:
         result = solver.check()
         
         if result == sat:
-            # Extract witness (model showing the conflict)
             witness = {}
             for decl in solver.model().decls():
                 val = solver.model()[decl]
@@ -625,39 +591,206 @@ class PolicyAnalyzer:
 
 
 # =============================================================================
-# INHERITANCE CHECKER
+# INHERITANCE CHECKER (Using real InheritanceChecker)
 # =============================================================================
 
-def check_inheritance(parent_file: str, child_file: str, verbose: bool = False, debug: bool = False) -> InheritanceResult:
-    """Check if child policy validly inherits from parent."""
+class InheritanceEncoderAdapter:
+    """
+    Adapter to make Z3JudgmentEngine compatible with InheritanceChecker.
+    
+    InheritanceChecker expects:
+    - encoder.reset()
+    - encoder.encode_policy(constraints) -> result with .formulas
+    - encoder.get_domain_constraints()
+    """
+    
+    def __init__(self, engine: Z3JudgmentEngine):
+        self.engine = engine
+        self._formulas = {}
+    
+    def reset(self):
+        """Reset the encoder state."""
+        self.engine.var_manager.clear()
+        self._formulas = {}
+    
+    def encode_policy(self, constraints: Dict[str, Any]) -> 'EncodingResult':
+        """Encode all constraints and return result with formulas dict."""
+        self._formulas = {}
+        
+        for cid, constraint in constraints.items():
+            if isinstance(constraint, AtomicConstraint):
+                self._formulas[cid] = self.engine.constraint_encoder.encode(constraint)
+            elif isinstance(constraint, CompositeConstraint):
+                self._formulas[cid] = self._encode_composite(constraint, constraints)
+        
+        return EncodingResult(self._formulas)
+    
+    def _encode_composite(self, constraint: CompositeConstraint, all_constraints: Dict) -> Any:
+        """Encode a composite constraint."""
+        from z3 import And, Or, BoolVal
+        
+        child_formulas = []
+        for child_id in constraint.operands:
+            if child_id in self._formulas:
+                child_formulas.append(self._formulas[child_id])
+            elif child_id in all_constraints:
+                child = all_constraints[child_id]
+                if isinstance(child, AtomicConstraint):
+                    formula = self.engine.constraint_encoder.encode(child)
+                    self._formulas[child_id] = formula
+                    child_formulas.append(formula)
+                elif isinstance(child, CompositeConstraint):
+                    formula = self._encode_composite(child, all_constraints)
+                    self._formulas[child_id] = formula
+                    child_formulas.append(formula)
+        
+        if not child_formulas:
+            return BoolVal(True)
+        
+        if constraint.operator == LogicalOperator.AND:
+            return And(*child_formulas)
+        elif constraint.operator == LogicalOperator.OR:
+            return Or(*child_formulas)
+        else:
+            return And(*child_formulas)
+    
+    def get_domain_constraints(self) -> List:
+        """Get domain constraints from the engine."""
+        return self.engine.var_manager.get_domain_constraints()
+
+
+@dataclass
+class EncodingResult:
+    """Result of encoding with formulas dict."""
+    formulas: Dict[str, Any]
+
+
+@dataclass
+class PolicyWithConstraints:
+    """Policy object with constraints attached for inheritance checker."""
+    uid: str
+    rules: List
+    constraints: Dict[str, Any]
+
+
+def check_inheritance(
+    parent_file: str, 
+    child_file: str, 
+    verbose: bool = False, 
+    debug: bool = False
+) -> InheritanceResult:
+    """
+    Check if child policy validly inherits from parent.
+    
+    Uses the InheritanceChecker from src/reasoner/inheritance_checker.py
+    """
     
     if verbose:
         print(f"\n{'='*60}")
         print(f"INHERITANCE CHECK")
+        print(f"{'='*60}")
         print(f"Parent: {parent_file}")
         print(f"Child: {child_file}")
         print(f"{'='*60}")
     
-    # Parse both
+    # Parse both policies
     parent_result = parse_ttl_file(parent_file)
     child_result = parse_ttl_file(child_file)
     
-    if not parent_result.policies or not child_result.policies:
+    if not parent_result.policies:
         return InheritanceResult(
             parent_file=parent_file,
             child_file=child_file,
+            parent_id="",
+            child_id="",
             is_valid=False,
-            violations=[{"error": "Could not parse policies"}]
+            violations=[{"error": f"Could not parse parent policy: {parent_file}"}]
         )
     
-    # TODO: Implement full inheritance checking
-    # For now, just check if child is more restrictive
+    if not child_result.policies:
+        return InheritanceResult(
+            parent_file=parent_file,
+            child_file=child_file,
+            parent_id=parent_result.policies[0].uid if parent_result.policies else "",
+            child_id="",
+            is_valid=False,
+            violations=[{"error": f"Could not parse child policy: {child_file}"}]
+        )
+    
+    parent_policy = parent_result.policies[0]
+    child_policy = child_result.policies[0]
+    
+    # Create policy objects with constraints attached
+    parent_with_constraints = PolicyWithConstraints(
+        uid=parent_policy.uid,
+        rules=parent_policy.rules,
+        constraints=parent_result.constraints
+    )
+    
+    child_with_constraints = PolicyWithConstraints(
+        uid=child_policy.uid,
+        rules=child_policy.rules,
+        constraints=child_result.constraints
+    )
+    
+    # Create encoder adapter
+    engine = Z3JudgmentEngine(debug=debug)
+    encoder_adapter = InheritanceEncoderAdapter(engine)
+    
+    # Create and run inheritance checker
+    checker = InheritanceChecker(encoder_adapter, debug=debug)
+    
+    # Run per-action inheritance check
+    violations = checker.check_inheritance_per_action(
+        parent_with_constraints, 
+        child_with_constraints
+    )
+    
+    # Also run global check
+    global_violations = checker.check_inheritance(
+        parent_with_constraints,
+        child_with_constraints
+    )
+    
+    # Combine violations (avoid duplicates)
+    all_violations = violations + [v for v in global_violations 
+                                   if v.violation_type not in [x.violation_type for x in violations]]
+    
+    # Convert to dicts for output
+    violation_dicts = []
+    for v in all_violations:
+        violation_dicts.append({
+            'type': v.violation_type,
+            'action': v.action,
+            'description': v.description,
+            'counterexample': v.counterexample
+        })
+    
+    is_valid = len(all_violations) == 0 or all(
+        v.violation_type == 'redundant' for v in all_violations
+    )
+    
+    if verbose:
+        checker.print_summary()
+        
+        if all_violations:
+            print(f"\n[VIOLATIONS]")
+            print(f"{'-'*40}")
+            for v in all_violations:
+                severity = "ERROR" if v.violation_type == 'inconsistent' else "WARNING"
+                print(f"  [{severity}] {v.violation_type}: {v.description}")
+                if v.counterexample:
+                    print(f"    Counterexample: {v.counterexample}")
+        else:
+            print(f"\n[OK] Child policy validly inherits from parent")
     
     return InheritanceResult(
         parent_file=parent_file,
         child_file=child_file,
-        is_valid=True,
-        violations=[]
+        parent_id=parent_policy.uid,
+        child_id=child_policy.uid,
+        is_valid=is_valid,
+        violations=violation_dicts
     )
 
 
@@ -669,7 +802,6 @@ def format_summary(result: PolicyAnalysis) -> str:
     """Format single-line summary."""
     filename = Path(result.file).name
     
-    # Section 7.6: Policy Conflict Classification
     if result.overall_judgment == "INTERNAL-CONFLICT":
         status = "[CONFLICT]"
     elif result.overall_judgment == "DEONTIC-CONFLICT":
@@ -711,13 +843,32 @@ def format_detailed(result: PolicyAnalysis) -> str:
             status = "[CONFLICT]" if d.judgment == "CONFLICT" else "[OK]"
             lines.append(f"     {status} {d.rule_id} ({d.action}): {d.judgment}")
     
-    # Show deontic conflicts (Section 7.4)
     if result.deontic_conflicts:
         lines.append(f"   Deontic Conflicts: {len(result.deontic_conflicts)}")
         for dc in result.deontic_conflicts:
             lines.append(f"     Action '{dc['action']}': Permission <-> Prohibition overlap")
             if dc.get('witness'):
                 lines.append(f"       Witness: {dc['witness']}")
+    
+    return "\n".join(lines)
+
+
+def format_inheritance_result(result: InheritanceResult) -> str:
+    """Format inheritance check result."""
+    lines = []
+    
+    status = "[VALID]" if result.is_valid else "[INVALID]"
+    lines.append(f"{status} Inheritance Check")
+    lines.append(f"   Parent: {result.parent_id} ({Path(result.parent_file).name})")
+    lines.append(f"   Child: {result.child_id} ({Path(result.child_file).name})")
+    
+    if result.violations:
+        lines.append(f"   Violations: {len(result.violations)}")
+        for v in result.violations:
+            severity = "ERROR" if v.get('type') == 'inconsistent' else "WARNING"
+            lines.append(f"     [{severity}] {v.get('type', 'unknown')}: {v.get('description', '')}")
+    else:
+        lines.append(f"   [OK] Child validly restricts parent")
     
     return "\n".join(lines)
 
@@ -776,13 +927,9 @@ Examples:
             debug=args.debug
         )
         if args.json:
-            print(json.dumps(asdict(result), indent=2))
+            print(json.dumps(result.to_dict(), indent=2))
         else:
-            status = "[VALID]" if result.is_valid else "[INVALID]"
-            print(f"\nInheritance: {status}")
-            if result.violations:
-                for v in result.violations:
-                    print(f"  - {v}")
+            print(format_inheritance_result(result))
         return 0 if result.is_valid else 1
     
     # Collect files
@@ -829,7 +976,6 @@ Examples:
             print("SUMMARY")
             print(f"{'='*60}")
             
-            # Fixed counting logic
             internal_conflicts = sum(1 for r in results if r.overall_judgment == "INTERNAL-CONFLICT")
             deontic_conflicts = sum(1 for r in results if r.overall_judgment == "DEONTIC-CONFLICT")
             consistent = sum(1 for r in results if r.overall_judgment == "CONSISTENT")

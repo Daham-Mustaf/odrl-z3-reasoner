@@ -98,13 +98,14 @@ DOMAIN_BOUNDS: Dict[str, DomainBounds] = {
     
     # Positional - Relative (0-100%)
     "relativePosition": DomainBounds(0, 100, False, True),
-    "relativeSize": DomainBounds(0, 100, False, True),
+    "relativeSize": DomainBounds(0, None, False, True),
     "relativeTemporalPosition": DomainBounds(0, 100, False, True),
     "relativeSpatialPosition": DomainBounds(0, 100, False, True),
 }
 
 # Category sets for convenience
-L_BOUNDED = {"percentage", "relativePosition", "relativeSize", 
+L_BOUNDED = {"percentage", "relativePosition",
+            #  "relativeSize", 
              "relativeTemporalPosition", "relativeSpatialPosition"}
 L_INT = {"count", "timeInterval"}
 L_DATETIME = {"dateTime"}
@@ -112,8 +113,11 @@ L_UNIT = {"payAmount", "resolution", "absolutePosition", "absoluteSize"}
 L_REAL = {"absoluteTemporalPosition"}
 L_COORDS = {"absoluteSpatialPosition"}
 L_REF = {"elapsedTime", "delayPeriod"}
+L_UNBOUNDED_PERCENTAGE = {
+    "relativeSize",  # [0, ∞)
+}
 
-FULLY_ANALYZABLE = L_BOUNDED | L_INT | L_DATETIME | L_UNIT | L_REAL | L_COORDS | {"unitOfCount"}
+FULLY_ANALYZABLE = L_BOUNDED | L_INT | L_DATETIME | L_UNIT | L_REAL |L_UNBOUNDED_PERCENTAGE| L_COORDS | {"unitOfCount"}
 
 
 # =============================================================================
