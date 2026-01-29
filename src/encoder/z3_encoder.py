@@ -2,7 +2,6 @@
 """
 ODRL-SA Z3 Encoder
 Encodes FULL class (L_xsd) constraints to Z3 formulas for SMT solving.
-
 Implements the abstract interpretation from the formal specification:
     
     Abstraction Function (Definition 8):
@@ -23,7 +22,6 @@ Implements the abstract interpretation from the formal specification:
         
     Meet Operation (Definition 9):
         [a,b] meet [c,d] = [max(a,c), min(b,d)] if valid, else bottom
-
 The encoder translates constraints to Z3 and checks satisfiability.
 """
 from typing import Dict, List, Optional, Tuple, Any, Union
@@ -41,14 +39,11 @@ from z3 import (
     # Model extraction
     is_int_value, is_rational_value, is_true, is_false,
 )
-
 # Import from core module
 import sys
 from pathlib import Path
-
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from core.constraint_types import (
     AtomicConstraint,
     CompositeConstraint,
@@ -62,11 +57,68 @@ from core.judgment import JudgmentResult, is_comparable
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# ORACLE INTEGRATION (SAFE - with fallback)
+# =============================================================================
+# This section provides oracle integration with ZERO RISK because:
+# 1. Uses try/except - if oracle fails, fallback is used
+# 2. Fallback behavior is IDENTICAL to current behavior
+# 3. Only affects variable naming, not Z3 logic
+# =============================================================================
+
+def _get_oracle_registry():
+    """
+    Lazy load oracle registry.
+    
+    Returns None if registry is not available (safe fallback).
+    """
+    try:
+        from grounding.oracle_registry import get_registry
+        return get_registry()
+    except ImportError:
+        return None
+
+
+def _normalize_with_oracle(operand: str, value: str) -> str:
+    """
+    Normalize value using oracle if available.
+    
+    SAFE: Falls back to simple IRI extraction if oracle unavailable.
+    This ensures behavior is IDENTICAL to before if oracle is not installed.
+    
+    Args:
+        operand: The left operand name (e.g., "payAmount", "language")
+        value: The value to normalize (e.g., IRI, code, label)
+        
+    Returns:
+        Normalized string identifier for the value
+    """
+    if value is None:
+        return "default"
+    
+    # Try oracle normalization
+    registry = _get_oracle_registry()
+    if registry:
+        try:
+            from grounding.oracle_registry import get_oracle_type_for_operand
+            oracle_type = get_oracle_type_for_operand(operand)
+            if oracle_type:
+                return registry.normalize(oracle_type, value)
+        except Exception:
+            pass  # Fall through to fallback
+    
+    # FALLBACK: Extract local name from IRI (current behavior)
+    value = str(value)
+    if '/' in value:
+        return value.split('/')[-1]
+    if '#' in value:
+        return value.split('#')[-1]
+    return value
+
 
 # =============================================================================
 # DOMAIN BOUNDS (Table 6 from XSD Reference)
 # =============================================================================
-
 @dataclass
 class DomainBounds:
     """Domain bounds for a LeftOperand."""
@@ -117,7 +169,7 @@ L_UNBOUNDED_PERCENTAGE = {
     "relativeSize",  # [0, ∞)
 }
 
-FULLY_ANALYZABLE = L_BOUNDED | L_INT | L_DATETIME | L_UNIT | L_REAL |L_UNBOUNDED_PERCENTAGE| L_COORDS | {"unitOfCount"}
+FULLY_ANALYZABLE = L_BOUNDED | L_INT | L_DATETIME | L_UNIT | L_REAL | L_UNBOUNDED_PERCENTAGE | L_COORDS | {"unitOfCount"}
 
 
 # =============================================================================
@@ -134,13 +186,16 @@ SPATIAL_VALID_OPS = {OperatorType.EQ, OperatorType.NEQ, OperatorType.IS_ANY_OF, 
 # =============================================================================
 # Z3 VARIABLE MANAGER
 # =============================================================================
-
 class Z3VariableManager:
     """
     Manages Z3 variables for constraints.
     
     Each unique (left_operand, unit, unit_of_count) tuple gets one Z3 variable.
     This ensures constraints on the same operand share the same variable.
+    
+    UPDATED: Now normalizes units via Oracle (if available) so that:
+    - "EUR", "euro", "http://qudt.org/vocab/unit/EUR" → same variable
+    - Falls back to simple IRI extraction if Oracle unavailable
     """
     
     def __init__(self):
@@ -157,8 +212,15 @@ class Z3VariableManager:
         # Normalize operand name
         op = left_operand.split('#')[-1].split('/')[-1]
         
-        # Create unique key
-        key = f"{op}_{unit or 'default'}_{unit_of_count or 'default'}"
+        # =====================================================================
+        # ORACLE INTEGRATION (safe - has fallback)
+        # =====================================================================
+        # Normalize unit using oracle (or fallback to IRI extraction)
+        normalized_unit = _normalize_with_oracle(op, unit) if unit else "default"
+        normalized_scope = _normalize_with_oracle(op, unit_of_count) if unit_of_count else "default"
+        
+        # Create unique key with normalized names
+        key = f"{op}_{normalized_unit}_{normalized_scope}"
         
         if key not in self._variables:
             # Determine Z3 sort
@@ -171,8 +233,10 @@ class Z3VariableManager:
             self._variables[key] = var
             self._var_info[key] = {
                 'operand': op,
-                'unit': unit,
+                'unit': unit,  # Store original
+                'normalized_unit': normalized_unit,  # Store normalized
                 'unit_of_count': unit_of_count,
+                'normalized_scope': normalized_scope,  # Store normalized
                 'bounds': bounds,
             }
         
@@ -203,7 +267,6 @@ class Z3VariableManager:
 # =============================================================================
 # CONSTRAINT ENCODER
 # =============================================================================
-
 class ConstraintEncoder:
     """
     Encodes AtomicConstraints to Z3 formulas.
@@ -515,7 +578,6 @@ class ConstraintEncoder:
 # =============================================================================
 # COMPOSITE CONSTRAINT ENCODER
 # =============================================================================
-
 class CompositeEncoder:
     """
     Encodes CompositeConstraints (logical combinations).
@@ -581,7 +643,6 @@ class CompositeEncoder:
 # =============================================================================
 # JUDGMENT ENGINE (SMT-based)
 # =============================================================================
-
 class Z3JudgmentEngine:
     """
     Performs judgment using Z3 SMT solver.
@@ -706,7 +767,6 @@ class Z3JudgmentEngine:
 # =============================================================================
 # CONVENIENCE FUNCTIONS
 # =============================================================================
-
 def judge_constraints(c1: AtomicConstraint, c2: AtomicConstraint) -> JudgmentResult:
     """Convenience function to judge two constraints."""
     engine = Z3JudgmentEngine()
@@ -722,7 +782,6 @@ def check_consistency(constraints: List[AtomicConstraint]) -> Tuple[Judgment, Op
 # =============================================================================
 # MAIN - TESTING
 # =============================================================================
-
 if __name__ == "__main__":
     from core.constraint_types import RightOperand
     

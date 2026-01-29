@@ -45,8 +45,8 @@ DOMAIN_BOUNDS = {
         category="L_bounded"
     ),
     "relativeSize": DomainBounds(
-        min_val=0, max_val=100, is_integer=False, use_real=True,
-        category="L_bounded"
+    min_val=0, max_val=None, is_integer=False, use_real=True,
+    category="L_unbounded_percentage"
     ),
     "relativeTemporalPosition": DomainBounds(
         min_val=0, max_val=100, is_integer=False, use_real=True,
