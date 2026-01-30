@@ -1,0 +1,48 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 19: Deontic Disjoint Valid
+# =============================================================================
+# Description: Permission and Prohibition on disjoint time ranges
+# Scenario: "May use after 2 hours, prohibited before 1 hour (no overlap)"
+# Expected: CONSISTENT (No deontic conflict)
+# Reason: Permission and prohibition don't overlap
+# Analysis:
+#   φ_perm = [7200, +∞)  (≥2h)
+#   φ_prohib = (0, 3600)  (<1h)
+#   Overlap: [7200, +∞) ∩ (0, 3600) = ∅
+# =============================================================================
+
+ex:policy_elapsed_time_19
+    a odrl:Set ;
+    dct:description "Deontic disjoint valid: permission ≥2h and prohibition <1h have no overlap"@en ;
+    odrl:uid ex:policy_elapsed_time_19 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_19 ;
+        odrl:constraint ex:constraint_19_perm
+    ] ;
+    odrl:prohibition [
+        a odrl:Prohibition ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_19 ;
+        odrl:constraint ex:constraint_19_prohib
+    ] .
+
+# Permission: may use after 2 hours elapsed
+ex:constraint_19_perm
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT2H"^^xsd:duration .
+
+# Prohibition: prohibited before 1 hour elapsed
+ex:constraint_19_prohib
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "PT1H"^^xsd:duration .

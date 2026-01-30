@@ -1,0 +1,71 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 20: Complex Nested Valid
+# =============================================================================
+# Description: Complex combination that is still satisfiable
+# Scenario: "((≥30min AND ≤2h) OR ≥4h) AND ≤6h"
+# Expected: CONSISTENT
+# Model: elapsedTime = 3600 (1 hour)
+# Analysis:
+#   Inner OR branch 1: [1800, 7200]  (30min to 2h)
+#   Inner OR branch 2: [14400, +∞)  (≥4h)
+#   OR result: [1800, 7200] ∪ [14400, +∞)
+#   AND with lteq 6h (≤21600): [1800, 7200] ∪ [14400, 21600]
+#   Non-empty!
+# =============================================================================
+
+ex:policy_elapsed_time_20
+    a odrl:Set ;
+    dct:description "Complex nested valid: ((≥30min AND ≤2h) OR ≥4h) AND ≤6h is satisfiable"@en ;
+    odrl:uid ex:policy_elapsed_time_20 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_20 ;
+        odrl:constraint ex:constraint_20_outer
+    ] .
+
+# Outer AND: (inner_or) AND (≤6h)
+ex:constraint_20_outer
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_20_inner_or ex:constraint_20_upper) .
+
+# Inner OR: (short_window) OR (long_window)
+ex:constraint_20_inner_or
+    a odrl:Constraint ;
+    odrl:or (ex:constraint_20_short_window ex:constraint_20_long_start) .
+
+# Short window: ≥30min AND ≤2h
+ex:constraint_20_short_window
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_20a ex:constraint_20b) .
+
+ex:constraint_20a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT30M"^^xsd:duration .
+
+ex:constraint_20b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT2H"^^xsd:duration .
+
+# Long window start: ≥4h
+ex:constraint_20_long_start
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT4H"^^xsd:duration .
+
+# Upper bound: ≤6h
+ex:constraint_20_upper
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT6H"^^xsd:duration .

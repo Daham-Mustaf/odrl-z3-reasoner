@@ -1,0 +1,58 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 18: Overlapping Ranges Valid
+# =============================================================================
+# Description: Two ranges that overlap
+# Scenario: "Between 30min-2h AND between 1h-3h (overlap: 1h-2h)"
+# Expected: CONSISTENT
+# Model: elapsedTime = 5400 (90 minutes)
+# Analysis:
+#   Range 1: [1800, 7200]  (30min to 2h)
+#   Range 2: [3600, 10800]  (1h to 3h)
+#   Meet: [3600, 7200] ≠ ∅  (1h to 2h)
+# =============================================================================
+
+ex:policy_elapsed_time_18
+    a odrl:Set ;
+    dct:description "Overlapping ranges valid: [30min,2h] ∩ [1h,3h] = [1h,2h] is non-empty"@en ;
+    odrl:uid ex:policy_elapsed_time_18 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_18 ;
+        odrl:constraint ex:constraint_18_composite
+    ] .
+
+ex:constraint_18_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_18a ex:constraint_18b ex:constraint_18c ex:constraint_18d) .
+
+# Range 1: [30min, 2h]
+ex:constraint_18a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT30M"^^xsd:duration .
+
+ex:constraint_18b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT2H"^^xsd:duration .
+
+# Range 2: [1h, 3h]
+ex:constraint_18c
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT1H"^^xsd:duration .
+
+ex:constraint_18d
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT3H"^^xsd:duration .

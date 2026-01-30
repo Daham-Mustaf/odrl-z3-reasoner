@@ -155,16 +155,16 @@ L_REAL = {"absoluteTemporalPosition"}
 
 L_COORDS = {"absoluteSpatialPosition"}
 
-L_REF = {"elapsedTime", "delayPeriod"}
+L_DURATION = {"elapsedTime", "delayPeriod"}
 L_UNBOUNDED_PERCENTAGE = {
     "relativeSize",  # [0, ∞)
 }
 
 # All fully analyzable (15)
-FULLY_ANALYZABLE = L_BOUNDED | L_UNBOUNDED_PERCENTAGE | L_INT | L_DATETIME | L_UNIT | L_REAL | L_COORDS | {"unitOfCount"}
+FULLY_ANALYZABLE = L_DURATION | L_BOUNDED | L_UNBOUNDED_PERCENTAGE | L_INT | L_DATETIME | L_UNIT | L_REAL | L_COORDS | {"unitOfCount"}
 
-# Partially analyzable (2)
-PARTIALLY_ANALYZABLE = L_REF
+# # Partially analyzable (2)
+# PARTIALLY_ANALYZABLE = L_REF
 
 # Requires external KB (14) - not in DOMAIN_BOUNDS
 REQUIRES_ORACLE = {
@@ -197,8 +197,8 @@ def get_category(operand: str) -> str:
         return "L_real"
     elif operand in L_COORDS:
         return "L_coords"
-    elif operand in L_REF:
-        return "L_ref"
+    elif operand in L_DURATION:
+        return "L_duration"
     elif operand == "unitOfCount":
         return "L_vocab"
     elif operand in REQUIRES_ORACLE:

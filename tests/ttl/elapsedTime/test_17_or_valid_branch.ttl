@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 17: OR One Valid Branch
+# =============================================================================
+# Description: OR where at least one branch is satisfiable
+# Scenario: "Valid if under 1 hour OR over 10 hours (one is easy to satisfy)"
+# Expected: CONSISTENT
+# Model: elapsedTime = 1800 (30 minutes)
+# Analysis:
+#   Branch 1: (0, 3600) - easily satisfiable
+#   Branch 2: (36000, +∞) - also satisfiable
+#   OR needs at least one
+# =============================================================================
+
+ex:policy_elapsed_time_17
+    a odrl:Set ;
+    dct:description "OR one valid branch: lt 1h OR gt 10h - both branches satisfiable"@en ;
+    odrl:uid ex:policy_elapsed_time_17 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_17 ;
+        odrl:constraint ex:constraint_17_or
+    ] .
+
+ex:constraint_17_or
+    a odrl:Constraint ;
+    odrl:or (ex:constraint_17a ex:constraint_17b) .
+
+ex:constraint_17a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "PT1H"^^xsd:duration .
+
+ex:constraint_17b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gt ;
+    odrl:rightOperand "PT10H"^^xsd:duration .

@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 05: isAnyOf with Range Conflict
+# =============================================================================
+# Description: elapsedTime must be one of {1h, 2h, 3h} AND less than 30 minutes
+# Scenario: "Valid at specific checkpoints but only in first 30 minutes"
+# Expected: CONFLICT
+# Reason: All checkpoint times (1h, 2h, 3h) exceed 30 minutes
+# Analysis:
+#   α(isAnyOf {3600, 7200, 10800}) = {3600, 7200, 10800}
+#   α(lt 1800) = (0, 1800)
+#   Meet: {3600, 7200, 10800} ∩ (0, 1800) = ∅
+# =============================================================================
+
+ex:policy_elapsed_time_05
+    a odrl:Set ;
+    dct:description "isAnyOf with range conflict: checkpoints at 1h/2h/3h but must be <30min"@en ;
+    odrl:uid ex:policy_elapsed_time_05 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_05 ;
+        odrl:constraint ex:constraint_05_composite
+    ] .
+
+ex:constraint_05_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_05a ex:constraint_05b) .
+
+ex:constraint_05a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:isAnyOf ;
+    odrl:rightOperand ("PT1H"^^xsd:duration "PT2H"^^xsd:duration "PT3H"^^xsd:duration) .
+
+ex:constraint_05b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "PT30M"^^xsd:duration .

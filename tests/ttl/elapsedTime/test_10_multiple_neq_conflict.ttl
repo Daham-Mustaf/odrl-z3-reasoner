@@ -1,0 +1,50 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 10: Multiple NEQ Eliminates All Conflict
+# =============================================================================
+# Description: Exclude all valid durations via multiple neq constraints
+# Scenario: "Not 1 hour, not 2 hours, but must be exactly 1 or 2 hours"
+# Expected: CONFLICT
+# Reason: Required values are all excluded
+# Analysis:
+#   Allowed by neq: (0, +∞) \ {3600, 7200}
+#   Required by isAnyOf: {3600, 7200}
+#   Meet: ∅
+# =============================================================================
+
+ex:policy_elapsed_time_10
+    a odrl:Set ;
+    dct:description "Multiple NEQ eliminates all: neq 1h AND neq 2h AND isAnyOf(1h, 2h)"@en ;
+    odrl:uid ex:policy_elapsed_time_10 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_10 ;
+        odrl:constraint ex:constraint_10_composite
+    ] .
+
+ex:constraint_10_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_10a ex:constraint_10b ex:constraint_10c) .
+
+ex:constraint_10a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:neq ;
+    odrl:rightOperand "PT1H"^^xsd:duration .
+
+ex:constraint_10b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:neq ;
+    odrl:rightOperand "PT2H"^^xsd:duration .
+
+ex:constraint_10c
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:isAnyOf ;
+    odrl:rightOperand ("PT1H"^^xsd:duration "PT2H"^^xsd:duration) .

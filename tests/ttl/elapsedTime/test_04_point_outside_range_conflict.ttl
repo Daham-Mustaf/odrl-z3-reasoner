@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 04: Point Outside Range Conflict
+# =============================================================================
+# Description: elapsedTime equals 60 minutes AND is less than 60 minutes
+# Scenario: "Valid at exactly 60 minutes AND before 60 minutes"
+# Expected: CONFLICT
+# Reason: 3600 is not in open interval (0, 3600)
+# Analysis:
+#   α(eq 3600) = {3600}
+#   α(lt 3600) = (0, 3600)  [open interval, excludes 3600]
+#   Meet: {3600} ∩ (0, 3600) = ∅
+# =============================================================================
+
+ex:policy_elapsed_time_04
+    a odrl:Set ;
+    dct:description "Point outside range: eq 60min AND lt 60min is impossible"@en ;
+    odrl:uid ex:policy_elapsed_time_04 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_04 ;
+        odrl:constraint ex:constraint_04_composite
+    ] .
+
+ex:constraint_04_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_04a ex:constraint_04b) .
+
+ex:constraint_04a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "PT60M"^^xsd:duration .
+
+ex:constraint_04b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "PT60M"^^xsd:duration .

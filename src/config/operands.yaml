@@ -108,34 +108,46 @@ timeInterval:
   description: "Recurring time interval between executions (seconds)"
 
 elapsedTime:
-  class: PARTIAL
+  class: FULL
   category: L_duration
-  z3_sort: Int
-  domain: { min: 0, max: null }
-  normalizer: duration_to_seconds
-  operators: [eq, neq, lt, lteq, gt, gteq]
-  invalid_operators: [isA, hasPart, isPartOf]
-  unit:
-    required: false
-    implicit: seconds
-  reference_point: policy_activation
-  note: "Full analysis requires runtime context"
-  description: "Elapsed time since policy activation"
+  z3_sort: Real
+  domain:
+    min: 0
+    max: null
+    inclusive_min: false  # Strictly positive
+  value_type: xsd:duration
+  operators:
+    - eq
+    - neq
+    - lt
+    - lteq
+    - gt
+    - gteq
+  operators_recommended:
+    - eq
+    - lt
+    - lteq
+  unit_required: false
+  description: "Continuous elapsed time period for exercising action"
 
 delayPeriod:
-  class: PARTIAL
+  class: FULL
   category: L_duration
-  z3_sort: Int
-  domain: { min: 0, max: null }
-  normalizer: duration_to_seconds
-  operators: [eq, neq, lt, lteq, gt, gteq]
-  invalid_operators: [isA, hasPart, isPartOf]
-  unit:
-    required: false
-    implicit: seconds
-  reference_point: triggering_event
-  note: "Full analysis requires runtime context"
-  description: "Delay period after triggering event"
+  z3_sort: Real
+  domain:
+    min: 0
+    max: null
+    inclusive_min: false  # Strictly positive
+  value_type: xsd:duration
+  operators:
+    - eq
+    - neq
+    - lt
+    - lteq
+    - gt
+    - gteq
+  unit_required: false
+  description: "Time delay before action can be exercised"
 
 # =============================================================================
 # 𝓛_datetime — Temporal Instant (1 LeftOperand)

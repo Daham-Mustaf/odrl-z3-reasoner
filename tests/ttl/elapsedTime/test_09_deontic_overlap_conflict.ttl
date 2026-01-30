@@ -1,0 +1,52 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 09: Deontic Overlap Conflict
+# =============================================================================
+# Description: Permission and Prohibition overlap on same action
+# Scenario: "May stream for up to 4 hours, but streaming beyond 2 hours prohibited"
+# Expected: DEONTIC-CONFLICT
+# Reason: Between 2-4 hours, action is both permitted AND prohibited
+# Analysis:
+#   φ_perm = (0, 14400]  (≤4h = ≤14400s)
+#   φ_prohib = (7200, +∞)  (>2h = >7200s)
+#   Overlap: (7200, 14400] ≠ ∅
+#   Witness: elapsedTime = 10800 (3 hours)
+#     - Permission: 10800 ≤ 14400 ✓
+#     - Prohibition: 10800 > 7200 ✓
+#     - BOTH apply!
+# =============================================================================
+
+ex:policy_elapsed_time_09
+    a odrl:Set ;
+    dct:description "Deontic overlap conflict: permission ≤4h overlaps with prohibition >2h"@en ;
+    odrl:uid ex:policy_elapsed_time_09 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:stream ;
+        odrl:target ex:asset_09 ;
+        odrl:constraint ex:constraint_09_perm
+    ] ;
+    odrl:prohibition [
+        a odrl:Prohibition ;
+        odrl:action odrl:stream ;
+        odrl:target ex:asset_09 ;
+        odrl:constraint ex:constraint_09_prohib
+    ] .
+
+# Permission: may stream for up to 4 hours
+ex:constraint_09_perm
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT4H"^^xsd:duration .
+
+# Prohibition: streaming beyond 2 hours is prohibited
+ex:constraint_09_prohib
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gt ;
+    odrl:rightOperand "PT2H"^^xsd:duration .

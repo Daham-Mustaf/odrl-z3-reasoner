@@ -58,4 +58,6 @@ uv run python main.py tests/ttl/absolutePosition --all
 uv run python main.py tests/ttl/absoluteTemporalPosition --all
 
 
+uv run python main.py tests/ttl/elapsedTime --all
+
 

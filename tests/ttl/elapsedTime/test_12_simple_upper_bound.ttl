@@ -1,0 +1,35 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 12: Simple Upper Bound (ODRL Example)
+# =============================================================================
+# Description: elapsedTime at most 60 minutes
+# Scenario: "One-hour trial period"
+# Expected: CONSISTENT
+# Model: elapsedTime = 1800 (30 minutes)
+# Analysis:
+#   α(lteq 3600) = (0, 3600]
+#   Domain: (0, +∞)
+#   Meet: (0, 3600] ≠ ∅
+# Note: This mirrors the ODRL specification example for elapsedTime
+# =============================================================================
+
+ex:policy_elapsed_time_12
+    a odrl:Set ;
+    dct:description "Simple upper bound: elapsedTime ≤ 60 minutes (one-hour trial)"@en ;
+    odrl:uid ex:policy_elapsed_time_12 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:play ;
+        odrl:target ex:asset_12 ;
+        odrl:constraint ex:constraint_12
+    ] .
+
+ex:constraint_12
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT60M"^^xsd:duration .

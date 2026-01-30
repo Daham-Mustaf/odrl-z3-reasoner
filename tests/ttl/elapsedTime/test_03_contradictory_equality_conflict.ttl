@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 03: Contradictory Equality Conflict
+# =============================================================================
+# Description: elapsedTime must equal 30 minutes AND equal 60 minutes
+# Scenario: "Trial period is exactly 30 minutes AND exactly 60 minutes"
+# Expected: CONFLICT
+# Reason: Cannot equal two different values
+# Analysis:
+#   α(eq 1800) = {1800}
+#   α(eq 3600) = {3600}
+#   Meet: {1800} ∩ {3600} = ∅
+# =============================================================================
+
+ex:policy_elapsed_time_03
+    a odrl:Set ;
+    dct:description "Contradictory equality: cannot equal both 30min AND 60min"@en ;
+    odrl:uid ex:policy_elapsed_time_03 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_03 ;
+        odrl:constraint ex:constraint_03_composite
+    ] .
+
+ex:constraint_03_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_03a ex:constraint_03b) .
+
+ex:constraint_03a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "PT30M"^^xsd:duration .
+
+ex:constraint_03b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "PT60M"^^xsd:duration .

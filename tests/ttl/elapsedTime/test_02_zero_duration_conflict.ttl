@@ -1,0 +1,34 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 02: Zero Duration Conflict (Domain Violation)
+# =============================================================================
+# Description: elapsedTime equals zero (invalid - domain is strictly positive)
+# Scenario: "Action valid at exactly zero elapsed time"
+# Expected: CONFLICT
+# Reason: Zero duration violates domain bounds
+# Analysis:
+#   Domain: (0, +∞) - zero excluded
+#   Constraint: elapsed = 0
+#   0 ∉ (0, +∞)
+# =============================================================================
+
+ex:policy_elapsed_time_02
+    a odrl:Set ;
+    dct:description "Zero duration conflict: elapsed time = 0 violates domain (0, +∞)"@en ;
+    odrl:uid ex:policy_elapsed_time_02 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_02 ;
+        odrl:constraint ex:constraint_02
+    ] .
+
+ex:constraint_02
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "PT0S"^^xsd:duration .

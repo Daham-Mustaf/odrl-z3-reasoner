@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 14: Cue Points Valid (isAnyOf)
+# =============================================================================
+# Description: elapsedTime must be one of specific cue points within valid range
+# Scenario: "Ad insertion at 15, 30, or 45 minutes into content"
+# Expected: CONSISTENT
+# Model: elapsedTime = 1800 (30 minutes)
+# Analysis:
+#   α(isAnyOf {900, 1800, 2700}) = {900, 1800, 2700}
+#   α(lteq 3600) = (0, 3600]
+#   Meet: {900, 1800, 2700} ⊆ (0, 3600] ✓
+# =============================================================================
+
+ex:policy_elapsed_time_14
+    a odrl:Set ;
+    dct:description "Cue points valid: ad insertion at 15/30/45 minutes, all within 1 hour"@en ;
+    odrl:uid ex:policy_elapsed_time_14 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:display ;
+        odrl:target ex:asset_14 ;
+        odrl:constraint ex:constraint_14_composite
+    ] .
+
+ex:constraint_14_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_14a ex:constraint_14b) .
+
+ex:constraint_14a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:isAnyOf ;
+    odrl:rightOperand ("PT15M"^^xsd:duration "PT30M"^^xsd:duration "PT45M"^^xsd:duration) .
+
+ex:constraint_14b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT1H"^^xsd:duration .

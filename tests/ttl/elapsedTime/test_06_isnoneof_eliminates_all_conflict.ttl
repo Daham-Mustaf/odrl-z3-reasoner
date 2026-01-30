@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 06: isNoneOf Eliminates All Options Conflict
+# =============================================================================
+# Description: elapsedTime is NOT any of {1h, 2h} AND must be one of {1h, 2h}
+# Scenario: "Exclude standard durations but require standard durations"
+# Expected: CONFLICT
+# Reason: Cannot be in set AND not in same set
+# Analysis:
+#   α(isNoneOf {3600, 7200}) = (0, +∞) \ {3600, 7200}
+#   α(isAnyOf {3600, 7200}) = {3600, 7200}
+#   Meet: ∅
+# =============================================================================
+
+ex:policy_elapsed_time_06
+    a odrl:Set ;
+    dct:description "isNoneOf eliminates all: must be in {1h, 2h} AND not in {1h, 2h}"@en ;
+    odrl:uid ex:policy_elapsed_time_06 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_06 ;
+        odrl:constraint ex:constraint_06_composite
+    ] .
+
+ex:constraint_06_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_06a ex:constraint_06b) .
+
+ex:constraint_06a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:isNoneOf ;
+    odrl:rightOperand ("PT1H"^^xsd:duration "PT2H"^^xsd:duration) .
+
+ex:constraint_06b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:isAnyOf ;
+    odrl:rightOperand ("PT1H"^^xsd:duration "PT2H"^^xsd:duration) .

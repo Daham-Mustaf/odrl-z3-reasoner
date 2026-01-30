@@ -26,6 +26,11 @@ Usage:
     
     # Get normalized value from constraint
     value = get_normalized_value(constraint)
+    
+    # Use enhanced duration parser directly
+    from normalizer import parse_duration, ParsedDuration
+    parsed = parse_duration("P1DT12H")
+    print(parsed.to_seconds())  # 129600.0
 """
 
 from .normalizer import (
@@ -42,11 +47,47 @@ from .normalizer import (
     get_normalizer,
 )
 
+# Enhanced duration parser (new)
+from .duration_parser import (
+    # Main functions
+    parse_duration,
+    duration_to_seconds,
+    duration_to_decimal,
+    
+    # Validation
+    is_valid_duration,
+    validate_duration_for_elapsed_time,
+    
+    # Data class
+    ParsedDuration,
+    
+    # Constants
+    COMMON_DURATIONS,
+    SECONDS_PER_DAY,
+    SECONDS_PER_HOUR,
+    SECONDS_PER_MINUTE,
+    SECONDS_PER_WEEK,
+)
+
 __all__ = [
+    # Main API
     "normalize_value",
     "normalize_constraint",
     "get_normalized_value",
     "NormalizationResult",
     "NORMALIZERS",
     "get_normalizer",
+    
+    # Duration parser
+    "parse_duration",
+    "duration_to_seconds",
+    "duration_to_decimal",
+    "is_valid_duration",
+    "validate_duration_for_elapsed_time",
+    "ParsedDuration",
+    "COMMON_DURATIONS",
+    "SECONDS_PER_DAY",
+    "SECONDS_PER_HOUR",
+    "SECONDS_PER_MINUTE",
+    "SECONDS_PER_WEEK",
 ]

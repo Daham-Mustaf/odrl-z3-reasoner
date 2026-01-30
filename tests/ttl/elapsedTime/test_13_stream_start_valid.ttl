@@ -1,0 +1,34 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 13: Stream Start Valid
+# =============================================================================
+# Description: elapsedTime at least 1 second (minimal valid duration)
+# Scenario: "Streaming begins after initialization"
+# Expected: CONSISTENT
+# Model: elapsedTime = 1
+# Analysis:
+#   α(gteq 1) = [1, +∞)
+#   Domain: (0, +∞)
+#   Domain satisfied - [1, +∞) ⊆ (0, +∞)
+# =============================================================================
+
+ex:policy_elapsed_time_13
+    a odrl:Set ;
+    dct:description "Stream start valid: elapsedTime ≥ 1 second (minimal duration)"@en ;
+    odrl:uid ex:policy_elapsed_time_13 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:stream ;
+        odrl:target ex:asset_13 ;
+        odrl:constraint ex:constraint_13
+    ] .
+
+ex:constraint_13
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT1S"^^xsd:duration .

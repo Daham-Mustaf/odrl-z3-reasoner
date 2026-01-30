@@ -141,8 +141,25 @@ DOMAIN_BOUNDS: Dict[str, DomainBounds] = {
     # Temporal
     "dateTime": DomainBounds(min_val=None, max_val=None, is_integer=True, use_real=False),
     "timeInterval": DomainBounds(min_val=1, max_val=None, is_integer=True, use_real=False),
-    "elapsedTime": DomainBounds(min_val=0, max_val=None, is_integer=True, use_real=False),
-    "delayPeriod": DomainBounds(min_val=0, max_val=None, is_integer=True, use_real=False),
+    
+    
+    # "elapsedTime": DomainBounds(min_val=0, max_val=None, is_integer=True, use_real=False),
+    # "delayPeriod": DomainBounds(min_val=0, max_val=None, is_integer=True, use_real=False),
+    # Duration-based operands (0, ∞) - strictly positive
+    "elapsedTime": DomainBounds(
+        min_val=0, 
+        max_val=None, 
+        is_integer=False, 
+        use_real=True,
+        exclusive_min=True  # Zero duration is meaningless
+    ),
+    "delayPeriod": DomainBounds(
+        min_val=0, 
+        max_val=None, 
+        is_integer=False, 
+        use_real=True,
+        exclusive_min=True  # Zero delay is meaningless
+    ),
     
     # Positional - Absolute
     "absolutePosition": DomainBounds(min_val=0, max_val=None, is_integer=False, use_real=True),
@@ -166,13 +183,12 @@ L_DATETIME = {"dateTime"}
 L_UNIT = {"payAmount", "resolution", "absolutePosition", "absoluteSize"}
 L_REAL = {"absoluteTemporalPosition"}
 L_COORDS = {"absoluteSpatialPosition"}
-L_REF = {"elapsedTime", "delayPeriod"}
+L_DURATION = {"elapsedTime", "delayPeriod"}
 L_UNBOUNDED_PERCENTAGE = {
     "relativeSize",  # [0, ∞)
 }
 
-FULLY_ANALYZABLE = L_BOUNDED | L_INT | L_DATETIME | L_UNIT | L_REAL | L_UNBOUNDED_PERCENTAGE | L_COORDS | {"unitOfCount"}
-
+FULLY_ANALYZABLE = L_BOUNDED | L_INT | L_DATETIME | L_UNIT | L_REAL | L_UNBOUNDED_PERCENTAGE | L_COORDS | L_DURATION | {"unitOfCount"}
 
 # =============================================================================
 # OPERATOR RESTRICTIONS
@@ -260,7 +276,7 @@ class Z3VariableManager:
                         constraints.append(var >= bounds.min_val)  # Inclusive >=
                 if bounds.max_val is not None:
                     if bounds.exclusive_max:
-                        constraints.append(var < bounds.max_val)  # Strict 
+                        constraints.append(var < bounds.max_val)  # Strict <
                     else:
                         constraints.append(var <= bounds.max_val)  # Inclusive <=
         

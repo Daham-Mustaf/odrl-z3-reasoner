@@ -1,0 +1,61 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 07: XONE with AND Conflict
+# =============================================================================
+# Description: Exactly one of two ranges, but also require both
+# Scenario: "Choose exactly one tier but satisfy both tier requirements"
+# Expected: CONFLICT
+# Reason: Cannot satisfy exactly-one when both branches are forced
+# Analysis:
+#   XONE requires exactly one branch true
+#   Inner constraints force BOTH branches, violating XONE
+# =============================================================================
+
+ex:policy_elapsed_time_07
+    a odrl:Set ;
+    dct:description "XONE with AND conflict: exactly one of two ranges, but forced to satisfy both"@en ;
+    odrl:uid ex:policy_elapsed_time_07 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_07 ;
+        odrl:constraint ex:constraint_07_outer
+    ] .
+
+ex:constraint_07_outer
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_07_xone ex:constraint_07c ex:constraint_07d) .
+
+ex:constraint_07_xone
+    a odrl:Constraint ;
+    odrl:xone (ex:constraint_07a ex:constraint_07b) .
+
+ex:constraint_07a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT1H"^^xsd:duration .
+
+ex:constraint_07b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT2H"^^xsd:duration .
+
+# Forces first XONE branch (≤30min implies ≤1h)
+ex:constraint_07c
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT30M"^^xsd:duration .
+
+# Forces second XONE branch (≥3h implies ≥2h)
+ex:constraint_07d
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT3H"^^xsd:duration .

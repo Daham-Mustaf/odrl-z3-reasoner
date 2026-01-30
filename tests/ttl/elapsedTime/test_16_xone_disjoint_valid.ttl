@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 16: XONE Disjoint Valid
+# =============================================================================
+# Description: Exactly one of two non-overlapping time periods
+# Scenario: "Either short session (≤30min) OR long session (≥2h), not both"
+# Expected: CONSISTENT
+# Model: elapsedTime = 900 (15 minutes, satisfies branch 1 only)
+# Analysis:
+#   Branch 1: (0, 1800]  (≤30min)
+#   Branch 2: [7200, +∞)  (≥2h)
+#   No overlap - exactly one can be true for any value
+# =============================================================================
+
+ex:policy_elapsed_time_16
+    a odrl:Set ;
+    dct:description "XONE disjoint valid: exactly one of short (≤30min) or long (≥2h) session"@en ;
+    odrl:uid ex:policy_elapsed_time_16 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_16 ;
+        odrl:constraint ex:constraint_16_xone
+    ] .
+
+ex:constraint_16_xone
+    a odrl:Constraint ;
+    odrl:xone (ex:constraint_16a ex:constraint_16b) .
+
+ex:constraint_16a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT30M"^^xsd:duration .
+
+ex:constraint_16b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT2H"^^xsd:duration .

@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 11: Valid Time Window
+# =============================================================================
+# Description: elapsedTime between 30 minutes and 2 hours (valid range)
+# Scenario: "Access granted after 30-minute warm-up, until 2-hour limit"
+# Expected: CONSISTENT
+# Model: elapsedTime = 3600 (1 hour, or any value in [1800, 7200])
+# Analysis:
+#   α(gteq 1800) = [1800, +∞)
+#   α(lteq 7200) = (0, 7200]
+#   Meet: [1800, 7200] ≠ ∅
+# =============================================================================
+
+ex:policy_elapsed_time_11
+    a odrl:Set ;
+    dct:description "Valid time window: 30min ≤ elapsedTime ≤ 2h is satisfiable"@en ;
+    odrl:uid ex:policy_elapsed_time_11 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_11 ;
+        odrl:constraint ex:constraint_11_composite
+    ] .
+
+ex:constraint_11_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_11a ex:constraint_11b) .
+
+ex:constraint_11a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT30M"^^xsd:duration .
+
+ex:constraint_11b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT2H"^^xsd:duration .

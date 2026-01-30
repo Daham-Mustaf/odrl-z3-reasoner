@@ -1,0 +1,46 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 08: OR with Both Branches Impossible Conflict
+# =============================================================================
+# Description: OR of two impossible conditions (both violate domain)
+# Scenario: "Valid if negative duration OR exactly zero"
+# Expected: CONFLICT
+# Reason: Both OR branches violate domain bounds
+# Analysis:
+#   α(lt 0) = ∅ (domain violation - no negative durations)
+#   α(eq 0) = ∅ (domain violation - zero excluded from (0, +∞))
+#   OR(∅, ∅) = ∅
+# =============================================================================
+
+ex:policy_elapsed_time_08
+    a odrl:Set ;
+    dct:description "OR with both branches impossible: lt 0 OR eq 0 both violate domain (0, +∞)"@en ;
+    odrl:uid ex:policy_elapsed_time_08 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_08 ;
+        odrl:constraint ex:constraint_08_or
+    ] .
+
+ex:constraint_08_or
+    a odrl:Constraint ;
+    odrl:or (ex:constraint_08a ex:constraint_08b) .
+
+# Branch 1: less than zero (impossible for duration)
+ex:constraint_08a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "PT0S"^^xsd:duration .
+
+# Branch 2: equals zero (violates domain)
+ex:constraint_08b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "PT0S"^^xsd:duration .
