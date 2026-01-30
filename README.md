@@ -32,7 +32,7 @@ cd odrl-z3-reasoner
 uv sync
 
 # Run the analyzer
-uv run python -m src analyze tests/ttl/resolution/01_eq_eq_conflict.ttl
+uv run python main.py tests/ttl/resolution/01_eq_eq_conflict.ttl
 ```
 
 #### Option 2: Using pip
@@ -50,23 +50,23 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run the analyzer
-python -m src analyze tests/ttl/resolution/01_eq_eq_conflict.ttl
+uv run python main.py tests/ttl/resolution/01_eq_eq_conflict.ttl
 ```
 
 ### Basic Usage
 
 ```bash
 # Analyze a single policy file
-uv run python -m src analyze path/to/policy.ttl
+uv run python main.py analyze path/to/policy.ttl
 
 # Analyze all policies in a directory
-uv run python -m src analyze tests/ttl/resolution/
+uv run python main.py tests/ttl/resolution/
 
 # Run with verbose output
-uv run python -m src analyze --verbose tests/ttl/payAmount/
+uv run python main.py --verbose tests/ttl/payAmount/
 
 # Generate JSON report
-uv run python -m src analyze --output report.json tests/ttl/
+uv run python main.py tests/ttl/
 ```
 
 ## Example Output
