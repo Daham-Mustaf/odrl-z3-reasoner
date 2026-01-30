@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 11: Valid Delay Window
+# =============================================================================
+# Description: delayPeriod between 7 days and 30 days (valid range)
+# Scenario: "Embargo between 1 week and 1 month"
+# Expected: CONSISTENT
+# Model: delayPeriod = 1209600 (14 days)
+# Analysis:
+#   α(gteq 604800) = [604800, +∞)
+#   α(lteq 2592000) = [0, 2592000]
+#   Meet: [604800, 2592000] ≠ ∅
+# =============================================================================
+
+ex:policy_delay_period_11
+    a odrl:Set ;
+    dct:description "Valid delay window: 7 days ≤ delayPeriod ≤ 30 days is satisfiable"@en ;
+    odrl:uid ex:policy_delay_period_11 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_11 ;
+        odrl:constraint ex:constraint_11_composite
+    ] .
+
+ex:constraint_11_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_11a ex:constraint_11b) .
+
+ex:constraint_11a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P7D"^^xsd:duration .
+
+ex:constraint_11b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P30D"^^xsd:duration .

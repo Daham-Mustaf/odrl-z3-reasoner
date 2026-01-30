@@ -1,0 +1,38 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 02: Zero Delay Valid (DIFFERENT FROM elapsedTime!)
+# =============================================================================
+# Description: delayPeriod equals zero (VALID - means immediate action)
+# Scenario: "No waiting period required - action allowed immediately"
+# Expected: CONSISTENT ✅ (NOT conflict!)
+# Reason: Zero delay means "no waiting required" - semantically valid
+# Model: delayPeriod = 0
+# Analysis:
+#   Domain: [0, +∞) - zero INCLUDED (unlike elapsedTime!)
+#   Constraint: delay = 0
+#   0 ∈ [0, +∞) ✓
+# 
+# KEY DIFFERENCE: elapsedTime domain is (0, +∞) excluding zero
+#                 delayPeriod domain is [0, +∞) including zero
+# =============================================================================
+
+ex:policy_delay_period_02
+    a odrl:Set ;
+    dct:description "Zero delay valid: no waiting required, immediate action allowed"@en ;
+    odrl:uid ex:policy_delay_period_02 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_02 ;
+        odrl:constraint ex:constraint_02
+    ] .
+
+ex:constraint_02
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "PT0S"^^xsd:duration .

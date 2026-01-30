@@ -1,0 +1,58 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 18: Overlapping Ranges Valid
+# =============================================================================
+# Description: Two ranges that overlap
+# Scenario: "Between 7-60 days AND between 30-90 days (overlap: 30-60 days)"
+# Expected: CONSISTENT
+# Model: delayPeriod = 3888000 (45 days)
+# Analysis:
+#   Range 1: [604800, 5184000]   (7-60 days)
+#   Range 2: [2592000, 7776000]  (30-90 days)
+#   Meet: [2592000, 5184000] ≠ ∅  (30-60 days)
+# =============================================================================
+
+ex:policy_delay_period_18
+    a odrl:Set ;
+    dct:description "Overlapping ranges valid: [7D,60D] ∩ [30D,90D] = [30D,60D] is non-empty"@en ;
+    odrl:uid ex:policy_delay_period_18 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_18 ;
+        odrl:constraint ex:constraint_18_composite
+    ] .
+
+ex:constraint_18_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_18a ex:constraint_18b ex:constraint_18c ex:constraint_18d) .
+
+# Range 1: [7D, 60D]
+ex:constraint_18a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P7D"^^xsd:duration .
+
+ex:constraint_18b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P60D"^^xsd:duration .
+
+# Range 2: [30D, 90D]
+ex:constraint_18c
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P30D"^^xsd:duration .
+
+ex:constraint_18d
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P90D"^^xsd:duration .

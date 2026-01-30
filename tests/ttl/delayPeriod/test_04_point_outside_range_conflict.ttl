@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 04: Point Outside Range Conflict
+# =============================================================================
+# Description: delayPeriod equals 60 days AND is less than 60 days
+# Scenario: "Must wait exactly 60 days AND less than 60 days"
+# Expected: CONFLICT
+# Reason: 5184000 is not in half-open interval [0, 5184000)
+# Analysis:
+#   α(eq 5184000) = {5184000}
+#   α(lt 5184000) = [0, 5184000)  [includes zero, excludes 5184000]
+#   Meet: {5184000} ∩ [0, 5184000) = ∅
+# =============================================================================
+
+ex:policy_delay_period_04
+    a odrl:Set ;
+    dct:description "Point outside range: eq 60 days AND lt 60 days is impossible"@en ;
+    odrl:uid ex:policy_delay_period_04 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_04 ;
+        odrl:constraint ex:constraint_04_composite
+    ] .
+
+ex:constraint_04_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_04a ex:constraint_04b) .
+
+ex:constraint_04a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "P60D"^^xsd:duration .
+
+ex:constraint_04b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "P60D"^^xsd:duration .

@@ -1,0 +1,39 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 13: Immediate Action Valid (Zero Delay)
+# =============================================================================
+# Description: delayPeriod equals zero - no waiting required
+# Scenario: "Immediate access granted, no embargo"
+# Expected: CONSISTENT
+# Model: delayPeriod = 0
+# Analysis:
+#   α(eq 0) = {0}
+#   Domain: [0, +∞) includes 0
+#
+# KEY DIFFERENCE FROM elapsedTime:
+#   - elapsedTime test 13: gteq PT1S (minimal positive required)
+#   - delayPeriod test 13: eq PT0S (zero is valid and meaningful)
+#
+# Zero delay means "no waiting required" - semantically valid and useful
+# =============================================================================
+
+ex:policy_delay_period_13
+    a odrl:Set ;
+    dct:description "Immediate action valid: zero delay means no embargo, immediate access"@en ;
+    odrl:uid ex:policy_delay_period_13 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_13 ;
+        odrl:constraint ex:constraint_13
+    ] .
+
+ex:constraint_13
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "PT0S"^^xsd:duration .

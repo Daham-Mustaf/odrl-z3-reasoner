@@ -1,0 +1,66 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 07: XONE with Forced Both Branches Conflict
+# =============================================================================
+# Description: Exactly one of two delay ranges, but outer constraints force both
+# Scenario: "Choose exactly one tier but satisfy both tier requirements"
+# Expected: CONFLICT
+# Reason: Outer constraints are themselves contradictory (≤1D AND ≥60D)
+# Analysis:
+#   XONE requires exactly one branch true
+#   - lteq P1D forces first branch (lteq P7D) to be true
+#   - gteq P60D forces second branch (gteq P30D) to be true
+#   - But XONE requires exactly ONE, not both!
+#   Also: lteq P1D AND gteq P60D is itself impossible
+# =============================================================================
+
+ex:policy_delay_period_07
+    a odrl:Set ;
+    dct:description "XONE with forced both branches: outer constraints contradict each other"@en ;
+    odrl:uid ex:policy_delay_period_07 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_07 ;
+        odrl:constraint ex:constraint_07_outer
+    ] .
+
+ex:constraint_07_outer
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_07_xone ex:constraint_07c ex:constraint_07d) .
+
+ex:constraint_07_xone
+    a odrl:Constraint ;
+    odrl:xone (ex:constraint_07a ex:constraint_07b) .
+
+# XONE branch 1: short embargo (≤7 days)
+ex:constraint_07a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P7D"^^xsd:duration .
+
+# XONE branch 2: long embargo (≥30 days)
+ex:constraint_07b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P30D"^^xsd:duration .
+
+# Forces first XONE branch (≤1D implies ≤7D)
+ex:constraint_07c
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P1D"^^xsd:duration .
+
+# Forces second XONE branch (≥60D implies ≥30D)
+ex:constraint_07d
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P60D"^^xsd:duration .

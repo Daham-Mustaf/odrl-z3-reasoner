@@ -1,0 +1,48 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 19: Deontic Disjoint Valid
+# =============================================================================
+# Description: Permission and Prohibition on disjoint delay ranges
+# Scenario: "May use after 60-day embargo, prohibited only during first 30 days"
+# Expected: CONSISTENT (No deontic conflict)
+# Reason: Permission and prohibition don't overlap
+# Analysis:
+#   φ_perm = [5184000, +∞)   (allowed: delay ≥60 days)
+#   φ_prohib = [0, 2592000)  (prohibited: delay <30 days)
+#   Overlap: [5184000, +∞) ∩ [0, 2592000) = ∅
+# =============================================================================
+
+ex:policy_delay_period_19
+    a odrl:Set ;
+    dct:description "Deontic disjoint valid: permission ≥60D and prohibition <30D have no overlap"@en ;
+    odrl:uid ex:policy_delay_period_19 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_19 ;
+        odrl:constraint ex:constraint_19_perm
+    ] ;
+    odrl:prohibition [
+        a odrl:Prohibition ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_19 ;
+        odrl:constraint ex:constraint_19_prohib
+    ] .
+
+# Permission: may use after 60-day embargo
+ex:constraint_19_perm
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P60D"^^xsd:duration .
+
+# Prohibition: prohibited during first 30 days
+ex:constraint_19_prohib
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "P30D"^^xsd:duration .

@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 14: Embargo Tiers Valid (isAnyOf)
+# =============================================================================
+# Description: delayPeriod must be one of standard embargo periods
+# Scenario: "Choose 7-day, 14-day, or 30-day embargo"
+# Expected: CONSISTENT
+# Model: delayPeriod = 1209600 (14 days)
+# Analysis:
+#   α(isAnyOf {604800, 1209600, 2592000}) = {604800, 1209600, 2592000}
+#   α(lteq 5184000) = [0, 5184000]
+#   Meet: {604800, 1209600, 2592000} ⊆ [0, 5184000] ✓
+# =============================================================================
+
+ex:policy_delay_period_14
+    a odrl:Set ;
+    dct:description "Embargo tiers valid: choose 7-day, 14-day, or 30-day embargo period"@en ;
+    odrl:uid ex:policy_delay_period_14 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_14 ;
+        odrl:constraint ex:constraint_14_composite
+    ] .
+
+ex:constraint_14_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_14a ex:constraint_14b) .
+
+ex:constraint_14a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:isAnyOf ;
+    odrl:rightOperand ("P7D"^^xsd:duration "P14D"^^xsd:duration "P30D"^^xsd:duration) .
+
+ex:constraint_14b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P60D"^^xsd:duration .

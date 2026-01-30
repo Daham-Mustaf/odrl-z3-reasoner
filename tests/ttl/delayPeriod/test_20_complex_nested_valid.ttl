@@ -1,0 +1,71 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 20: Complex Nested Valid
+# =============================================================================
+# Description: Complex combination that is still satisfiable
+# Scenario: "((≥7D AND ≤30D) OR ≥90D) AND ≤365D"
+# Expected: CONSISTENT
+# Model: delayPeriod = 1209600 (14 days)
+# Analysis:
+#   Inner OR branch 1: [604800, 2592000]    (7-30 days)
+#   Inner OR branch 2: [7776000, +∞)        (≥90 days)
+#   OR result: [604800, 2592000] ∪ [7776000, +∞)
+#   AND with lteq P365D (≤31536000): [604800, 2592000] ∪ [7776000, 31536000]
+#   Non-empty!
+# =============================================================================
+
+ex:policy_delay_period_20
+    a odrl:Set ;
+    dct:description "Complex nested valid: ((≥7D AND ≤30D) OR ≥90D) AND ≤365D is satisfiable"@en ;
+    odrl:uid ex:policy_delay_period_20 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_20 ;
+        odrl:constraint ex:constraint_20_outer
+    ] .
+
+# Outer AND: (inner_or) AND (≤365D)
+ex:constraint_20_outer
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_20_inner_or ex:constraint_20_upper) .
+
+# Inner OR: (short_window) OR (long_window)
+ex:constraint_20_inner_or
+    a odrl:Constraint ;
+    odrl:or (ex:constraint_20_short_window ex:constraint_20_long_start) .
+
+# Short window: ≥7D AND ≤30D
+ex:constraint_20_short_window
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_20a ex:constraint_20b) .
+
+ex:constraint_20a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P7D"^^xsd:duration .
+
+ex:constraint_20b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P30D"^^xsd:duration .
+
+# Long window start: ≥90D
+ex:constraint_20_long_start
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P90D"^^xsd:duration .
+
+# Upper bound: ≤365D
+ex:constraint_20_upper
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P365D"^^xsd:duration .

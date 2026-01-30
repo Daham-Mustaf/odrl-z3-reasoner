@@ -60,4 +60,7 @@ uv run python main.py tests/ttl/absoluteTemporalPosition --all
 
 uv run python main.py tests/ttl/elapsedTime --all
 
+uv run python main.py tests/ttl/delayPeriod --all
+
+uv run python main.py tests/ttl/delayPeriod/test_odrl_inheritance.ttl --all
 

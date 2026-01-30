@@ -1,0 +1,50 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 10: Multiple NEQ Eliminates All Conflict
+# =============================================================================
+# Description: Exclude all valid delays via multiple neq constraints
+# Scenario: "Not 30 days, not 60 days, but must be exactly 30 or 60 days"
+# Expected: CONFLICT
+# Reason: Required values are all excluded
+# Analysis:
+#   Allowed by neq: [0, +∞) \ {2592000, 5184000}
+#   Required by isAnyOf: {2592000, 5184000}
+#   Meet: ∅
+# =============================================================================
+
+ex:policy_delay_period_10
+    a odrl:Set ;
+    dct:description "Multiple NEQ eliminates all: neq 30D AND neq 60D AND isAnyOf(30D, 60D)"@en ;
+    odrl:uid ex:policy_delay_period_10 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_10 ;
+        odrl:constraint ex:constraint_10_composite
+    ] .
+
+ex:constraint_10_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_10a ex:constraint_10b ex:constraint_10c) .
+
+ex:constraint_10a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:neq ;
+    odrl:rightOperand "P30D"^^xsd:duration .
+
+ex:constraint_10b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:neq ;
+    odrl:rightOperand "P60D"^^xsd:duration .
+
+ex:constraint_10c
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:isAnyOf ;
+    odrl:rightOperand ("P30D"^^xsd:duration "P60D"^^xsd:duration) .

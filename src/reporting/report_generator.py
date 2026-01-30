@@ -21,7 +21,7 @@ from enum import Enum
 from datetime import datetime
 
 # NEW IMPORTS - Using new module structure
-from ..core.types import (
+from core.constraint_types import (
     AtomicConstraint,
     CompositeConstraint,
     OperatorType,

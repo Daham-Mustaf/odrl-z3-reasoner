@@ -1,0 +1,37 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 08: Negative Delay Conflict (Domain Violation)
+# =============================================================================
+# Description: delayPeriod less than zero (invalid - can't have negative wait)
+# Scenario: "Negative waiting period"
+# Expected: CONFLICT
+# Reason: Negative delay violates domain bounds
+# Analysis:
+#   Domain: [0, +∞)
+#   Constraint: delay < 0
+#   No value in [0, +∞) satisfies delay < 0
+#
+# Note: Unlike elapsedTime test 08 which tests (lt 0 OR eq 0),
+#       here we only test lt 0 because eq 0 is VALID for delayPeriod
+# =============================================================================
+
+ex:policy_delay_period_08
+    a odrl:Set ;
+    dct:description "Negative delay conflict: delay < 0 violates domain [0, +∞)"@en ;
+    odrl:uid ex:policy_delay_period_08 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_08 ;
+        odrl:constraint ex:constraint_08
+    ] .
+
+ex:constraint_08
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lt ;
+    odrl:rightOperand "PT0S"^^xsd:duration .

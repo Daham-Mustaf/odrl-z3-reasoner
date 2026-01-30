@@ -1,0 +1,168 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# ODRL INHERITANCE TEST SUITE
+# =============================================================================
+# This file tests ODRL policy inheritance using odrl:inheritFrom
+# 
+# Structure:
+#   - Base Policy: Defines general permissions with delayPeriod constraint
+#   - Child Policy: Inherits from base and adds additional constraints
+#
+# Inheritance Semantics (ODRL 2.2):
+#   - Child policy inherits all rules from parent
+#   - Child can add new rules (permissions, prohibitions, duties)
+#   - Child can refine inherited constraints (typically by narrowing)
+#   - Conflict detection must consider inherited constraints
+#
+# Test Scenario:
+#   Base Policy: "May distribute dataset after 30-day embargo"
+#   Child Policy: Inherits base + adds "elapsed time must be ≤ 90 days"
+#   
+#   Combined effect: Distribution allowed in window [30D, 90D]
+#   This creates a valid time window and should be CONSISTENT
+# =============================================================================
+
+# =============================================================================
+# BASE POLICY (Parent)
+# =============================================================================
+# A general policy for research data distribution with 30-day embargo
+# =============================================================================
+
+ex:base_policy_embargo
+    a odrl:Set ;
+    odrl:uid ex:base_policy_embargo ;
+    dct:title "Base Research Data Embargo Policy"@en ;
+    dct:description "Base policy requiring 30-day embargo before distribution"@en ;
+    dct:creator "Research Data Management Office"@en ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:research_dataset ;
+        odrl:constraint ex:base_delay_constraint ;
+        odrl:assignee odrl:assigneeParty
+    ] .
+
+# Base constraint: must wait at least 30 days
+ex:base_delay_constraint
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P30D"^^xsd:duration ;
+    dct:description "Minimum 30-day embargo period"@en .
+
+
+# =============================================================================
+# CHILD POLICY (Inherits from Base)
+# =============================================================================
+# A more specific policy that inherits the base embargo and adds time limit
+# This creates a distribution window: [30 days, 90 days]
+# =============================================================================
+
+ex:child_policy_time_limited
+    a odrl:Set ;
+    odrl:uid ex:child_policy_time_limited ;
+    dct:title "Time-Limited Research Data Distribution Policy"@en ;
+    dct:description "Inherits 30-day embargo and adds 90-day validity window"@en ;
+    dct:creator "Project Data Steward"@en ;
+    
+    # INHERITANCE: This policy inherits from the base embargo policy
+    odrl:inheritFrom ex:base_policy_embargo ;
+    
+    # Additional permission with elapsed time constraint
+    # Combined with inherited delayPeriod ≥ 30D, this creates window [30D, 90D]
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:research_dataset ;
+        odrl:constraint ex:child_elapsed_constraint ;
+        odrl:assignee ex:project_member
+    ] .
+
+# Child constraint: distribution rights expire after 90 days
+ex:child_elapsed_constraint
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:elapsedTime ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P90D"^^xsd:duration ;
+    dct:description "Distribution rights valid for up to 90 days from reference"@en .
+
+
+# =============================================================================
+# ANALYSIS
+# =============================================================================
+# When child_policy_time_limited is evaluated:
+#
+# 1. Inherited from base_policy_embargo:
+#    - Permission to distribute with delayPeriod ≥ 30D
+#
+# 2. Defined in child_policy_time_limited:
+#    - Permission to distribute with elapsedTime ≤ 90D
+#
+# 3. Combined effect (assuming same action/target):
+#    - delayPeriod ≥ 30D (must wait 30 days)
+#    - elapsedTime ≤ 90D (valid for 90 days)
+#    - Creates time window: [30D, 90D]
+#
+# Expected Result: CONSISTENT
+# Model: delayPeriod = 45 days, elapsedTime = 45 days (within window)
+#
+# Note: The semantic relationship between delayPeriod and elapsedTime:
+#   - delayPeriod: "Must wait THIS long before action"
+#   - elapsedTime: "Action valid FOR this long"
+#   - Combined: Valid window from embargo end to validity expiration
+# =============================================================================
+
+
+# =============================================================================
+# ADDITIONAL TEST: Inheritance with Conflict
+# =============================================================================
+# This child policy creates a CONFLICT when combined with base
+# Base: delayPeriod ≥ 30D (wait at least 30 days)
+# Child: delayPeriod ≤ 7D (but only valid for first 7 days)
+# Combined: Impossible! Cannot be ≥30D AND ≤7D
+# =============================================================================
+
+ex:child_policy_conflicting
+    a odrl:Set ;
+    odrl:uid ex:child_policy_conflicting ;
+    dct:title "Conflicting Child Policy (Expected: CONFLICT)"@en ;
+    dct:description "Inherits 30-day embargo but restricts to 7 days - creates conflict"@en ;
+    
+    # INHERITANCE: Inherits delayPeriod ≥ 30D
+    odrl:inheritFrom ex:base_policy_embargo ;
+    
+    # Conflicting constraint: delayPeriod ≤ 7D
+    # Combined with inherited ≥30D creates impossible range
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:research_dataset ;
+        odrl:constraint ex:conflicting_delay_constraint ;
+        odrl:assignee ex:early_access_user
+    ] .
+
+ex:conflicting_delay_constraint
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P7D"^^xsd:duration ;
+    dct:description "Contradicts inherited 30-day minimum"@en .
+
+
+# =============================================================================
+# TEST SUMMARY
+# =============================================================================
+# 
+# Policy                      | Inherited From        | Expected Result
+# ----------------------------|----------------------|------------------
+# ex:base_policy_embargo      | (none)               | CONSISTENT
+# ex:child_policy_time_limited| base_policy_embargo  | CONSISTENT
+# ex:child_policy_conflicting | base_policy_embargo  | CONFLICT
+#
+# The conflict in child_policy_conflicting demonstrates that ODRL-SA
+# must resolve inheritance and detect conflicts across policy hierarchies.
+# =============================================================================

@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 03: Contradictory Equality Conflict
+# =============================================================================
+# Description: delayPeriod must equal 30 days AND equal 60 days
+# Scenario: "Embargo is exactly 30 days AND exactly 60 days"
+# Expected: CONFLICT
+# Reason: Cannot equal two different values
+# Analysis:
+#   α(eq 2592000) = {2592000}  (30 days in seconds)
+#   α(eq 5184000) = {5184000}  (60 days in seconds)
+#   Meet: {2592000} ∩ {5184000} = ∅
+# =============================================================================
+
+ex:policy_delay_period_03
+    a odrl:Set ;
+    dct:description "Contradictory equality: cannot equal both 30 days AND 60 days"@en ;
+    odrl:uid ex:policy_delay_period_03 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_03 ;
+        odrl:constraint ex:constraint_03_composite
+    ] .
+
+ex:constraint_03_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_03a ex:constraint_03b) .
+
+ex:constraint_03a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "P30D"^^xsd:duration .
+
+ex:constraint_03b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:eq ;
+    odrl:rightOperand "P60D"^^xsd:duration .

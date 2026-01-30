@@ -1,0 +1,50 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 15: isNoneOf with Valid Remainder
+# =============================================================================
+# Description: Exclude specific delays but allow others in range
+# Scenario: "Not exactly 30 or 60 days, but somewhere in 7-90 day range"
+# Expected: CONSISTENT
+# Model: delayPeriod = 1209600 (14 days) or 3888000 (45 days)
+# Analysis:
+#   Range: [604800, 7776000]  (7-90 days)
+#   Excluded: {2592000, 5184000}  (30 and 60 days)
+#   Valid: [604800, 7776000] \ {2592000, 5184000} ≠ ∅
+# =============================================================================
+
+ex:policy_delay_period_15
+    a odrl:Set ;
+    dct:description "isNoneOf with valid remainder: exclude 30D and 60D but allow other times in 7-90D range"@en ;
+    odrl:uid ex:policy_delay_period_15 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_15 ;
+        odrl:constraint ex:constraint_15_composite
+    ] .
+
+ex:constraint_15_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_15a ex:constraint_15b ex:constraint_15c) .
+
+ex:constraint_15a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:isNoneOf ;
+    odrl:rightOperand ("P30D"^^xsd:duration "P60D"^^xsd:duration) .
+
+ex:constraint_15b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P7D"^^xsd:duration .
+
+ex:constraint_15c
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P90D"^^xsd:duration .

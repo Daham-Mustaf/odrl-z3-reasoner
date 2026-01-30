@@ -1,0 +1,44 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 01: Impossible Delay Range Conflict
+# =============================================================================
+# Description: delayPeriod must be ≥60 minutes AND ≤30 minutes (impossible)
+# Scenario: "Must wait at least 60 minutes AND at most 30 minutes"
+# Expected: CONFLICT
+# Reason: No delay can be ≥60min AND ≤30min simultaneously
+# Analysis:
+#   α(gteq 3600) = [3600, +∞)
+#   α(lteq 1800) = [0, 1800]
+#   Meet: [3600, +∞) ∩ [0, 1800] = ∅
+# =============================================================================
+
+ex:policy_delay_period_01
+    a odrl:Set ;
+    dct:description "Impossible delay range: ≥60min AND ≤30min is impossible"@en ;
+    odrl:uid ex:policy_delay_period_01 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:distribute ;
+        odrl:target ex:asset_01 ;
+        odrl:constraint ex:constraint_01_composite
+    ] .
+
+ex:constraint_01_composite
+    a odrl:Constraint ;
+    odrl:and (ex:constraint_01a ex:constraint_01b) .
+
+ex:constraint_01a
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "PT60M"^^xsd:duration .
+
+ex:constraint_01b
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "PT30M"^^xsd:duration .

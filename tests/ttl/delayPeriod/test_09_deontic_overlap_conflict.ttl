@@ -1,0 +1,53 @@
+@prefix odrl: <http://www.w3.org/ns/odrl/2/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+# =============================================================================
+# TEST 09: Deontic Overlap Conflict
+# =============================================================================
+# Description: Permission and Prohibition overlap on same action
+# Scenario: "May use after 30-day embargo, but prohibited during first 90 days"
+# Expected: DEONTIC-CONFLICT
+# Reason: Between 30-90 days delay, action is both permitted AND prohibited
+# Analysis:
+#   φ_perm = [2592000, +∞)     (allowed: delay ≥30 days)
+#   φ_prohib = [0, 7776000]    (prohibited: delay ≤90 days)
+#   Overlap: [2592000, 7776000] ≠ ∅  (30-90 days)
+#   
+#   Witness: delayPeriod = 5184000 (60 days)
+#     - Permission: 5184000 ≥ 2592000 (30 days) ✓
+#     - Prohibition: 5184000 ≤ 7776000 (90 days) ✓
+#     - BOTH apply!
+# =============================================================================
+
+ex:policy_delay_period_09
+    a odrl:Set ;
+    dct:description "Deontic overlap conflict: permission ≥30D overlaps with prohibition ≤90D"@en ;
+    odrl:uid ex:policy_delay_period_09 ;
+    odrl:permission [
+        a odrl:Permission ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_09 ;
+        odrl:constraint ex:constraint_09_perm
+    ] ;
+    odrl:prohibition [
+        a odrl:Prohibition ;
+        odrl:action odrl:use ;
+        odrl:target ex:asset_09 ;
+        odrl:constraint ex:constraint_09_prohib
+    ] .
+
+# Permission: may use after 30-day embargo
+ex:constraint_09_perm
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:gteq ;
+    odrl:rightOperand "P30D"^^xsd:duration .
+
+# Prohibition: prohibited during first 90 days
+ex:constraint_09_prohib
+    a odrl:Constraint ;
+    odrl:leftOperand odrl:delayPeriod ;
+    odrl:operator odrl:lteq ;
+    odrl:rightOperand "P90D"^^xsd:duration .
