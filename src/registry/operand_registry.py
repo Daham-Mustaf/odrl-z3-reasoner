@@ -245,7 +245,7 @@ class OperandRegistry:
             logger.error(f"Operands file not found: {operands_file}")
             return
         
-        with open(operands_file, 'r') as f:
+        with open(operands_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
         
         for name, config in data.items():
@@ -316,7 +316,7 @@ class OperandRegistry:
             logger.warning(f"Operators file not found: {operators_file}")
             return
         
-        with open(operators_file, 'r') as f:
+        with open(operators_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
         
         # Load comparison operators

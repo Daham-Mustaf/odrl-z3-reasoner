@@ -6,7 +6,7 @@ ODRL-SA (ODRL Static Analyzer) is a formal verification tool for ODRL policies u
 
 ---
 
-## ✅ Fully Implemented Capabilities
+## Fully Implemented Capabilities
 
 ### 1. Constraint Satisfiability Analysis
 
