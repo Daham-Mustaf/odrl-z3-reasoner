@@ -173,7 +173,6 @@ DOMAIN_BOUNDS: Dict[str, DomainBounds] = {
 
 # Category sets for convenience
 L_BOUNDED = {"percentage", "relativePosition",
-            #  "relativeSize", 
              "relativeTemporalPosition", "relativeSpatialPosition"}
 L_INT = {"count", "timeInterval"}
 L_DATETIME = {"dateTime"}
