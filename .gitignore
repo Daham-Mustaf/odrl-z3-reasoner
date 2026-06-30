@@ -9,13 +9,22 @@ __pycache__/
 dist/
 build/
 *.egg
+docs/_private/
 
 # Virtual environments
 
 venv/
 env/
 ENV/
-
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
 # Testing
 
 .pytest_cache/

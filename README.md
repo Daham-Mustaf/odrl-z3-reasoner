@@ -1,16 +1,82 @@
 # ODRL-SA: ODRL Static Analyzer
 
-A formal verification tool for ODRL (Open Digital Rights Language) policies using Z3 SMT solver. ODRL-SA performs design-time conflict detection through sound abstract interpretation, identifying both internal constraint conflicts and deontic conflicts between permissions and prohibitions.
+A formal conflict-detection tool for ODRL (Open Digital Rights Language) policies, built on the
+Z3 SMT solver. Given one or two ODRL policies in Turtle, ODRL-SA decides at design time whether
+their constraints can be satisfied together, returning a three-valued verdict
+(`CONFLICT`, `POSSIBLY-COMPATIBLE`, `UNKNOWN`) with a witness model or an explanation.
 
-## Features
+ODRL-SA is one engine that covers ODRL constraints across three categories:
 
-- **Policy Parsing**: Parse ODRL policies in Turtle (.ttl) format
-- **Constraint Normalization**: Normalize constraint values with unit conversion
-- **Z3 Encoding**: Encode ODRL constraints as SMT formulas
-- **Conflict Detection**: Detect internal contradictions within rules
-- **Deontic Analysis**: Identify permission/prohibition overlaps
-- **Composite Constraints**: Support for `and`, `or`, `xone` logical operators
-- **Multiple LeftOperands**: Support for `absoluteTemporalPosition`, `absolutePosition`, `absoluteSize`, `payAmount`, `resolution`, `dateTime`, `percentage`, and more
+- **Self-contained constraints**, decidable from the operand's datatype and domain alone.
+- **Temporal constraints**, where instants, durations, and recurrence interact.
+- **External knowledge base constraints**, whose meaning depends on an external vocabulary.
+
+On top of constraint-level conflict, it performs deontic analysis: detecting overlaps between
+permissions and prohibitions over the same action and target.
+
+---
+
+## What it detects
+
+ODRL-SA decides conflict through sound abstract interpretation: each constraint denotes a region
+of its operand's domain, and two constraints conflict when those regions cannot be satisfied
+together. The same three-valued judgment applies to all three categories below; the difference is
+how a constraint's region is derived.
+
+### 1. Self-contained constraints
+
+Constraints whose conflict is decidable from the operand's XSD datatype and domain, with no
+external lookup. Numeric operands (`count`, `percentage`, `payAmount`, `resolution`,
+`absolutePosition`, `absoluteSize`, `relativePosition`, `relativeSize`,
+`absoluteTemporalPosition`) and `dateTime` fall here. Each comparison denotes an interval over the
+operand's domain, and conflict reduces to interval disjointness. This is the core, fully
+implemented path.
+
+### 2. Temporal constraints
+
+Constraints over time, where the operands are not independent. ODRL-SA separates the two temporal
+sorts, instants and durations, so the comparison operators are read correctly per sort (an `lt` on
+`dateTime` means "earlier than"; an `lt` on a duration means "shorter than"). It covers:
+
+- the instant operand `dateTime`,
+- the duration operands `elapsedTime`, `meteredTime`, `delayPeriod`,
+- the recurrence operand `timeInterval` (a condition that repeats every period),
+- cross-operand relations that hold in every execution, for example metered usage never exceeding
+  elapsed time, and delay never exceeding elapsed time,
+- ordered sequencing via `andSequence`, where a delay is measured from the previous satisfaction.
+
+This is the path being extended with the sort-stratified semantics (see Status). The other two
+categories do not depend on it.
+
+### 3. External knowledge base constraints
+
+Constraints whose values are terms from an external vocabulary, so deciding comparability and
+conflict needs semantic grounding rather than datatype reasoning alone. ODRL-SA grounds values
+through pluggable oracles before comparing:
+
+- **units** via QUDT (so `EUR` and `euro` are recognised as the same, and incompatible dimensions
+  are flagged),
+- **languages** and **media types / file formats** via IANA,
+- **purposes** via DPV,
+
+and more under `src/grounding`. When the required oracle is unavailable, ODRL-SA returns `UNKNOWN`
+rather than guessing, which keeps the analysis sound.
+
+### Verdicts
+
+Every comparison yields one of three values, in order `CONFLICT` below `UNKNOWN` below
+`POSSIBLY-COMPATIBLE`:
+
+- `CONFLICT`: the two constraints cannot be satisfied together (a contradiction).
+- `POSSIBLY-COMPATIBLE`: they can be satisfied together (a witness model is returned).
+- `UNKNOWN`: the result is undetermined, because only one side constrains the operand, the
+  operands are not comparable, or a required oracle is missing.
+
+`CONFLICT` and `POSSIBLY-COMPATIBLE` are determinate; `UNKNOWN` is epistemic. Rule- and
+policy-level judgments aggregate the per-constraint verdicts conservatively (the worst verdict
+wins).
+
+---
 
 ## Quick Start
 
@@ -21,14 +87,13 @@ A formal verification tool for ODRL (Open Digital Rights Language) policies usin
 
 ### Installation
 
-#### Option 1: Using uv (Recommended)
+#### Option 1: Using uv (recommended)
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/odrl-z3-reasoner.git
+git clone https://github.com/Daham-Mustaf/odrl-z3-reasoner.git
 cd odrl-z3-reasoner
 
-# Install dependencies with uv
+# Install dependencies from the lockfile
 uv sync
 
 # Run the analyzer
@@ -38,19 +103,17 @@ uv run python main.py tests/ttl/resolution/01_eq_eq_conflict.ttl
 #### Option 2: Using pip
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/odrl-z3-reasoner.git
+git clone https://github.com/Daham-Mustaf/odrl-z3-reasoner.git
 cd odrl-z3-reasoner
 
-# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate        # On Windows: .venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Editable install from pyproject.toml (pulls z3-solver, rdflib, etc.)
+pip install -e .
 
 # Run the analyzer
-uv run python main.py tests/ttl/resolution/01_eq_eq_conflict.ttl
+python main.py tests/ttl/resolution/01_eq_eq_conflict.ttl
 ```
 
 ### Basic Usage
@@ -62,11 +125,11 @@ uv run python main.py analyze path/to/policy.ttl
 # Analyze all policies in a directory
 uv run python main.py tests/ttl/resolution/
 
-# Run with verbose output
+# Verbose output (show all analysis levels)
 uv run python main.py --verbose tests/ttl/payAmount/
 
-# Generate JSON report
-uv run python main.py tests/ttl/
+# JSON report
+uv run python main.py --json tests/ttl/
 ```
 
 ## Example Output
@@ -80,46 +143,36 @@ ANALYZING: 09_deontic_overlap_conflict.ttl
   Policy ID: http://example.org/policy01
   Type: Set
   Rules:
-    [permission] rule_1
-      Action: play
-      Target: http://example.org/video01
-      Constraints: ['constraint_1']
-    [prohibition] rule_2
-      Action: play
-      Target: http://example.org/video01
-      Constraints: ['constraint_2']
+    [permission] rule_1   Action: play   Constraints: ['constraint_1']
+    [prohibition] rule_2  Action: play   Constraints: ['constraint_2']
 
 [PERMISSION: rule_1]
-----------------------------------------
-  Action: play
-  Formula: 200 >= absoluteTemporalPosition_default_default
+  Formula: absoluteTemporalPosition <= 200
   Result: [OK] POSSIBLY-COMPATIBLE
-  Model: {'absoluteTemporalPosition_default_default': 0}
 
 [PROHIBITION: rule_2]
-----------------------------------------
-  Action: play
-  Formula: 100 <= absoluteTemporalPosition_default_default
+  Formula: absoluteTemporalPosition >= 100
   Result: [OK] POSSIBLY-COMPATIBLE
-  Model: {'absoluteTemporalPosition_default_default': 100}
 
 [Deontic Check: action=play]
-----------------------------------------
   Deontic check: And(permission_formula, prohibition_formula)
   [CONFLICT] Deontic conflict for action 'play'
-  Witness: {'absoluteTemporalPosition_default_default': 150}
+  Witness: {'absoluteTemporalPosition': 150}
 ```
+
+The permission allows positions up to 200 and the prohibition forbids positions from 100, so any
+value in [100, 200] is both permitted and prohibited: a deontic conflict, witnessed at 150.
 
 ## Project Structure
 
 ```
 odrl-z3-reasoner/
 ├── src/
-│   ├── analyzer/          # High-level policy analysis
-│   ├── core/              # Core types and classifiers
-│   ├── encoder/           # Z3 SMT encoding
-│   ├── grounding/         # Semantic grounding (language, units, etc.)
-│   ├── normalizer/        # Value normalization
+│   ├── analyzer/          # High-level policy analysis (orchestration, conflict levels)
+│   ├── core/              # Core types, classifier, three-valued judgment
+│   ├── encoder/           # Z3 SMT encoding and abstract domains
+│   ├── grounding/         # External-KB oracles (units, language, purpose, formats)
+│   ├── normalizer/        # Value normalization (units, durations)
 │   ├── parser/            # Turtle policy parser
 │   ├── reasoner/          # Conflict detection logic
 │   ├── registry/          # Operand registry
@@ -127,56 +180,48 @@ odrl-z3-reasoner/
 ├── tests/
 │   └── ttl/               # Test policies organized by operand
 ├── docs/                  # Documentation
-└── data/                  # External data (ontologies, etc.)
+└── data/                  # External vocabularies (ontologies, etc.)
 ```
 
 ## Running Tests
 
 ```bash
-# Run all tests
-uv run pytest
-
-# Run with coverage
-uv run pytest --cov=src
-
-# Run specific test file
+uv run pytest                       # all tests
+uv run pytest --cov=src             # with coverage
 uv run pytest tests/test_encoder.py -v
-
-# Run tests for specific operand
-uv run pytest -k "resolution"
+uv run pytest -k "resolution"       # tests for one operand
 ```
 
 ## Supported ODRL LeftOperands
 
-| LeftOperand | Description | Unit Support |
-|-------------|-------------|--------------|
-| `absoluteTemporalPosition` | Position in time stream (seconds) | ✓ |
-| `absolutePosition` | Position in sequence | ✓ |
-| `absoluteSize` | Size measurement | ✓ |
-| `payAmount` | Payment amount | Currency |
-| `resolution` | Image/display resolution | dpi/ppi |
-| `dateTime` | Date/time constraints | ISO 8601 |
-| `percentage` | Percentage values | 0-100 |
-| `relativePosition` | Relative positioning | ✓ |
-| `relativeSize` | Relative size | ✓ |
-| `timeInterval` | Time duration | ISO 8601 |
-| `count` | Count constraints | ✓ |
-| `elapsedTime` | Elapsed time | Duration |
+Grouped by the category that decides them.
+
+| Category | LeftOperand | Notes |
+|---|---|---|
+| Self-contained | `count` | non-negative integer |
+| Self-contained | `percentage` | 0 to 100 |
+| Self-contained | `payAmount` | currency (unit-grounded) |
+| Self-contained | `resolution` | dpi / ppi (unit-grounded) |
+| Self-contained | `absolutePosition`, `absoluteSize` | unit-grounded |
+| Self-contained | `relativePosition`, `relativeSize` | proportional |
+| Self-contained | `absoluteTemporalPosition` | position in a media stream (seconds) |
+| Temporal | `dateTime` | instant (ISO 8601) |
+| Temporal | `elapsedTime`, `meteredTime`, `delayPeriod` | duration (ISO 8601) |
+| Temporal | `timeInterval` | recurrence period (ISO 8601) |
+| External KB | language, media type, purpose values | grounded via IANA / DPV oracles |
 
 ## Supported Operators
 
 - **Comparison**: `eq`, `neq`, `lt`, `lteq`, `gt`, `gteq`
 - **Set**: `isAnyOf`, `isNoneOf`, `isAllOf`
-- **Logical (composite)**: `and`, `or`, `xone`
+- **Logical (composite)**: `and`, `or`, `xone`, `andSequence`
 
 ## Writing Test Policies
 
-Example Turtle policy with a conflict:
-
 ```turtle
 @prefix odrl: <http://www.w3.org/ns/odrl/2/> .
-@prefix ex: <http://example.org/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:   <http://example.org/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
 
 ex:policy01 a odrl:Set ;
     odrl:permission ex:rule_1 ;
@@ -205,8 +250,6 @@ ex:constraint_2 a odrl:Constraint ;
 
 ## Configuration
 
-### Operand Configuration
-
 Operands are configured in `src/config/operands.yaml`:
 
 ```yaml
@@ -217,9 +260,17 @@ resolution:
   default_unit: dpi
 ```
 
-### Operator Configuration
-
 Operators are configured in `src/config/operators.yaml`.
+
+## Status
+
+ODRL-SA is in active development toward a usable release. The self-contained and external-KB
+categories, the three-valued judgment, and deontic analysis are implemented. The temporal category
+is being extended with sort-stratified semantics: separating instants from durations, modelling
+`timeInterval` recurrence, adding the cross-operand relations (metered at most elapsed, delay at
+most elapsed), and giving `andSequence` a real ordered semantics rather than treating it as `and`.
+Until that lands, temporal verdicts on durations, recurrence, and sequences should be treated as
+provisional.
 
 ## Documentation
 
@@ -230,26 +281,29 @@ Operators are configured in `src/config/operators.yaml`.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Run tests (`uv run pytest`)
-4. Commit changes (`git commit -m 'Add amazing feature'`)
-5. Push to branch (`git push origin feature/amazing-feature`)
-6. Open a Pull Request
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/your-feature`).
+3. Run the tests (`uv run pytest`).
+4. Commit your changes.
+5. Open a Pull Request.
 
 ## License
 
-[Add your license here]
+Released under the MIT License. See [LICENSE](LICENSE) for the full text.
+
+Note on the copyright holder: because this work originates in a research context (Fraunhofer FIT
+and RWTH Aachen University), confirm with your institution's IP or technology-transfer office that
+the holder named in `LICENSE` is correct and that a permissive license is permitted before
+publishing. If you need an explicit patent grant or contributor terms, Apache License 2.0 is the
+common alternative.
 
 ## Citation
 
-If you use ODRL-SA in your research, please cite:
-
 ```bibtex
 @software{odrl_sa,
-  title = {ODRL-SA: A Formal Verification Tool for ODRL Policies},
-  author = {Daham Jayawardena},
-  year = {2025},
-  url = {https://github.com/YOUR_USERNAME/odrl-z3-reasoner}
+  title  = {ODRL-SA: A Formal Verification Tool for ODRL Policies},
+  author = {Daham Mustafa},
+  year   = {2026},
+  url    = {https://github.com/Daham-Mustaf/odrl-z3-reasoner}
 }
 ```
