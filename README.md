@@ -176,7 +176,8 @@ odrl-z3-reasoner/
 │   ├── parser/            # Turtle policy parser
 │   ├── reasoner/          # Conflict detection logic
 │   ├── registry/          # Operand registry
-│   └── reporting/         # Output formatting
+│   ├── reporting/         # Output formatting
+│   └── temporal/          # Temporal reasoning
 ├── tests/
 │   └── ttl/               # Test policies organized by operand
 ├── docs/                  # Documentation
